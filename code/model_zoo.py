@@ -1,4 +1,5 @@
 import keras.layers as kl
+from keras.models import Model
 
 def DeepSTARR(input_shape):
     '''
@@ -49,4 +50,5 @@ def DeepSTARR(input_shape):
     # outputs: [Dev, Hk]
     outputs = kl.Dense(2, activation='linear')(x) # why specify if default is linear? 
 
-    return inputs, outputs
+    model = Model(inputs=inputs, outputs=outputs)
+    return model 

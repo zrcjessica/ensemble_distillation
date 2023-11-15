@@ -14,7 +14,7 @@ def plot_loss(history, out_fh, loss_fxn=None):
     else:
         plt.title("Loss")
         plt.ylabel("Loss")
-    plt.xlabel(loss_fxn + ' epoch')
+    plt.xlabel('Epoch')
     plt.legend()
     # Add vertical line at minimum validation loss of combined dev and hk
     min_val_loss = min(history.history['val_loss'])

@@ -1,7 +1,7 @@
 import argparse
 from os.path import join
 import pickle
-from keras.models import Model
+import keras
 from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 import utils
@@ -15,20 +15,20 @@ train an ensemble of DeepSTARR models
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-ix", "--ensemble_ix", type = int, 
-                        help = "ix of model in ensemble, appended to output file names")
-    parser.add_argument("--out", type = str,
-                        help = "output directory to save model and plots")
-    parser.add_argument("--data", type = str,
-                        help = 'h5 file containing train/val/test data')
+    parser.add_argument("--ix", type=int, 
+                        help="ix of model in ensemble, appended to output file names")
+    parser.add_argument("--out", type=str,
+                        help="output directory to save model and plots")
+    parser.add_argument("--data", type=str,
+                        help='h5 file containing train/val/test data')
     parser.add_argument("--lr", default=0.001,
-                        help = "fixed learning rate")
-    parser.add_argument("--plot", action = 'store_true',
-                        help = "if set, save training plots")
-    parser.add_argument("--downsample", default = None,
-                        help = "if set, downsample training data to this amount ([0,1))")
-    parser.add_argument("--lr_decay", action = "store_true",
-                        help = "if set, train with LR decay")
+                        help="fixed learning rate")
+    parser.add_argument("--plot", action='store_true',
+                        help="if set, save training plots")
+    parser.add_argument("--downsample", default=None,
+                        help="if set, downsample training data to this amount ([0,1))")
+    parser.add_argument("--lr_decay", action="store_true",
+                        help="if set, train with LR decay")
     args = parser.parse_args()
     return args
 
@@ -42,19 +42,18 @@ def main(args):
         X_train, y_train =  utils.downsample(X_train, y_train, args.downsample)
 
     # create model 
-    inputs, outputs = DeepSTARR(X_train[0].shape)
-    model = Model(inputs=inputs, outputs=outputs)
+    model = DeepSTARR(X_train[0].shape)
 
     # compile model
     model.compile(optimizer=Adam(learning_rate=args.lr), loss='mse')
 
     # define callbacks
-    es_callback = EarlyStopping(patience=5, verbose=1, mode='min', restore_best_weights=True)
+    es_callback = EarlyStopping(patience=10, verbose=1, mode='min', restore_best_weights=True)
     callbacks_list = [es_callback]
     if args.lr_decay:
         lr_decay_callback = ReduceLROnPlateau(monitor='val_loss',
                                               factor=0.2,
-                                              patience=3,
+                                              patience=5,
                                               min_lr=1e-7,
                                               mode='min',
                                               verbose=1)
@@ -71,7 +70,7 @@ def main(args):
     y_pred = model.predict(X_test)
     performance = utils.summarise_DeepSTARR_performance(y_pred, y_test)
     performance.to_csv(join(args.out, str(args.ix) + "_performance.csv"),
-                       index = False)
+                       index=False)
     
     # plot loss curves and spearman correlation over training epochs and save 
     if args.plot:
