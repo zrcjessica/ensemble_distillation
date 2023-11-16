@@ -4,6 +4,8 @@ DATA=../data/DeepSTARR/Sequences_activity_all.h5
 
 mkdir -p $OUTDIR
 
+# export LD_LIBRARY_PATH=$HOME/anaconda3/lib:$LD_LIBRARY_PATH
+
 for i in $(seq 1 $ENSEMBLE_SIZE)
 do 
     echo "python train_DeepSTARR.py --ix $i --out $OUTDIR --data $DATA --plot"
