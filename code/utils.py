@@ -33,7 +33,7 @@ def downsample(X_train, y_train, p):
     '''
     n_samples = X_train.shape[0]
     n_downsample = round(n_samples*p)
-    ix = np.random.randint(0, n_samples+1, size=n_downsample)
+    ix = np.random.randint(0, n_samples, size=n_downsample)
     return X_train[ix,:], y_train[ix,:]
 
 def evaluate_performance(y_pred, y_truth):
@@ -59,5 +59,3 @@ def summarise_DeepSTARR_performance(y_pred, y_truth):
     summary = pd.DataFrame(performance_dict)
     summary['metric'] = ['MSE', 'Pearson', 'Spearman']
     return summary
-
-

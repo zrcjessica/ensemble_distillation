@@ -1,0 +1,71 @@
+## Default values for training DeepSTARR model
+
+epochs:
+  desc: Number of epochs to train over
+  value: 100
+batch_size:
+  desc: Size of each mini-batch
+  value: 128
+loss_fxn:
+  desc: Loss function
+  value: 'mse'
+activation:
+  desc: Activation function to use in each convolutional block
+  value: 'relu'
+optimizer:
+  desc: Name of optimizer to use
+  value: 'Adam'
+optim_lr:
+  desc: Learning rate used by optimizer
+  value: 0.001
+early_stopping:
+  desc: If true, train with early stopping
+  value: true
+es_patience:
+  desc: Patience to use for early stopping
+  value: 10
+lr_decay:
+  desc: If true, train with learning rate decay
+  value: false
+# n_conv:
+#   desc: Number of convolutional layers in model
+#   value: 4
+# n_kernels1:
+#   desc: Number of kernels in convolutional layer 1
+#   value: 256
+# kernel_size1:
+#   desc: Size of kernels in convolutional layer 1
+#   value: 7
+# n_kernels2:
+#   desc: Number of kernels in convolutional layer 2
+#   value: 60
+# kernel_size2:
+#   desc: Size of kernels in convolutional layer 2
+#   value: 3
+# n_kernels3:
+#   desc: Number of kernels in convolutional layer 3
+#   value: 60
+# kernel_size3:
+#   desc: Size of kernels in convolutional layer 3
+#   value: 5
+# n_kernels3:
+#   desc: Number of kernels in convolutional layer 4
+#   value: 120
+# kernel_size4:
+#   desc: Size of kernels in convolutional layer 4
+#   value: 3
+# n_linear:
+#   desc: Number of linear layers following convolutional blocks
+#   value: 2
+# n_dense1:
+#   desc: Number of neurons in first dense layer
+#   value: 256
+# n_dense2:
+#   desc: Number of neurons in second dense layer
+#   value: 256
+
+
+
+
+
+

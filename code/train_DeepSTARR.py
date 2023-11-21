@@ -8,6 +8,9 @@ import utils
 from model_zoo import DeepSTARR
 import plotting
 import pandas as pd
+import wandb
+from wandb.keras import WandbMetricsLogger
+import yaml
 
 '''
 train an ensemble of DeepSTARR models
@@ -25,31 +28,56 @@ def parse_args():
                         help="fixed learning rate")
     parser.add_argument("--plot", action='store_true',
                         help="if set, save training plots")
-    parser.add_argument("--downsample", default=None,
+    parser.add_argument("--downsample", default=None, type=float,
                         help="if set, downsample training data to this amount ([0,1))")
+    # parser.add_argument("--early_stopping", action="store_true",
+    #                     help="if set, train with early stopping")
     parser.add_argument("--lr_decay", action="store_true",
                         help="if set, train with LR decay")
+    parser.add_argument("--project", type=str,
+                        help='project name for wandb')
+    parser.add_argument("--config", type=str,
+                        help='path to wandb config (yaml)')
     args = parser.parse_args()
     return args
 
 def main(args):
 
+    # set up wandb for logging
+    wandb.login()
+    wandb.init(project=args.project, config=args.config)
+    wandb.config['model_ix'] = args.ix
+
     # load data from h5
     X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data)
 
     # downsample training data
+    wandb.config['downsample'] = 1 # default = no downsampling
     if args.downsample is not None:
-        X_train, y_train =  utils.downsample(X_train, y_train, args.downsample)
+        X_train, y_train = utils.downsample(X_train, y_train, args.downsample)
+        wandb.config.update({'downsample':args.downsample}, allow_val_change=True)
 
     # create model 
     model = DeepSTARR(X_train[0].shape)
 
     # compile model
-    model.compile(optimizer=Adam(learning_rate=args.lr), loss='mse')
+    model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])
+    
+    # update lr in config if different value provided to input
+    if args.lr != wandb.config['optim_lr']:
+        wandb.config.update({'optim_lr':args.lr}, allow_val_change=True)
 
     # define callbacks
-    es_callback = EarlyStopping(patience=10, verbose=1, mode='min', restore_best_weights=True)
-    callbacks_list = [es_callback]
+    callbacks_list = [WandbMetricsLogger()]
+    if wandb.config['early_stopping']:
+        es_callback = EarlyStopping(patience=wandb.config['es_patience'], verbose=1, mode='min', restore_best_weights=True)
+        callbacks_list.append(es_callback)
+
+    # if args.early_stopping:    
+    #     es_callback = EarlyStopping(patience=10, verbose=1, mode='min', restore_best_weights=True)
+    #     callbacks_list.append(es_callback)
+    #     wandb.config.update({'early_stopping': True, 'es_patience': 10})
+
     if args.lr_decay:
         lr_decay_callback = ReduceLROnPlateau(monitor='val_loss',
                                               factor=0.2,
@@ -58,13 +86,14 @@ def main(args):
                                               mode='min',
                                               verbose=1)
         callbacks_list.append(lr_decay_callback)
+        wandb.config.update({'lr_decay': True, 'lr_decay_patience': 3, 'lr_decay_factor': 0.2})
 
     # train model
     history = model.fit(X_train, y_train, 
-                        batch_size=128, 
-                        epochs=100,
+                        batch_size=wandb.config['batch_size'], 
+                        epochs=wandb.config['epochs'],
                         validation_data=(X_val, y_val),
-                        callbacks=callbacks_list)
+                        callbacks=callbacks_list) 
 
     # evaluate model performance
     y_pred = model.predict(X_test)
@@ -80,6 +109,10 @@ def main(args):
     model.save(join(args.out, str(args.ix) + "_DeepSTARR.h5"))
     with open(join(args.out, str(args.ix) + "_historyDict"), 'wb') as pickle_fh:
         pickle.dump(history.history, pickle_fh)
+
+    # save updated config as yaml
+    with open(join(args.out, "config.yaml"), 'w') as f:
+        yaml.dump(dict(wandb.config), f, allow_unicode=True, default_flow_style=False)
 
 if __name__ == "__main__":
     args = parse_args()
