@@ -8,6 +8,7 @@ import gc
 
 '''
 get the average of the predictions from all DeepSTARR models in an ensemble
+applies trained ensemble models to X_test and averages predictions on test set
 '''
 
 def parse_args():
@@ -51,8 +52,8 @@ def main(args):
     avg_pred = cumsum/args.n_mods 
 
     # evaluate performance + write to file
-    performance = summarise_DeepSTARR_performance(avg_pred, y_test)
-    performance.to_csv(join(outdir, "ensemble_performance.csv"), index=False)
+    performance = utils.summarise_DeepSTARR_performance(avg_pred, y_test)
+    performance.to_csv(join(outdir, "ensemble_performance_avg.csv"), index=False)
 
 if __name__ == "__main__":
     args = parse_args()

@@ -27,42 +27,51 @@ es_patience:
 lr_decay:
   desc: If true, train with learning rate decay
   value: false
-# n_conv:
-#   desc: Number of convolutional layers in model
-#   value: 4
-# n_kernels1:
-#   desc: Number of kernels in convolutional layer 1
-#   value: 256
-# kernel_size1:
-#   desc: Size of kernels in convolutional layer 1
-#   value: 7
-# n_kernels2:
-#   desc: Number of kernels in convolutional layer 2
-#   value: 60
-# kernel_size2:
-#   desc: Size of kernels in convolutional layer 2
-#   value: 3
-# n_kernels3:
-#   desc: Number of kernels in convolutional layer 3
-#   value: 60
-# kernel_size3:
-#   desc: Size of kernels in convolutional layer 3
-#   value: 5
-# n_kernels3:
-#   desc: Number of kernels in convolutional layer 4
-#   value: 120
-# kernel_size4:
-#   desc: Size of kernels in convolutional layer 4
-#   value: 3
-# n_linear:
-#   desc: Number of linear layers following convolutional blocks
-#   value: 2
-# n_dense1:
-#   desc: Number of neurons in first dense layer
-#   value: 256
-# n_dense2:
-#   desc: Number of neurons in second dense layer
-#   value: 256
+distill:
+  desc: If true, model is distilled, e.g. trained on distilled training data
+  value: false
+k:
+  desc: Factor for adjusting number of parameters in each layer
+  value: 1
+downsample:
+  desc: Downsample training data ([0, 1])
+  value: 1
+n_conv:
+  desc: Number of convolutional layers in model
+  value: 4
+n_kernels1:
+  desc: Number of kernels in convolutional layer 1
+  value: 256
+kernel_size1:
+  desc: Size of kernels in convolutional layer 1
+  value: 7
+n_kernels2:
+  desc: Number of kernels in convolutional layer 2
+  value: 60
+kernel_size2:
+  desc: Size of kernels in convolutional layer 2
+  value: 3
+n_kernels3:
+  desc: Number of kernels in convolutional layer 3
+  value: 60
+kernel_size3:
+  desc: Size of kernels in convolutional layer 3
+  value: 5
+n_kernels4:
+  desc: Number of kernels in convolutional layer 4
+  value: 120
+kernel_size4:
+  desc: Size of kernels in convolutional layer 4
+  value: 3
+n_dense:
+  desc: Number of dense (linear) layers following convolutional blocks
+  value: 2
+dense_kernels1:
+  desc: Number of neurons in first dense layer
+  value: 256
+dense_kernels2:
+  desc: Number of neurons in second dense layer
+  value: 256
 
 
 

@@ -11,6 +11,7 @@ import pandas as pd
 import wandb
 from wandb.keras import WandbMetricsLogger
 import yaml
+import numpy as np
 
 '''
 train an ensemble of DeepSTARR models
@@ -28,8 +29,8 @@ def parse_args():
                         help="fixed learning rate")
     parser.add_argument("--plot", action='store_true',
                         help="if set, save training plots")
-    parser.add_argument("--downsample", default=None, type=float,
-                        help="if set, downsample training data to this amount ([0,1))")
+    parser.add_argument("--downsample", default=1, type=float,
+                        help="if set, downsample training data to this amount ([0,1])")
     # parser.add_argument("--early_stopping", action="store_true",
     #                     help="if set, train with early stopping")
     parser.add_argument("--lr_decay", action="store_true",
@@ -38,6 +39,10 @@ def parse_args():
                         help='project name for wandb')
     parser.add_argument("--config", type=str,
                         help='path to wandb config (yaml)')
+    parser.add_argument("--distill", type=str, default=None,
+                        help='if provided, trains a distilled model using distilled training data')
+    parser.add_argument("--k", type=int, default=1,
+                        help='factor for adjusting number of parameters in hidden layers')
     args = parser.parse_args()
     return args
 
@@ -51,14 +56,22 @@ def main(args):
     # load data from h5
     X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data)
 
+    # for training an ensemble distilled model
+    if args.distill is not None:
+        y_train = np.load(args.distill)
+        wandb.config['distilled'] = True
+        
     # downsample training data
-    wandb.config['downsample'] = 1 # default = no downsampling
-    if args.downsample is not None:
+    if args.downsample != wandb.config['downsample']:
         X_train, y_train = utils.downsample(X_train, y_train, args.downsample)
         wandb.config.update({'downsample':args.downsample}, allow_val_change=True)
 
+    # adjust k in yaml 
+    if args.k != wandb.config['k']:
+        wandb.config.update({'k':args.k}, allow_val_change=True)
+
     # create model 
-    model = DeepSTARR(X_train[0].shape)
+    model = DeepSTARR(X_train[0].shape, wandb.config)
 
     # compile model
     model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])
@@ -86,7 +99,7 @@ def main(args):
                                               mode='min',
                                               verbose=1)
         callbacks_list.append(lr_decay_callback)
-        wandb.config.update({'lr_decay': True, 'lr_decay_patience': 3, 'lr_decay_factor': 0.2})
+        wandb.config.update({'lr_decay': True, 'lr_decay_patience': 3, 'lr_decay_factor': 0.2}, allow_val_change=True)
 
     # train model
     history = model.fit(X_train, y_train, 
