@@ -1,0 +1,86 @@
+import argparse
+import keras
+from keras.models import load_model
+import gc
+import os
+import numpy as np
+import h5py
+import pandas as pd
+from tensorflow import GradientTape
+from tensorflow import Variable
+import pandas as pd
+from os.path import join
+import utils
+
+'''
+run saliency analysis on top n examples from test set for an ensemble of DeepSTARR models
+'''
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model_dir", type=str,
+                        help='path directory storing trained ensemble of models')
+    parser.add_argument("--n_mods", type=int, 
+                        help="number of models in ensemble")
+    parser.add_argument("--data", type=str,
+                        help='h5 file containing train/val/test data')
+    parser.add_argument("--out", type=str,
+                        help='where to save results')
+    parser.add_argument("--top_n", type=int, default=500,
+                        help='how many of top predictions from test set to analyze')
+    parser.add_argument('--enhancer', type=str, default='Dev',
+                        help='which class of predictions to sort top predictions for')
+    parser.add_argument("--average", action='store_true',
+                        help='if set, calculate average saliency map across all models in ensemble')
+    args = parser.parse_args()
+    return args
+
+def main(args):
+
+    # load data from h5
+    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data)
+
+    # set output directory
+    outdir = args.out
+    if outdir is None:
+        outdir=args.model_dir
+
+    # sort y_test from largest to smallest for each enhancer class
+    y_test_sorted = np.argsort(y_test, axis=0)[::-1]
+    # get top predictions from y_test for specified enhancer class
+    top_ix = y_test_sorted[:args.top_n, 0 if args.enhancer=='Dev' else 1]
+
+    # instantiate Variable class of examples to analyze
+    examples = Variable(X_test[top_ix])
+
+    cumsum = 0
+    for i in range(args.n_mods):
+        print(f'ensemble analysis on model {i+1}/{args.n_mods}')
+
+        # clear history
+        keras.backend.clear_session()
+        gc.collect()
+
+        # load model 
+        model = load_model(join(args.model_dir, str(i+1) + "_DeepSTARR.h5"))
+        
+        # saliency analysis
+        with GradientTape() as tape:
+            preds = model(examples, training=False)
+            if args.average:
+                cumsum+=preds
+        grads = tape.gradient(preds, examples)
+
+        # save as npy file
+        np.save(file=join(outdir, str(i+1) + "_top" + str(args.top_n) + "_saliency.npy"),
+                arr=grads)
+
+    if args.average:
+        avg_pred = cumsum/args.n_mods 
+        np.save(file=join(outdir, "average_top" + str(args.top_n) + "_saliency.npy"), 
+                arr=avg_pred)
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    main(args)

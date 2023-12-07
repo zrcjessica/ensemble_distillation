@@ -3,8 +3,9 @@ import h5py
 from scipy.stats import spearmanr, pearsonr
 from sklearn.metrics import mean_squared_error
 import pandas as pd
+from os.path import basename
 
-def load_DeepSTARR_data(file):
+def load_DeepSTARR_data(file, get_idx=False):
     '''
     load Train/Test/Val data from DeepSTARR h5
     '''
@@ -22,9 +23,16 @@ def load_DeepSTARR_data(file):
     X_val = np.array(data['X_Val'])
     y_val = np.array(data['y_Val'])
 
-    data.close()
-    
-    return X_train, y_train, X_test, y_test, X_val, y_val
+    # get idx
+    if get_idx:
+        idx_train = np.array(data['idx_Train'])
+        idx_test = np.array(data['idx_Test'])
+        idx_val = np.array(data['idx_Val'])
+        data.close()
+        return X_train, y_train, X_test, y_test, X_val, y_val, idx_train, idx_test, idx_val
+    else:
+        data.close()
+        return X_train, y_train, X_test, y_test, X_val, y_val
 
 def downsample(X_train, y_train, p):
     '''
@@ -59,3 +67,27 @@ def summarise_DeepSTARR_performance(y_pred, y_truth):
     summary = pd.DataFrame(performance_dict)
     summary['metric'] = ['MSE', 'Pearson', 'Spearman']
     return summary
+
+# def summarise_ensemble_performance(files, downsample=1):
+#     '''
+#     summarises results of all individual models in an ensemble
+#     takes a list of the output files for performance of models in ensemble
+#     '''
+    
+#     results_list = []
+
+#     for f in files:
+#         df = pd.read_csv(f)
+#         model_ix = int(basename(f).split('_')[0])
+#         df['model_ix'] = model_ix
+#         if 'metric' not in df.columns:
+#             df['metric'] = ['MSE', 'Pearson', 'Spearman']
+#         results_list.append(df)
+
+#     # combine as one df
+#     all_results = pd.concat(results_list)
+#     all_results['model_ix'] = all_results['model_ix'].astype('int32')
+#     all_results.sort_values(by = 'model_ix', inplace=True)
+#     all_results.reset_index(drop=True, inplace=True)
+#     all_results['downsample'] = downsample
+#     return all_results
