@@ -11,7 +11,7 @@ import utils
 '''
 - Outputs a multi-page PDF comparing saliency analysis results for all models in ensemble
 - One logo (sequence) per page
-- Optionally includes the average saliency across the ensemble 
+- Includes average saliency map across ensemble at the bottom
 '''
 def parse_args():
     parser = argparse.ArgumentParser()
