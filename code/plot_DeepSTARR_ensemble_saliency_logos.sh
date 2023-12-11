@@ -12,9 +12,9 @@ python plot_ensemble_saliency_logos.py --saliency_dir $SALIENCY_DIR --average $A
 exit_code="$?"
 if command -v 'slack' &>/dev/null; then
     if [ "$exit_code" -eq 0 ]; then
-		slack "Plotting saliency logos for top 10 seqs from DeepSTARR_lr-decay distilled ensemble (full) completed successfully" &>/dev/null
+		slack "Plotting saliency logos for top 10 seqs from DeepSTARR_lr-decay ensemble (distilled) completed successfully" &>/dev/null
 	else
-		slack "Plotting saliency logos for top 10 seqs from DeepSTARR_lr-decay distilled ensemble (full) exited with error code $exit_code"
+		slack "Plotting saliency logos for top 10 seqs from DeepSTARR_lr-decay ensemble (distilled) exited with error code $exit_code"
 	fi
 fi
 exit "$exit_code"

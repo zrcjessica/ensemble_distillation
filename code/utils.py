@@ -70,17 +70,18 @@ def summarise_DeepSTARR_performance(y_pred, y_truth):
     summary['metric'] = ['MSE', 'Pearson', 'Spearman']
     return summary
 
-def get_saliency_files(dir, average=False):
+def get_saliency_files(dir, avg_file=None):
     '''
     returns a list of all files containing saliency analysis results for an ensemble
-    also returns file containing average across ensemble if set to True
+    if average is None (no average saliency file provided), assumes it is in the same directory
     '''
-    if average:
-        avg_file = glob.glob(join(dir, "average*saliency.npy"))
-        other_files = set(glob.glob(join(dir, "*saliency.npy"))) - set(avg_file)
-        return list(other_files), avg_file[0]
-    else:
-        return glob.glob(join(dir, "*saliency.npy"))
+    if avg_file is None:
+        avg_file = glob.glob(join(dir, "average*saliency.npy"))[0]
+    saliency_files = glob.glob(join(dir, "*saliency.npy"))
+    # check if avg file is here
+    if avg_file in saliency_files:
+        saliency_files = list(set(saliency_files) - set([avg_file]))
+    return saliency_files, avg_file 
 
 def parse_saliency_df(grad_file, i):
     '''

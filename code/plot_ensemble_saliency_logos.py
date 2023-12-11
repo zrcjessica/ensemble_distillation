@@ -21,7 +21,7 @@ def parse_args():
                         help='where to save results')
     parser.add_argument("--top_n", type=int, default=10,
                         help='how many logos to plot')
-    parser.add_argument("--average", type=str,
+    parser.add_argument("--average", type=str, default=None,
                         help='provide path to average saliency analysis results')
     args = parser.parse_args()
     return args
@@ -34,12 +34,7 @@ def main(args):
         outdir = args.saliency_dir
 
     # get files
-    saliency_files = []
-    avg_file = args.average
-    if avg_file is None:
-        saliency_files, avg_file = utils.get_saliency_files(args.saliency_dir, average=True)
-    else:
-        saliency_files = utils.get_saliency_files(args.saliency_dir)
+    saliency_files, avg_file = utils.get_saliency_files(args.saliency_dir, avg_file=args.average)
 
     # plot multipage pdf
     with PdfPages(join(outdir, f"top{args.top_n}_saliency_logos.pdf")) as pdf:
@@ -52,11 +47,12 @@ def main(args):
                 saliency_df = utils.parse_saliency_df(f, i)
                 logomaker.Logo(saliency_df, ax=axs[ix-1])
                 axs[ix-1].set_title(f'Model {ix}')
-            if args.average:
-                # Plot average 
-                saliency_df = utils.parse_saliency_df(avg_file, i)
-                logomaker.Logo(saliency_df, ax=axs[len(saliency_files)])
-                axs[len(saliency_files)].set_title('Ensemble average')
+                axs[ix-1].axis('off')
+            # Plot average 
+            saliency_df = utils.parse_saliency_df(avg_file, i)
+            logomaker.Logo(saliency_df, ax=axs[len(saliency_files)])
+            axs[len(saliency_files)].set_title('Ensemble average')
+            axs[len(saliency_files)].axis('off')
             # format 
             fig.set_size_inches(10, 15)
             fig.suptitle(f'Sequence {i}')
