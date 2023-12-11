@@ -4,6 +4,8 @@ from scipy.stats import spearmanr, pearsonr
 from sklearn.metrics import mean_squared_error
 import pandas as pd
 from os.path import basename
+from os.path import join
+import glob
 
 def load_DeepSTARR_data(file, get_idx=False):
     '''
@@ -67,6 +69,29 @@ def summarise_DeepSTARR_performance(y_pred, y_truth):
     summary = pd.DataFrame(performance_dict)
     summary['metric'] = ['MSE', 'Pearson', 'Spearman']
     return summary
+
+def get_saliency_files(dir, average=False):
+    '''
+    returns a list of all files containing saliency analysis results for an ensemble
+    also returns file containing average across ensemble if set to True
+    '''
+    if average:
+        avg_file = glob.glob(join(dir, "average*saliency.npy"))
+        other_files = set(glob.glob(join(dir, "*saliency.npy"))) - set(avg_file)
+        return list(other_files), avg_file[0]
+    else:
+        return glob.glob(join(dir, "*saliency.npy"))
+
+def parse_saliency_df(grad_file, i):
+    '''
+    given a gradient tensor, returns a dataframe for plotting with logomaker
+    takes .npy file as input
+    '''
+    grad = np.load(grad_file)
+    saliency_df = pd.DataFrame(grad[i])
+    saliency_df.rename(columns={0:'A', 1:'C', 2:'G', 3:'T'}, inplace=True)
+    return saliency_df
+
 
 # def summarise_ensemble_performance(files, downsample=1):
 #     '''

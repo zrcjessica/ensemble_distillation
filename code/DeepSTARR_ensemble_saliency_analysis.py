@@ -48,14 +48,15 @@ def main(args):
     # sort y_test from largest to smallest for each enhancer class
     y_test_sorted = np.argsort(y_test, axis=0)[::-1]
     # get top predictions from y_test for specified enhancer class
-    top_ix = y_test_sorted[:args.top_n, 0 if args.enhancer=='Dev' else 1]
+    top_ix = y_test_sorted[:args.top_n,0 if args.enhancer=='Dev' else 1] 
 
     # instantiate Variable class of examples to analyze
     examples = Variable(X_test[top_ix])
 
+    # collect cumsum of values for averaging 
     cumsum = 0
     for i in range(args.n_mods):
-        print(f'ensemble analysis on model {i+1}/{args.n_mods}')
+        print(f'ensemble saliency analysis on model {i+1}/{args.n_mods}')
 
         # clear history
         keras.backend.clear_session()
@@ -67,9 +68,14 @@ def main(args):
         # saliency analysis
         with GradientTape() as tape:
             preds = model(examples, training=False)
-            if args.average:
-                cumsum+=preds
-        grads = tape.gradient(preds, examples)
+            loss = preds[:,0 if args.enhancer=='Dev' else 1]
+        grads = tape.gradient(loss, examples)
+
+        # gradient correction
+        grads -= np.mean(grads, axis=-1, keepdims=True)
+        
+        if args.average:
+            cumsum += grads
 
         # save as npy file
         np.save(file=join(outdir, str(i+1) + "_top" + str(args.top_n) + "_saliency.npy"),

@@ -7,7 +7,8 @@ DATA=../data/DeepSTARR/Sequences_activity_all.h5
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 
-CUDA_VISIBLE_DEVICES=4,5,6 python DeepSTARR_ensemble_saliency_analysis.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA
+# CUDA_VISIBLE_DEVICES=4,5,6 python DeepSTARR_ensemble_saliency_analysis.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --average
+CUDA_VISIBLE_DEVICES=4,5,6 python DeepSTARR_ensemble_saliency_analysis.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA 
 
 # message the user on slack if possible
 exit_code="$?"
