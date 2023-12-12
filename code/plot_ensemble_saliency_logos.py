@@ -52,7 +52,9 @@ def main(args):
             saliency_df = utils.parse_saliency_df(avg_file, i)
             logomaker.Logo(saliency_df, ax=axs[len(saliency_files)])
             axs[len(saliency_files)].set_title('Ensemble average')
-            axs[len(saliency_files)].axis('off')
+            axs[len(saliency_files)].tick_params(left=False, right=False, labelleft=False,
+                                                 labelbottom=False, bottom=False) 
+            # axs[len(saliency_files)].axis('off')
             # format 
             fig.set_size_inches(10, 15)
             fig.suptitle(f'Sequence {i}')

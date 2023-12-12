@@ -6,6 +6,10 @@ import pandas as pd
 from os.path import basename
 from os.path import join
 import glob
+import shap # shap must be imported before keras
+from tensorflow import GradientTape
+# from tensorflow import Variable
+# import keras
 
 def load_DeepSTARR_data(file, get_idx=False):
     '''
@@ -93,7 +97,25 @@ def parse_saliency_df(grad_file, i):
     saliency_df.rename(columns={0:'A', 1:'C', 2:'G', 3:'T'}, inplace=True)
     return saliency_df
 
-
+def attribution_analysis(model, seqs, method, enhancer='Dev', background=None):
+    '''
+    returns attribution maps for model and seqs based on method (saliency/shap)
+    if method=shap, must provide background seqs
+    by default, returns attributions cores for Dev enhancers, can also specify Hk
+    '''
+    print(f'calculating attribution maps with {method}')
+    if method == 'saliency':
+        # saliency analysis
+        with GradientTape() as tape:
+            preds = model(seqs, training=False)
+            loss = preds[:,0 if enhancer=='Dev' else 1]
+        return tape.gradient(loss, seqs)
+    else:
+        # DeepExplainer 
+        shap.explainers._deep.deep_tf.op_handlers["AddV2"] = shap.explainers._deep.deep_tf.passthrough # this is required due to conflict between versions (https://github.com/slundberg/shap/issues/1110)
+        explainer_dev = shap.DeepExplainer((model.layers[0].input, model.layers[-1].output), data=background)
+        return explainer_dev.shap_values(seqs)[0]
+    
 # def summarise_ensemble_performance(files, downsample=1):
 #     '''
 #     summarises results of all individual models in an ensemble

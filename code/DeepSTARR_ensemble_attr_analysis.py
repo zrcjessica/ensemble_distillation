@@ -1,4 +1,5 @@
 import argparse
+import utils # shap is imported by utils, must be imported before keras
 import keras
 from keras.models import load_model
 import gc
@@ -6,14 +7,12 @@ import os
 import numpy as np
 import h5py
 import pandas as pd
-from tensorflow import GradientTape
 from tensorflow import Variable
 import pandas as pd
 from os.path import join
-import utils
 
 '''
-run saliency analysis on top n examples from test set for an ensemble of DeepSTARR models
+run attribution analysis (saliency/shap) top n examples from test set (y_test) for an ensemble of DeepSTARR models
 '''
 
 def parse_args():
@@ -32,6 +31,8 @@ def parse_args():
                         help='which class of predictions to sort top predictions for')
     parser.add_argument("--average", action='store_true',
                         help='if set, calculate average saliency map across all models in ensemble')
+    parser.add_argument("--method", type=str,
+                        help='saliency or shap; determines what method to use for attribution map')
     args = parser.parse_args()
     return args
 
@@ -50,13 +51,25 @@ def main(args):
     # get top predictions from y_test for specified enhancer class
     top_ix = y_test_sorted[:args.top_n,0 if args.enhancer=='Dev' else 1] 
 
-    # instantiate Variable class of examples to analyze
-    examples = Variable(X_test[top_ix])
+    # parse sequences to perform attribution analysis on
+    examples = X_test[top_ix]
+    if args.method == 'saliency':
+        # instantiate Variable class of examples to analyze
+        examples = Variable(X_test[top_ix])
+
+    # select background data for shap
+    background_seqs = None
+    if args.method == 'shap':
+        # select a set of background examples to take an expectation over
+        np.random.seed(seed=1234)
+        background_seqs = X_test[np.random.choice(X_test.shape[0], 1000, replace=False)]
 
     # collect cumsum of values for averaging 
     cumsum = 0
+
+    # iterate through models in ensemble
     for i in range(args.n_mods):
-        print(f'ensemble saliency analysis on model {i+1}/{args.n_mods}')
+        print(f'ensemble {args.method} analysis on model {i+1}/{args.n_mods}')
 
         # clear history
         keras.backend.clear_session()
@@ -65,25 +78,25 @@ def main(args):
         # load model 
         model = load_model(join(args.model_dir, str(i+1) + "_DeepSTARR.h5"))
         
-        # saliency analysis
-        with GradientTape() as tape:
-            preds = model(examples, training=False)
-            loss = preds[:,0 if args.enhancer=='Dev' else 1]
-        grads = tape.gradient(loss, examples)
+        # calculate gradients depending on which method is specified
+        grads = utils.attribution_analysis(model, examples, args.method, 
+                                           enhancer=args.enhancer, background=background_seqs)
 
         # gradient correction
         grads -= np.mean(grads, axis=-1, keepdims=True)
         
+        # track cumsum if calculating average across ensemble
         if args.average:
             cumsum += grads
 
         # save as npy file
-        np.save(file=join(outdir, str(i+1) + "_top" + str(args.top_n) + "_saliency.npy"),
+        np.save(file=join(outdir, str(i+1) + "_top" + str(args.top_n) + f"_{args.method}.npy"),
                 arr=grads)
-
+    
+    # calculate avg and save as npy file
     if args.average:
         avg_pred = cumsum/args.n_mods 
-        np.save(file=join(outdir, "average_top" + str(args.top_n) + "_saliency.npy"), 
+        np.save(file=join(outdir, "average_top" + str(args.top_n) + f"_{args.method}.npy"), 
                 arr=avg_pred)
 
 

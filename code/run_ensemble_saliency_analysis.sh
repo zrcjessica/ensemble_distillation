@@ -4,11 +4,12 @@ N_MODS=10
 # MODELS_DIR=../results/DeepSTARR_lr-decay
 MODELS_DIR=../results/DeepSTARR_lr-decay/ensemble_distilled
 DATA=../data/DeepSTARR/Sequences_activity_all.h5
+method=saliency
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 
-# CUDA_VISIBLE_DEVICES=4,5,6 python DeepSTARR_ensemble_saliency_analysis.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --average
-CUDA_VISIBLE_DEVICES=4,5,6 python DeepSTARR_ensemble_saliency_analysis.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA 
+# CUDA_VISIBLE_DEVICES=4,5,6 python DeepSTARR_ensemble_attr_analysis.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --average
+CUDA_VISIBLE_DEVICES=4,5,6 python DeepSTARR_ensemble_attr_analysis.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --method $method
 
 # message the user on slack if possible
 exit_code="$?"
