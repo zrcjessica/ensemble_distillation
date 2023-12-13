@@ -74,28 +74,29 @@ def summarise_DeepSTARR_performance(y_pred, y_truth):
     summary['metric'] = ['MSE', 'Pearson', 'Spearman']
     return summary
 
-def get_saliency_files(dir, avg_file=None):
+def get_attribution_files(dir, method, avg_file=None):
     '''
-    returns a list of all files containing saliency analysis results for an ensemble
-    if average is None (no average saliency file provided), assumes it is in the same directory
+    returns a list of all files containing attribution analysis results for an ensemble
+    if average is None (no average attribution map provided), assumes it is in the same directory
+    must supply method (shap/saliency)
     '''
     if avg_file is None:
-        avg_file = glob.glob(join(dir, "average*saliency.npy"))[0]
-    saliency_files = glob.glob(join(dir, "*saliency.npy"))
+        avg_file = glob.glob(join(dir, f"average*{method}.npy"))[0]
+    attr_files = glob.glob(join(dir, f"*{method}.npy"))
     # check if avg file is here
-    if avg_file in saliency_files:
-        saliency_files = list(set(saliency_files) - set([avg_file]))
-    return saliency_files, avg_file 
+    if avg_file in attr_files:
+        attr_files = list(set(attr_files) - set([avg_file]))
+    return attr_files, avg_file 
 
-def parse_saliency_df(grad_file, i):
+def parse_attribution_df(grad_file, i):
     '''
     given a gradient tensor, returns a dataframe for plotting with logomaker
     takes .npy file as input
     '''
     grad = np.load(grad_file)
-    saliency_df = pd.DataFrame(grad[i])
-    saliency_df.rename(columns={0:'A', 1:'C', 2:'G', 3:'T'}, inplace=True)
-    return saliency_df
+    attr_df = pd.DataFrame(grad[i])
+    attr_df.rename(columns={0:'A', 1:'C', 2:'G', 3:'T'}, inplace=True)
+    return attr_df
 
 def attribution_analysis(model, seqs, method, enhancer='Dev', background=None):
     '''

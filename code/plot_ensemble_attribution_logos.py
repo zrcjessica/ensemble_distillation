@@ -9,20 +9,23 @@ import utils
 
 
 '''
-- Outputs a multi-page PDF comparing saliency analysis results for all models in ensemble
+- Outputs a multi-page PDF comparing attribution analysis results for all models in ensemble
 - One logo (sequence) per page
-- Includes average saliency map across ensemble at the bottom
+- Includes average attribution map across ensemble at the bottom
+- Must specify path to average attribution map and attribution analysis method (saliency/shap)
 '''
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--saliency_dir", type=str,
-                        help='path directory storing saliency analysis results for ensemble')
+    parser.add_argument("--files_dir", type=str,
+                        help='path directory storing attribution analysis results for ensemble')
     parser.add_argument("--out", type=str,
                         help='where to save results')
     parser.add_argument("--top_n", type=int, default=10,
                         help='how many logos to plot')
     parser.add_argument("--average", type=str, default=None,
                         help='provide path to average saliency analysis results')
+    parser.add_argument('--method', type=str,
+                        help='what kind of attribution analysis was done (saliency/shap)')
     args = parser.parse_args()
     return args
 
@@ -31,30 +34,30 @@ def main(args):
     # set output directory
     outdir = args.out
     if outdir is None:
-        outdir = args.saliency_dir
+        outdir = args.files_dir
 
     # get files
-    saliency_files, avg_file = utils.get_saliency_files(args.saliency_dir, avg_file=args.average)
+    # attr_files, avg_file = utils.get_saliency_files(args.saliency_dir, avg_file=args.average)
+    attr_files, avg_file = utils.get_attribution_files(args.files_dir, args.method, args.average)
 
     # plot multipage pdf
-    with PdfPages(join(outdir, f"top{args.top_n}_saliency_logos.pdf")) as pdf:
+    with PdfPages(join(outdir, f"top{args.top_n}_{args.method}_logos.pdf")) as pdf:
         for i in range(args.top_n):
-            nrow = len(saliency_files)+1
+            nrow = len(attr_files)+1
             fig, axs = plt.subplots(nrow,1)
-            for f in saliency_files:
+            for f in attr_files:
                 ix = int(basename(f).split("_")[0])
                 print(f'model {ix}')
-                saliency_df = utils.parse_saliency_df(f, i)
-                logomaker.Logo(saliency_df, ax=axs[ix-1])
+                attr_df = utils.parse_attribution_df(f, i)
+                logomaker.Logo(attr_df, ax=axs[ix-1])
                 axs[ix-1].set_title(f'Model {ix}')
                 axs[ix-1].axis('off')
             # Plot average 
-            saliency_df = utils.parse_saliency_df(avg_file, i)
-            logomaker.Logo(saliency_df, ax=axs[len(saliency_files)])
-            axs[len(saliency_files)].set_title('Ensemble average')
-            axs[len(saliency_files)].tick_params(left=False, right=False, labelleft=False,
+            attr_df = utils.parse_attribution_df(avg_file, i)
+            logomaker.Logo(attr_df, ax=axs[len(attr_files)])
+            axs[len(attr_files)].set_title('Ensemble average')
+            axs[len(attr_files)].tick_params(left=False, right=False, labelleft=False,
                                                  labelbottom=False, bottom=False) 
-            # axs[len(saliency_files)].axis('off')
             # format 
             fig.set_size_inches(10, 15)
             fig.suptitle(f'Sequence {i}')
