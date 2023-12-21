@@ -33,6 +33,10 @@ def parse_args():
                         help='if set, calculate average saliency map across all models in ensemble')
     parser.add_argument("--method", type=str,
                         help='saliency or shap; determines what method to use for attribution map')
+    parser.add_argument("--dinuc_shuffle", action='store_true',
+                        help='set if method=shap; if true, use dinucleotide shuffled seqs for shap reference per sequence')
+    parser.add_argument("--ref_size", default=100,
+                        help='set if method=shap; size of reference set')
     args = parser.parse_args()
     return args
 
@@ -59,10 +63,10 @@ def main(args):
 
     # select background data for shap
     background_seqs = None
-    if args.method == 'shap':
+    if args.method == 'shap' and not args.dinuc_shuffle:
         # select a set of background examples to take an expectation over
         np.random.seed(seed=1234)
-        background_seqs = X_test[np.random.choice(X_test.shape[0], 1000, replace=False)]
+        background_seqs = X_test[np.random.choice(X_test.shape[0], args.ref_size, replace=False)]
 
     # collect cumsum of values for averaging 
     cumsum = 0
@@ -80,7 +84,8 @@ def main(args):
         
         # calculate gradients depending on which method is specified
         grads = utils.attribution_analysis(model, examples, args.method, 
-                                           enhancer=args.enhancer, background=background_seqs)
+                                           enhancer=args.enhancer, ref_size=args.ref_size,
+                                           background=background_seqs)
 
         # gradient correction
         grads -= np.mean(grads, axis=-1, keepdims=True)
@@ -90,14 +95,22 @@ def main(args):
             cumsum += grads
 
         # save as npy file
-        np.save(file=join(outdir, str(i+1) + "_top" + str(args.top_n) + f"_{args.method}.npy"),
+        if args.dinuc_shuffle:
+            np.save(file=join(outdir, str(i+1) + "_top" + str(args.top_n) + f"_{args.method}_dinuc_shuffle.npy"),
                 arr=grads)
+        else:
+            np.save(file=join(outdir, str(i+1) + "_top" + str(args.top_n) + f"_{args.method}.npy"),
+                    arr=grads)
     
     # calculate avg and save as npy file
     if args.average:
         avg_pred = cumsum/args.n_mods 
-        np.save(file=join(outdir, "average_top" + str(args.top_n) + f"_{args.method}.npy"), 
+        if args.dinuc_shuffle:
+            np.save(file=join(outdir, "average_top" + str(args.top_n) + f"_{args.method}_dinuc_shuffle.npy"), 
                 arr=avg_pred)
+        else:
+            np.save(file=join(outdir, "average_top" + str(args.top_n) + f"_{args.method}.npy"), 
+                    arr=avg_pred)
 
 
 if __name__ == "__main__":
