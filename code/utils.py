@@ -12,7 +12,6 @@ from tensorflow import GradientTape
 import keras
 import gc
 np.random.seed(1)
-rng = np.random.default_rng(1)
 
 def load_DeepSTARR_data(file, get_idx=False):
     '''
