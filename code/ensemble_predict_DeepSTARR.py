@@ -9,6 +9,7 @@ import gc
 '''
 get the average of the predictions from all DeepSTARR models in an ensemble
 applies trained ensemble models to X_test and averages predictions on test set
+can set eval and distill flags
 '''
 
 def parse_args():
@@ -21,6 +22,10 @@ def parse_args():
                         help="output directory to save results")
     parser.add_argument("--data", type=str,
                         help='h5 file containing train/val/test data')
+    parser.add_argument("--eval", action='store_true',
+                        help='if set, evaluates average predictions and saves to file (ensemble_performance_avg.csv)')
+    parser.add_argument("--distill", action='store_true',
+                        help='if set, writes average predictions to file (distilled_y_train.npy)')
     args = parser.parse_args()
     return args
 
@@ -51,9 +56,13 @@ def main(args):
     # calculate average across ensemble predictions
     avg_pred = cumsum/args.n_mods 
 
-    # evaluate performance + write to file
-    performance = utils.summarise_DeepSTARR_performance(avg_pred, y_test)
-    performance.to_csv(join(outdir, "ensemble_performance_avg.csv"), index=False)
+    if args.eval:
+        # evaluate performance + write to file
+        performance = utils.summarise_DeepSTARR_performance(avg_pred, y_test)
+        performance.to_csv(join(outdir, "ensemble_performance_avg.csv"), index=False)
+    if args.distill:
+        # save average predictions to file and use for training distilled model
+        np.save(join(outdir, "distilled_y_train.npy"), avg_pred)
 
 if __name__ == "__main__":
     args = parse_args()

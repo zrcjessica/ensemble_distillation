@@ -2,6 +2,7 @@
 # set DISTILLED to perform attribution analysis for distilled models
 # set METHOD as saliency or shap to define method of attribution analysis
 
+
 DISTILLED=true # toggle flag
 METHOD=saliency # set saliency or shap
 N_MODS=10
@@ -15,6 +16,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 if [ "$DISTILLED" = true ]; then
 	CUDA_VISIBLE_DEVICES=4,5,6 python DeepSTARR_ensemble_attr_analysis.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --method $METHOD
 else
+	# typically only calculate average if looking at the ensemble, not the distilled models
 	CUDA_VISIBLE_DEVICES=4,5,6 python DeepSTARR_ensemble_attr_analysis.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --method $METHOD --average
 fi 
 

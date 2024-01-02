@@ -1,5 +1,5 @@
 # runs get_train_data_for_distillation.py
-# for al DeepSTARR ensembles trained on downsampled training data
+# for all DeepSTARR ensembles trained on downsampled training data
 
 MODEL_DIR=../results/DeepSTARR_lr-decay
 N_MODS=10
