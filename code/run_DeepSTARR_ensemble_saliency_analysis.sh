@@ -1,4 +1,6 @@
 # run saliency analysis for top 500 Dev enhancers on an ensemble of DeepSTARR models
+# set DISTILLED to perform attribution analysis for distilled models
+# set METHOD as saliency or shap to define method of attribution analysis
 
 DISTILLED=true # toggle flag
 METHOD=saliency # set saliency or shap
@@ -13,7 +15,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 if [ "$DISTILLED" = true ]; then
 	CUDA_VISIBLE_DEVICES=4,5,6 python DeepSTARR_ensemble_attr_analysis.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --method $METHOD
 else
-	CUDA_VISIBLE_DEVICES=4,5,6 python DeepSTARR_ensemble_attr_analysis.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --method $method --average
+	CUDA_VISIBLE_DEVICES=4,5,6 python DeepSTARR_ensemble_attr_analysis.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --method $METHOD --average
 fi 
 
 # # CUDA_VISIBLE_DEVICES=4,5,6 python DeepSTARR_ensemble_attr_analysis.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --average
@@ -35,15 +37,15 @@ exit_code="$?"
 if command -v 'slack' &>/dev/null; then
     if [ "$exit_code" -eq 0 ]; then
 		if [ "$DISTILLED" = true ]; then
-			slack "running saliency analysis for top 500 Dev on DeepSTARR_lr-decay ensemble (distilled, trained with LR decay) completed successfully" &>/dev/null
+			slack "running $METHOD analysis for top 500 Dev on DeepSTARR_lr-decay ensemble (distilled, trained with LR decay) completed successfully" &>/dev/null
 		else
-			slack "running saliency analysis for top 500 Dev on DeepSTARR_lr-decay ensemble (no distillation, trained with LR decay) completed successfully" &>/dev/null
+			slack "running $METHOD analysis for top 500 Dev on DeepSTARR_lr-decay ensemble (no distillation, trained with LR decay) completed successfully" &>/dev/null
 		fi
 	else
 		if [ "$DISTILLED" = true ]; then
-			slack "running saliency analysis for top 500 Dev on DeepSTARR_lr-decay ensemble (distilled, trained with LR decay) exited with error code $exit_code"
+			slack "running $METHOD analysis for top 500 Dev on DeepSTARR_lr-decay ensemble (distilled, trained with LR decay) exited with error code $exit_code"
 		else
-			slack "running saliency analysis for top 500 Dev on DeepSTARR_lr-decay ensemble (no distillation, trained with LR decay) exited with error code $exit_code"
+			slack "running $METHOD analysis for top 500 Dev on DeepSTARR_lr-decay ensemble (no distillation, trained with LR decay) exited with error code $exit_code"
 		fi
 	fi
 fi
