@@ -31,6 +31,8 @@ def parse_args():
                         help="if set, save training plots")
     parser.add_argument("--downsample", default=1, type=float,
                         help="if set, downsample training data to this amount ([0,1])")
+    parser.add_argument("--first_activation", default='relu',
+                        help='if provided, defines the first layer activation function')
     # parser.add_argument("--early_stopping", action="store_true",
     #                     help="if set, train with early stopping")
     parser.add_argument("--lr_decay", action="store_true",
@@ -65,10 +67,14 @@ def main(args):
     if args.downsample != wandb.config['downsample']:
         X_train, y_train = utils.downsample(X_train, y_train, args.downsample)
         wandb.config.update({'downsample':args.downsample}, allow_val_change=True)
-
+    
     # adjust k in yaml 
     if args.k != wandb.config['k']:
         wandb.config.update({'k':args.k}, allow_val_change=True)
+
+    # adjust first_layer_activation in yaml
+    if args.first_activation != wandb.config['first_activation']:
+        wandb.config.update({'first_activation':args.first_activation}, allow_val_change=True)
 
     # create model 
     model = DeepSTARR(X_train[0].shape, wandb.config)

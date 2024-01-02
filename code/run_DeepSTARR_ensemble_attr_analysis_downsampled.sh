@@ -33,9 +33,9 @@ exit_code="$?"
 if command -v 'slack' &>/dev/null; then
     if [ "$exit_code" -eq 0 ]; then
 		if [ "$DISTILLED" = true ]; then
-			slack "running saliency analysis for top 500 Dev on DeepSTARR_lr-decay ensemble (downsampled + distilled, trained with LR decay) completed successfully" &>/dev/null
+			slack "running $METHOD analysis for top 500 Dev on DeepSTARR_lr-decay ensemble (downsampled + distilled, trained with LR decay) completed successfully" &>/dev/null
 		else
-			slack "running saliency analysis for top 500 Dev on DeepSTARR_lr-decay ensemble (downsampled + no distillation, trained with LR decay) completed successfully" &>/dev/null
+			slack "running $METHOD analysis for top 500 Dev on DeepSTARR_lr-decay ensemble (downsampled + no distillation, trained with LR decay) completed successfully" &>/dev/null
 		fi
 	else
 		if [ "$DISTILLED" = true ]; then

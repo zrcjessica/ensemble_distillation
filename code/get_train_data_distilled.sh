@@ -38,7 +38,7 @@ if command -v 'slack' &>/dev/null; then
 		if [ "$DOWNSAMPLED" = true ]; then
 			slack "running ensemble_predict_DeepSTARR.py for DeepSTARR_lr-decay (downsampled) in distill mode exited with error code $exit_code"
 		else
-			slack "running ensemble_predict_DeepSTARR.py for DeepSTARR_lr-decay (full) in distill mod exited with error code $exit_code"
+			slack "running ensemble_predict_DeepSTARR.py for DeepSTARR_lr-decay (full) in distill mode exited with error code $exit_code"
 		fi
 	fi
 fi

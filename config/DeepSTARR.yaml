@@ -10,7 +10,10 @@ loss_fxn:
   desc: Loss function
   value: 'mse'
 activation:
-  desc: Activation function to use in each convolutional block
+  desc: Default activation function to use throughout model
+  value: 'relu'
+first_activation:
+  desc: First activation function used in model; defaults to 'relu' but can be modified based on inputs to train_DeepSTARR.py
   value: 'relu'
 optimizer:
   desc: Name of optimizer to use

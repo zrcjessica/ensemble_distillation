@@ -5,3 +5,4 @@
 /code/train_without_scheduler.sh
 /code/wandb
 /code/__pycache__
+/code/korb

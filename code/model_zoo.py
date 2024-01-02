@@ -68,7 +68,7 @@ def DeepSTARR(input_shape, config):
         else:
             x = kl.Conv1D(round(config['n_kernels'+str(i)]*config['k']), kernel_size=config['kernel_size'+str(i)], padding='same')(x)
         x = kl.BatchNormalization()(x)
-        x = kl.Activation(config['activation'])(x)
+        x = kl.Activation(config['first_layer_activation'])(x)
         x = kl.MaxPool1D(2)(x)
 
     # flatten

@@ -2,7 +2,6 @@
 # set DISTILLED to perform attribution analysis for distilled models
 # set METHOD as saliency or shap to define method of attribution analysis
 
-
 DISTILLED=true # toggle flag
 METHOD=saliency # set saliency or shap
 N_MODS=10
