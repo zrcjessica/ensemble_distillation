@@ -30,7 +30,7 @@ def parse_args():
     parser.add_argument('--enhancer', type=str, default='Dev',
                         help='which class of predictions to sort top predictions for')
     parser.add_argument("--average", action='store_true',
-                        help='if set, calculate average saliency map across all models in ensemble')
+                        help='if set, calculate average saliency map across all models provided')
     parser.add_argument("--method", type=str,
                         help='saliency or shap; determines what method to use for attribution map')
     parser.add_argument("--dinuc_shuffle", action='store_true',

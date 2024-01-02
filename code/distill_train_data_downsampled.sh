@@ -13,9 +13,9 @@ do
     echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
     for i in $(seq 1 $ENSEMBLE_SIZE)
     do 
-        echo "python get_train_data_for_distillation.py --model_dir ${MODEL_DIR}/downsample_${DOWNSAMPLE_ARR[$p]} --n_mods $N_MODS --data $DATA "
+        simple_gpu_scheduler --gpus 4,5,6 python get_train_data_for_distillation.py --model_dir ${MODEL_DIR}/downsample_${DOWNSAMPLE_ARR[$p]} --n_mods $N_MODS --data $DATA 
     done 
-done | simple_gpu_scheduler --gpus 4,5,6
+done 
 
 # message the user on slack if possible
 exit_code="$?"

@@ -18,7 +18,7 @@ def parse_args():
     parser.add_argument("--n_mods", type=int, 
                         help="number of models in ensemble")
     parser.add_argument("--out", type=str,
-                        help="output directory to save results")
+                        help="output directory to save results; defaults to model_dir if not provided")
     parser.add_argument("--data", type=str,
                         help='h5 file containing train/val/test data')
     args = parser.parse_args()
@@ -37,6 +37,7 @@ def main(args):
     if args.out is None:
         outdir = args.model_dir
 
+    # iterate through models 
     for i in range(args.n_mods):
         print(f'predicting with model {i+1}/{args.n_mods}')
         # clear history

@@ -18,9 +18,9 @@ do
         ENSEMBLE_DIR=$MODELS_DIR/downsample_${DOWNSAMPLE_ARR[$p]}
         OUTDIR=$ENSEMBLE_DIR/ensemble_distilled
         mkdir -p $OUTDIR
-        echo "python train_DeepSTARR.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --distill $ENSEMBLE_DIR/distilled_y_train.npy"
+        simple_gpu_scheduler --gpus 4,5,6,7 python train_DeepSTARR.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --distill $ENSEMBLE_DIR/distilled_y_train.npy
     done
-done | simple_gpu_scheduler --gpus 4,5,6,7
+done 
 
 # message the user on slack if possible
 exit_code="$?"
