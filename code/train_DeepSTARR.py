@@ -41,10 +41,14 @@ def parse_args():
                         help='project name for wandb')
     parser.add_argument("--config", type=str,
                         help='path to wandb config (yaml)')
-    parser.add_argument("--distill", type=str, default=None,
-                        help='if provided, trains a distilled model using distilled training data')
+    # parser.add_argument("--distill", type=str, default=None,
+    #                     help='if provided, trains a distilled model using distilled training data')
+    parser.add_argument("--distill", action='store_true',
+                        help='if set, train distilled DeepSTARR models')
     parser.add_argument("--k", type=int, default=1,
                         help='factor for adjusting number of parameters in hidden layers')
+    parser.add_argument("--predict_std", action='store_true',
+                        help='if set, predict ensemble stdev in addition to mean; distill flag must be set as well')
     args = parser.parse_args()
     return args
 
@@ -56,12 +60,16 @@ def main(args):
     wandb.config['model_ix'] = args.ix
 
     # load data from h5
-    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data)
+    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data, 
+                                                                               ensemble=args.distill, 
+                                                                               std=args.predict_std)
 
-    # for training an ensemble distilled model
-    if args.distill is not None:
-        y_train = np.load(args.distill)
-        wandb.config['distilled'] = True
+    # # for training an ensemble distilled model
+    # if args.distill is not None:
+    #     y_train = np.load(args.distill)
+    #     wandb.config['distilled'] = True
+    if args.distill != wandb.config['distill']:
+        wandb.config.update({'distill':args.distill}, allow_val_change=True)
         
     # downsample training data
     if args.downsample != wandb.config['downsample']:
@@ -77,7 +85,7 @@ def main(args):
         wandb.config.update({'first_activation':args.first_activation}, allow_val_change=True)
 
     # create model 
-    model = DeepSTARR(X_train[0].shape, wandb.config)
+    model = DeepSTARR(X_train[0].shape, wandb.config, args.predict_std)
 
     # compile model
     model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])

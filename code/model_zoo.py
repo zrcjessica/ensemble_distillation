@@ -53,7 +53,7 @@ from keras.models import Model
 #     model = Model(inputs=inputs, outputs=outputs)
 #     return model 
 
-def DeepSTARR(input_shape, config):
+def DeepSTARR(input_shape, config, predict_std=False):
     '''
     DeepSTARR model, using same params as in published model
     '''
@@ -68,7 +68,7 @@ def DeepSTARR(input_shape, config):
         else:
             x = kl.Conv1D(round(config['n_kernels'+str(i)]*config['k']), kernel_size=config['kernel_size'+str(i)], padding='same')(x)
         x = kl.BatchNormalization()(x)
-        x = kl.Activation(config['first_layer_activation'])(x)
+        x = kl.Activation(config['first_activation'])(x)
         x = kl.MaxPool1D(2)(x)
 
     # flatten
@@ -81,8 +81,12 @@ def DeepSTARR(input_shape, config):
         x = kl.Activation(config['activation'])(x)
         x = kl.Dropout(0.4)(x)
 
-    # outputs: [Dev, Hk]
-    outputs = kl.Dense(2, activation='linear')(x) # why specify if default is linear? 
+    if predict_std:
+        # outputs: [Dev-mean, Hk-mean, Dev-std, Hk-std]
+        outputs = kl.Dense(4, activation='linear')(x)
+    else:
+        # outputs: [Dev, Hk]
+        outputs = kl.Dense(2, activation='linear')(x) # why specify if default is linear? 
 
     model = Model(inputs=inputs, outputs=outputs)
     return model 

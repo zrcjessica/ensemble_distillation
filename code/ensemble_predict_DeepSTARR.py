@@ -8,8 +8,9 @@ import gc
 
 '''
 get the average of the predictions from all DeepSTARR models in an ensemble
-applies trained ensemble models to X_test and averages predictions on test set
-can set eval and distill flags
+applies trained ensemble models to test set
+if --eval flag set, evaluates prediction performance on test set
+if --distill flag set, averages model predictions and writes to file
 '''
 
 def parse_args():
@@ -26,13 +27,17 @@ def parse_args():
                         help='if set, evaluates average predictions and saves to file (ensemble_performance_avg.csv)')
     parser.add_argument("--distill", action='store_true',
                         help='if set, writes average predictions to file (distilled_y_train.npy)')
+    parser.add_argument("--std", action='store_true',
+                        help='if set, also evaluate performance on std predictions')
+    # parser.add_argument("--stdev", action='store_true',
+    #                     help='if set, calculate and save stdev of predictions across ensemble')
     args = parser.parse_args()
     return args
 
 def main(args):
 
     # load data from h5
-    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data)
+    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data, std=True)
 
     # collect cumsum of predictions from each model in ensemble
     cumsum = 0
@@ -51,14 +56,15 @@ def main(args):
 
         # load model and predict on test data
         model = load_model(join(args.model_dir, str(i+1) + "_DeepSTARR.h5"))
-        cumsum += model.predict(X_test)
+        preds = model.predict(X_test)
+        cumsum += preds
     
     # calculate average across ensemble predictions
     avg_pred = cumsum/args.n_mods 
 
     if args.eval:
         # evaluate performance + write to file
-        performance = utils.summarise_DeepSTARR_performance(avg_pred, y_test)
+        performance = utils.summarise_DeepSTARR_performance(avg_pred, y_test, args.std)
         performance.to_csv(join(outdir, "ensemble_performance_avg.csv"), index=False)
     if args.distill:
         # save average predictions to file and use for training distilled model

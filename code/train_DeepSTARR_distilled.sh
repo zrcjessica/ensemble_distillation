@@ -13,8 +13,8 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 
 for i in $(seq 1 $ENSEMBLE_SIZE)
 do 
-    echo "python train_DeepSTARR.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --distill $ENSEMBLE_DIR/distilled_y_train.npy"
-done | simple_gpu_scheduler --gpus 4,5,6,7
+    CUDA_VISIBLE_DEVICES=4,5 python train_DeepSTARR.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --distill $ENSEMBLE_DIR/distilled_y_train.npy"
+done
 
 
 # message the user on slack if possible

@@ -13,34 +13,72 @@ import keras
 import gc
 np.random.seed(1)
 
-def load_DeepSTARR_data(file, get_idx=False):
+def load_DeepSTARR_data(file, ensemble=False, std=False):
     '''
     load Train/Test/Val data from DeepSTARR h5
     '''
-    data = h5py.File(file, 'r')
-    
-    # test
-    X_train = np.array(data['X_Train'])
-    y_train = np.array(data['y_Train'])
-
-    # train
-    X_test = np.array(data['X_Test'])
-    y_test = np.array(data['y_Test'])
-
-    # validation
-    X_val = np.array(data['X_Val'])
-    y_val = np.array(data['y_Val'])
-
-    # get idx
-    if get_idx:
-        idx_train = np.array(data['idx_Train'])
-        idx_test = np.array(data['idx_Test'])
-        idx_val = np.array(data['idx_Val'])
-        data.close()
-        return X_train, y_train, X_test, y_test, X_val, y_val, idx_train, idx_test, idx_val
+    if 'hierarchical' in file:
+        print('loading data from h5 file with hierarchical structure')
+        X_train, y_train, X_test, y_test, X_val, y_val = load_DeepSTARR_data_hierarchical(file, ensemble, std)
+        return X_train, y_train, X_test, y_test, X_val, y_val
     else:
+        data = h5py.File(file, 'r')
+        
+        # test
+        X_train = np.array(data['X_Train'])
+        y_train = np.array(data['ensemble_mean']) if ensemble else np.array(data['y_Train'])
+
+        # train
+        X_test = np.array(data['X_Test'])
+        y_test = np.array(data['y_Test'])
+
+        # validation
+        X_val = np.array(data['X_Val'])
+        y_val = np.array(data['y_Val'])
+
+        # add standard deviation data 
+        if std:
+            y_train = np.append(y_train, np.array(data['std_Train']), axis=1)
+            y_test = np.append(y_test, np.array(data['std_Test']), axis=1)
+            y_val = np.append(y_val, np.array(data['std_Val']), axis=1)
+
+        # # get idx
+        # if get_idx:
+        #     idx_train = np.array(data['idx_Train'])
+        #     idx_test = np.array(data['idx_Test'])
+        #     idx_val = np.array(data['idx_Val'])
+        #     data.close()
+        #     return X_train, y_train, X_test, y_test, X_val, y_val, idx_train, idx_test, idx_val
+
         data.close()
         return X_train, y_train, X_test, y_test, X_val, y_val
+    
+def load_DeepSTARR_data_hierarchical(file, ensemble=False, std=False):
+    '''
+    load Train/Test/Val data from DeepSTARR h5 with hierarchical structure
+    '''
+    data = h5py.File(file, 'r')
+    
+    # train
+    X_train = np.array(data['Train']['X'])
+    y_train = np.array(data['Train']['ensemble_mean']) if ensemble else np.array(data['Train']['y'])
+
+    # test
+    X_test = np.array(data['Test']['X'])
+    y_test = np.array(data['Test']['y'])
+
+    # validation
+    X_val = np.array(data['Val']['X'])
+    y_val = np.array(data['Val']['y'])
+
+    # add standard deviation data 
+    if std:
+        y_train = np.append(y_train, np.array(data['Train']['std']), axis=1)
+        y_test = np.append(y_test, np.array(data['Test']['std']), axis=1)
+        y_val = np.append(y_val, np.array(data['Val']['std']), axis=1)
+
+    data.close()
+    return X_train, y_train, X_test, y_test, X_val, y_val 
 
 def downsample(X_train, y_train, p):
     '''
@@ -61,7 +99,7 @@ def evaluate_performance(y_pred, y_truth):
     spearman = spearmanr(y_truth, y_pred)[0]
     return [mse, pearson, spearman]
 
-def summarise_DeepSTARR_performance(y_pred, y_truth):
+def summarise_DeepSTARR_performance(y_pred, y_truth, std=False):
     '''
     calculate MSE, Spearman + Pearson corr on test data
     return summary for Dev + Hk as data frame
@@ -72,6 +110,10 @@ def summarise_DeepSTARR_performance(y_pred, y_truth):
     performance_dict['Dev'] = evaluate_performance(y_pred[:,0], y_truth[:,0])
     # calculate metrics for Hk
     performance_dict['Hk'] = evaluate_performance(y_pred[:,1], y_truth[:,1])
+    # calaculate metrics for standard deviation predictions
+    if std:
+        performance_dict['Dev-std'] = evaluate_performance(y_pred[:,2], y_truth[:,2])
+        performance_dict['Hk-std'] = evaluate_performance(y_pred[:,3], y_truth[:,3])
     summary = pd.DataFrame(performance_dict)
     summary['metric'] = ['MSE', 'Pearson', 'Spearman']
     return summary

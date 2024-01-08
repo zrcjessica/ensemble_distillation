@@ -22,6 +22,8 @@ def parse_args():
                         help='where to save results')
     parser.add_argument("--top_n", type=int, default=10,
                         help='how many logos to plot')
+    parser.add_argument("--seq", nargs='+',
+                        help='specify which sequence(s) to plot logos for as strings')
     parser.add_argument("--average", type=str, default=None,
                         help='provide path to average saliency analysis results')
     parser.add_argument('--method', type=str,
