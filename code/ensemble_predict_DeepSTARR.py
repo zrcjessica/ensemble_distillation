@@ -1,5 +1,6 @@
 import argparse
 import utils
+import plotting
 import keras
 from keras.models import load_model
 from os.path import join
@@ -25,19 +26,19 @@ def parse_args():
                         help='h5 file containing train/val/test data')
     parser.add_argument("--eval", action='store_true',
                         help='if set, evaluates average predictions and saves to file (ensemble_performance_avg.csv)')
+    parser.add_argument("--plot", action='store_true',
+                        help='if set, generate scatterplots comparing predictions with ground truth')
     parser.add_argument("--distill", action='store_true',
                         help='if set, writes average predictions to file (distilled_y_train.npy)')
     parser.add_argument("--std", action='store_true',
                         help='if set, also evaluate performance on std predictions')
-    # parser.add_argument("--stdev", action='store_true',
-    #                     help='if set, calculate and save stdev of predictions across ensemble')
     args = parser.parse_args()
     return args
 
 def main(args):
 
     # load data from h5
-    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data, std=True)
+    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data, std=args.std)
 
     # collect cumsum of predictions from each model in ensemble
     cumsum = 0
@@ -66,6 +67,12 @@ def main(args):
         # evaluate performance + write to file
         performance = utils.summarise_DeepSTARR_performance(avg_pred, y_test, args.std)
         performance.to_csv(join(outdir, "ensemble_performance_avg.csv"), index=False)
+        if args.plot:
+            # plot average predictions against true values 
+            plotting.prediction_scatterplot(avg_pred, y_test, 
+                                            colnames=['Hk','Dev', 'Hk-std', 'Dev-std'][:(avg_pred.shape[-1])], 
+                                            outfh=join(outdir, "pred_scatterplot.png"))
+
     if args.distill:
         # save average predictions to file and use for training distilled model
         np.save(join(outdir, "distilled_y_train.npy"), avg_pred)

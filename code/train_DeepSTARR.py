@@ -124,7 +124,7 @@ def main(args):
 
     # evaluate model performance
     y_pred = model.predict(X_test)
-    performance = utils.summarise_DeepSTARR_performance(y_pred, y_test)
+    performance = utils.summarise_DeepSTARR_performance(y_pred, y_test, args.predict_std)
     performance.to_csv(join(args.out, str(args.ix) + "_performance.csv"),
                        index=False)
     

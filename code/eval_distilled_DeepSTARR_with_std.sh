@@ -4,7 +4,7 @@ DATA=../data/DeepSTARR/all_data_with_ensemble_metrics_hierarchical.h5
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 
-CUDA_VISIBLE_DEVICES=4 python ensemble_predict_DeepSTARR.py --model_dir $MODEL_DIR --n_mods $N_MODS --data $DATA --eval --std
+CUDA_VISIBLE_DEVICES=4 python ensemble_predict_DeepSTARR.py --model_dir $MODEL_DIR --n_mods $N_MODS --data $DATA --eval --std --plot
 
 
 # message the user on slack if possible
