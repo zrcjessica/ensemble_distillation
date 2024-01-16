@@ -35,15 +35,17 @@ def parse_args():
                         help='saliency or shap; determines what method to use for attribution map')
     parser.add_argument("--dinuc_shuffle", action='store_true',
                         help='set if method=shap; if true, use dinucleotide shuffled seqs for shap reference per sequence')
-    parser.add_argument("--ref_size", default=100,
+    parser.add_argument("--ref_size", default=100, type=int,
                         help='set if method=shap; size of reference set')
+    parser.add_argument("--std", action='store_true',
+                        help='if true, model predicts standard deviation')
     args = parser.parse_args()
     return args
 
 def main(args):
 
     # load data from h5
-    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data)
+    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data, std=args.std)
 
     # set output directory
     outdir = args.out
@@ -66,6 +68,8 @@ def main(args):
     if args.method == 'shap' and not args.dinuc_shuffle:
         # select a set of background examples to take an expectation over
         np.random.seed(seed=1234)
+        print(type(X_test.shape[0]))
+        print(type(args.ref_size))
         background_seqs = X_test[np.random.choice(X_test.shape[0], args.ref_size, replace=False)]
 
     # collect cumsum of values for averaging 
@@ -96,7 +100,7 @@ def main(args):
 
         # save as npy file
         if args.dinuc_shuffle:
-            np.save(file=join(outdir, str(i+1) + "_top" + str(args.top_n) + f"_{args.method}_dinuc_shuffle.npy"),
+            np.save(file=join(outdir, str(i+1) + "_top" + str(args.top_n) + f"_shap_dinuc_shuffle.npy"),
                 arr=grads)
         else:
             np.save(file=join(outdir, str(i+1) + "_top" + str(args.top_n) + f"_{args.method}.npy"),

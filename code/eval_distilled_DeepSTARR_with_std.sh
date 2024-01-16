@@ -1,3 +1,6 @@
+# evaluates the ensemble performance of distilled DeepSTARR models trained to predict stdev + mean
+# generates plot of true vs. predicted values 
+
 MODEL_DIR=../results/DeepSTARR_lr-decay/distilled_with_std
 N_MODS=1
 DATA=../data/DeepSTARR/all_data_with_ensemble_metrics_hierarchical.h5

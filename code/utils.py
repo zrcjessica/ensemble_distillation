@@ -13,14 +13,29 @@ import keras
 import gc
 np.random.seed(1)
 
-def load_DeepSTARR_data(file, ensemble=False, std=False):
+def parse_data_dict(X_train, y_train, X_test, y_test, X_val, y_val):
+    '''
+    return train/test/val data as dictionary of dictionaries
+    '''
+    data_dict = {}
+    data_dict['train'] = {'X':X_train, 'y':y_train}
+    data_dict['test'] = {'X':X_test, 'y':y_test}
+    data_dict['val'] = {'X':X_val, 'y':y_val}
+    return data_dict
+
+def load_DeepSTARR_data(file, ensemble=False, std=False, dict=False):
     '''
     load Train/Test/Val data from DeepSTARR h5
+    if ensemble=True, return ensemble mean for y_train 
+    if std=True, append std values to y for train/test/val
     '''
     if 'hierarchical' in file:
         print('loading data from h5 file with hierarchical structure')
         X_train, y_train, X_test, y_test, X_val, y_val = load_DeepSTARR_data_hierarchical(file, ensemble, std)
-        return X_train, y_train, X_test, y_test, X_val, y_val
+        if dict:
+            return parse_data_dict(X_train, y_train, X_test, y_test, X_val, y_val)
+        else:
+            return X_train, y_train, X_test, y_test, X_val, y_val
     else:
         data = h5py.File(file, 'r')
         
@@ -51,7 +66,10 @@ def load_DeepSTARR_data(file, ensemble=False, std=False):
         #     return X_train, y_train, X_test, y_test, X_val, y_val, idx_train, idx_test, idx_val
 
         data.close()
-        return X_train, y_train, X_test, y_test, X_val, y_val
+        if dict:
+            return parse_data_dict(X_train, y_train, X_test, y_test, X_val, y_val)
+        else:
+            return X_train, y_train, X_test, y_test, X_val, y_val
     
 def load_DeepSTARR_data_hierarchical(file, ensemble=False, std=False):
     '''
@@ -110,7 +128,7 @@ def summarise_DeepSTARR_performance(y_pred, y_truth, std=False):
     performance_dict['Dev'] = evaluate_performance(y_pred[:,0], y_truth[:,0])
     # calculate metrics for Hk
     performance_dict['Hk'] = evaluate_performance(y_pred[:,1], y_truth[:,1])
-    # calaculate metrics for standard deviation predictions
+    # calculate metrics for standard deviation predictions
     if std:
         performance_dict['Dev-std'] = evaluate_performance(y_pred[:,2], y_truth[:,2])
         performance_dict['Hk-std'] = evaluate_performance(y_pred[:,3], y_truth[:,3])
