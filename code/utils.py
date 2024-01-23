@@ -8,7 +8,7 @@ from os.path import join
 import glob
 import shap # shap must be imported before keras
 from tensorflow import GradientTape
-# from tensorflow import Variable
+from tensorflow import Variable
 import keras
 import gc
 np.random.seed(1)
@@ -150,6 +150,21 @@ def get_attribution_files(dir, method, avg_file=None):
         attr_files = list(set(attr_files) - set([avg_file]))
     return attr_files, avg_file 
 
+def get_binned_attribution_files(dir, quantile, method, nseqs=100, avg_file=None):
+    '''
+    returns a list of all files containing attribution analysis results for an ensemble
+    if average is None (no average attribution map provided), assumes it is in the same directory
+    must supply method (shap/saliency)
+    '''
+    if avg_file is None:
+        avg_file = glob.glob(join(dir, f"average_q{quantile:.1f}_{nseqs}seqs_{method}.npy"))[0]
+    attr_files = glob.glob(join(dir, f"*q{quantile}_{nseqs}seqs_{method}.npy"))
+    # check if avg file is here
+    if avg_file in attr_files:
+        attr_files = list(set(attr_files) - set([avg_file]))
+    return attr_files, avg_file 
+
+
 def parse_attribution_df(grad_file, i):
     '''
     given a gradient tensor, returns a dataframe for plotting with logomaker
@@ -288,6 +303,7 @@ def attribution_analysis(model, seqs, method, enhancer='Dev', ref_size=100, back
     if method == 'saliency':
         # saliency analysis
         with GradientTape() as tape:
+            seqs = Variable(seqs)
             preds = model(seqs, training=False)
             loss = preds[:,0 if enhancer=='Dev' else 1]
         return tape.gradient(loss, seqs)
@@ -305,13 +321,15 @@ def attribution_analysis(model, seqs, method, enhancer='Dev', ref_size=100, back
                 keras.backend.clear_session()
                 gc.collect()
                 seq = seqs[i]
-                bg = dinuc_shuffle(seq, num_shufs=ref_size, rng=rng)
+                bg = dinuc_shuffle(seq, num_shufs=ref_size, rng=rng) # can we remove this feature if random selection works fine?
                 explainer_dev = shap.DeepExplainer((model.input, model.output), data=bg)
                 shap_values_arr[i] = np.squeeze(explainer_dev.shap_values(np.expand_dims(seq, axis=0))[0], axis=0)
             return shap_values_arr
         else:
             # use provided background seqs
+            print('performing shap analysis without dinucleotide shuffled background seqs')
             explainer_dev = shap.DeepExplainer((model.input, model.output), data=background)
+            # print('explainer initialized')
             return explainer_dev.shap_values(seqs)[0]
 
 # def summarise_ensemble_performance(files, downsample=1):
