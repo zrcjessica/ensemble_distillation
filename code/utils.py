@@ -140,29 +140,32 @@ def get_attribution_files(dir, method, avg_file=None):
     '''
     returns a list of all files containing attribution analysis results for an ensemble
     if average is None (no average attribution map provided), assumes it is in the same directory
-    must supply method (shap/saliency)
+    must supply method (shap/saliency) 
+    gets attr. scores for top 500 (Dev enhancers) DeepSTARR test seqs 
     '''
     if avg_file is None:
-        avg_file = glob.glob(join(dir, f"average*{method}.npy"))[0]
-    attr_files = glob.glob(join(dir, f"*{method}.npy"))
+        # avg_file = join(dir, f"average*{method}.npy")
+        avg_file = join(dir, f"average_top500_{method}.npy")
+    attr_files = glob.glob(join(dir, f"*_top500_{method}.npy"))
     # check if avg file is here
     if avg_file in attr_files:
         attr_files = list(set(attr_files) - set([avg_file]))
     return attr_files, avg_file 
 
-def get_binned_attribution_files(dir, quantile, method, nseqs=100, avg_file=None):
-    '''
-    returns a list of all files containing attribution analysis results for an ensemble
-    if average is None (no average attribution map provided), assumes it is in the same directory
-    must supply method (shap/saliency)
-    '''
-    if avg_file is None:
-        avg_file = glob.glob(join(dir, f"average_q{quantile:.1f}_{nseqs}seqs_{method}.npy"))[0]
-    attr_files = glob.glob(join(dir, f"*q{quantile}_{nseqs}seqs_{method}.npy"))
-    # check if avg file is here
-    if avg_file in attr_files:
-        attr_files = list(set(attr_files) - set([avg_file]))
-    return attr_files, avg_file 
+# def get_binned_attribution_files(dir, quantile, method, nseqs=100, avg_file=None):
+#     '''
+#     returns a list of all files containing attribution analysis results for an ensemble
+#     if average is None (no average attribution map provided), assumes it is in the same directory
+#     must supply method (shap/saliency)
+#     '''
+#     if avg_file is None:
+#         # avg_file = glob.glob(join(dir, f"average_q{quantile:.1f}_{nseqs}seqs_{method}.npy"))[0]
+#         avg_file = join(dir, f"average_q{quantile:.1f}_{nseqs}seqs_{method}.npy")
+#     attr_files = glob.glob(join(dir, f"*q{quantile}_{nseqs}seqs_{method}.npy"))
+#     # check if avg file is here
+#     if avg_file in attr_files:
+#         attr_files = list(set(attr_files) - set([avg_file]))
+#     return attr_files, avg_file 
 
 
 def parse_attribution_df(grad_file, i):

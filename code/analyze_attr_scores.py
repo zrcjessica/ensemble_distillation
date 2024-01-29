@@ -7,7 +7,8 @@ from os.path import join
 '''
 for an ensemble or set of models, analyze attribution scores (saliency or shap)
 if rmse flag set: calculates Euclidean distance as RMSE (must provide reference file)
-if var flag set: calculates variance in attributions cores across models 
+if var flag set: calculates variance in attribution scores across models 
+code is currently designed for analyzing attribution scores for top 500 (Dev enhancer) DeepSTARR test seqs
 '''
 
 def parse_args():

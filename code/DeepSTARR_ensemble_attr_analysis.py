@@ -59,9 +59,9 @@ def main(args):
 
     # parse sequences to perform attribution analysis on
     examples = X_test[top_ix]
-    if args.method == 'saliency':
-        # instantiate Variable class of examples to analyze
-        examples = Variable(X_test[top_ix])
+    # if args.method == 'saliency':
+    #     # instantiate Variable class of examples to analyze
+    #     examples = Variable(X_test[top_ix])
 
     # select background data for shap
     background_seqs = None

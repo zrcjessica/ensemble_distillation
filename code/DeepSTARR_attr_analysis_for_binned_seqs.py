@@ -94,9 +94,6 @@ def main(args):
 
         # parse sequences to perform attribution analysis on
         examples = X_test[seqs_ix]
-        # if args.method == 'saliency':
-        #     # instantiate Variable class of examples to analyze
-        #     examples = Variable(X_test[seqs_ix])
 
         # collect cumsum of values for averaging 
         cumsum = 0
