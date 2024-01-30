@@ -67,6 +67,11 @@ def main(args):
             preds = model.predict(X_train)
         else:
             preds = model.predict(X_test)
+        if args.plot:
+            # plot pred vs. true
+            plotting.prediction_scatterplot(preds, y_test,
+                                            colnames=['Hk','Dev','Hk-std','Dev-std'][:(preds.shape[-1])],
+                                            outfh=join(outdir, f'{i+1}_pred_scatterplot.png'))
         # preds = model.predict(data_dict[args.set]['X'])
         cumsum += preds
     
@@ -81,7 +86,7 @@ def main(args):
             # plot average predictions against true values 
             plotting.prediction_scatterplot(avg_pred, y_test, 
                                             colnames=['Hk','Dev', 'Hk-std', 'Dev-std'][:(avg_pred.shape[-1])], 
-                                            outfh=join(outdir, "pred_scatterplot.png"))
+                                            outfh=join(outdir, "avg_pred_scatterplot.png"))
 
     if args.distill:
         # save average predictions on X_train to file and use for training distilled model
