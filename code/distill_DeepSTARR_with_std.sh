@@ -17,7 +17,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 for i in $(seq 2 $NMODS)
 do 
 	echo "python train_DeepSTARR.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --distill --predict_std"
-done | simple_gpu_scheduler --gpus 1,2
+done | simple_gpu_scheduler --gpus 0,1
 
 # message the user on slack if possible
 exit_code="$?"

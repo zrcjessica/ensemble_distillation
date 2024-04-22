@@ -23,7 +23,7 @@ def parse_data_dict(X_train, y_train, X_test, y_test, X_val, y_val):
     data_dict['val'] = {'X':X_val, 'y':y_val}
     return data_dict
 
-def load_DeepSTARR_data(file, ensemble=False, std=False, dict=False):
+def load_DeepSTARR_data(file, std=False, dict=False):
     '''
     load Train/Test/Val data from DeepSTARR h5
     if ensemble=True, return ensemble mean for y_train 
@@ -31,7 +31,8 @@ def load_DeepSTARR_data(file, ensemble=False, std=False, dict=False):
     '''
     if 'hierarchical' in file:
         print('loading data from h5 file with hierarchical structure')
-        X_train, y_train, X_test, y_test, X_val, y_val = load_DeepSTARR_data_hierarchical(file, ensemble, std)
+        # X_train, y_train, X_test, y_test, X_val, y_val = load_DeepSTARR_data_hierarchical(file, ensemble, std)
+        X_train, y_train, X_test, y_test, X_val, y_val = load_DeepSTARR_data_hierarchical(file, std)
         if dict:
             return parse_data_dict(X_train, y_train, X_test, y_test, X_val, y_val)
         else:
@@ -41,7 +42,8 @@ def load_DeepSTARR_data(file, ensemble=False, std=False, dict=False):
         
         # test
         X_train = np.array(data['X_Train'])
-        y_train = np.array(data['ensemble_mean']) if ensemble else np.array(data['y_Train'])
+        # y_train = np.array(data['ensemble_mean']) if ensemble else np.array(data['y_Train'])
+        y_train = np.array(data['y_Train'])
 
         # train
         X_test = np.array(data['X_Test'])
@@ -57,21 +59,13 @@ def load_DeepSTARR_data(file, ensemble=False, std=False, dict=False):
             y_test = np.append(y_test, np.array(data['std_Test']), axis=1)
             y_val = np.append(y_val, np.array(data['std_Val']), axis=1)
 
-        # # get idx
-        # if get_idx:
-        #     idx_train = np.array(data['idx_Train'])
-        #     idx_test = np.array(data['idx_Test'])
-        #     idx_val = np.array(data['idx_Val'])
-        #     data.close()
-        #     return X_train, y_train, X_test, y_test, X_val, y_val, idx_train, idx_test, idx_val
-
         data.close()
         if dict:
             return parse_data_dict(X_train, y_train, X_test, y_test, X_val, y_val)
         else:
             return X_train, y_train, X_test, y_test, X_val, y_val
     
-def load_DeepSTARR_data_hierarchical(file, ensemble=False, std=False):
+def load_DeepSTARR_data_hierarchical(file, std=False):
     '''
     load Train/Test/Val data from DeepSTARR h5 with hierarchical structure
     '''
@@ -79,7 +73,8 @@ def load_DeepSTARR_data_hierarchical(file, ensemble=False, std=False):
     
     # train
     X_train = np.array(data['Train']['X'])
-    y_train = np.array(data['Train']['ensemble_mean']) if ensemble else np.array(data['Train']['y'])
+    # y_train = np.array(data['Train']['ensemble_mean']) if ensemble else np.array(data['Train']['y'])
+    y_train = np.array(data['Train']['y'])
 
     # test
     X_test = np.array(data['Test']['X'])
@@ -98,7 +93,7 @@ def load_DeepSTARR_data_hierarchical(file, ensemble=False, std=False):
     data.close()
     return X_train, y_train, X_test, y_test, X_val, y_val 
 
-def downsample(X_train, y_train, p):
+def downsample(X_train, y_train, p, return_ix=False):
     '''
     randomly downsample training data 
     p = [0,1) determines proportion of training data to keep
@@ -106,7 +101,20 @@ def downsample(X_train, y_train, p):
     n_samples = X_train.shape[0]
     n_downsample = round(n_samples*p)
     ix = np.random.randint(0, n_samples, size=n_downsample)
-    return X_train[ix,:], y_train[ix,:]
+    if return_ix:
+        return ix
+    else:
+        return X_train[ix,:], y_train[ix,:]
+
+def downsample_eval(X_train, y_train, p):
+    '''
+    randomly downsample training data 
+    p = [0,1) determines proportion of training data to keep
+    '''
+    n_samples = X_train.shape[0]
+    n_downsample = round(n_samples*p)
+    ix = np.random.randint(0, n_samples, size=n_downsample)
+    return ix
 
 def evaluate_performance(y_pred, y_truth):
     '''

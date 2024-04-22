@@ -14,11 +14,11 @@ for i in $(seq 1 $N_MODS)
 do
     for p in "${!DOWNSAMPLE_ARR[@]}"
     do
-        # echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
+        echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
         ENSEMBLE_DIR=$MODELS_DIR/downsample_${DOWNSAMPLE_ARR[$p]}
-        OUTDIR=$ENSEMBLE_DIR/ensemble_distilled
+        OUTDIR=$ENSEMBLE_DIR/ensemble_distilled_new
         mkdir -p $OUTDIR
-        echo "downsample p = ${DOWNSAMPLE_ARR[$p]} && python train_DeepSTARR.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --distill $ENSEMBLE_DIR/distilled_y_train.npy"
+        echo "python train_DeepSTARR.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --distill $ENSEMBLE_DIR/ensemble_avg_y_train.npy --downsample ${DOWNSAMPLE_ARR[$p]}"
     done | simple_gpu_scheduler --gpus 4,5,6,7 
 done 
 

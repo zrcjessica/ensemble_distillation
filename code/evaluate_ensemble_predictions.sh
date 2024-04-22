@@ -1,6 +1,6 @@
 # runs ensemble_predict_DeepSTARR.py in eval mode 
 
-DOWNSAMPLED=false # toggle true/false to evaluate models trained on downsampled data
+DOWNSAMPLED=true # toggle true/false to evaluate models trained on downsampled data
 MODEL_DIR=../results/DeepSTARR_lr-decay
 N_MODS=10
 DATA=../data/DeepSTARR/Sequences_activity_all.h5
@@ -17,8 +17,8 @@ if [ "$DOWNSAMPLED" = true ]; then
 		echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
 		for i in $(seq 1 $N_MODS)
 		do 
-			CUDA_VISIBLE_DEVICES=4,5 python ensemble_predict_DeepSTARR.py --model_dir ${MODEL_DIR}/downsample_${DOWNSAMPLE_ARR[$p]} --n_mods $N_MODS --data $DATA --eval
-		done 
+			echo "python ensemble_predict_DeepSTARR.py --model_dir ${MODEL_DIR}/downsample_${DOWNSAMPLE_ARR[$p]} --n_mods $N_MODS --data $DATA --eval"
+		done | simple_gpu_scheduler --gpus 4,5
 	done 
 else
 	CUDA_VISIBLE_DEVICES=4,5 python ensemble_predict_DeepSTARR.py --model_dir $MODEL_DIR --n_mods $N_MODS --data $DATA --eval

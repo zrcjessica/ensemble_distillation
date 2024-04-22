@@ -15,6 +15,10 @@ import numpy as np
 
 '''
 train an ensemble of DeepSTARR models
+--downsample flag allows models to be trained with a subset of training data
+--distill flag determines if a distilled model is trained (using ensemble average of training data)
+--predict_std flag determines whether model will be trained to predict standard deviation as well as mean
+--evoaug flag determines whether model will be trained w/ evoaug augmentations
 '''
 
 def parse_args():
@@ -41,16 +45,23 @@ def parse_args():
                         help='project name for wandb')
     parser.add_argument("--config", type=str,
                         help='path to wandb config (yaml)')
-    # parser.add_argument("--distill", type=str, default=None,
-    #                     help='if provided, trains a distilled model using distilled training data')
-    parser.add_argument("--distill", action='store_true',
-                        help='if set, train distilled DeepSTARR models')
+    parser.add_argument("--distill", type=str, default=None,
+                        help='if provided, trains a   model using distilled training data')
+    # parser.add_argument("--distill", action='store_true',
+    #                     help='if set, train distilled DeepSTARR models')
     parser.add_argument("--k", type=int, default=1,
                         help='factor for adjusting number of parameters in hidden layers')
     parser.add_argument("--predict_std", action='store_true',
                         help='if set, predict ensemble stdev in addition to mean; distill flag must be set as well')
+    parser.add_argument("--evoaug", action='store_true',
+                        help='if set, train models with evoaug')
     args = parser.parse_args()
     return args
+
+def eval_performance(model, X_test, y_test, args, outfh):
+    y_pred = model.predict(X_test)
+    aug_results = utils.summarise_DeepSTARR_performance(y_pred, y_test, args.predict_std)
+    aug_results.to_csv(outfh, index=False)
 
 def main(args):
 
@@ -61,21 +72,24 @@ def main(args):
 
     # load data from h5
     X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data, 
-                                                                               ensemble=args.distill, 
+                                                                            #    ensemble=args.distill, 
                                                                                std=args.predict_std)
-
-    # # for training an ensemble distilled model
-    # if args.distill is not None:
-    #     y_train = np.load(args.distill)
-    #     wandb.config['distilled'] = True
-    if args.distill != wandb.config['distill']:
-        wandb.config.update({'distill':args.distill}, allow_val_change=True)
-        
     # downsample training data
     if args.downsample != wandb.config['downsample']:
-        X_train, y_train = utils.downsample(X_train, y_train, args.downsample)
         wandb.config.update({'downsample':args.downsample}, allow_val_change=True)
-    
+        if args.downsample<1:
+            X_train, y_train = utils.downsample(X_train, y_train, args.downsample)
+        
+    # for training an ensemble distilled model
+    # if args.distill != wandb.config['distill']:
+    if args.distill is not None:
+        wandb.config.update({'distill':True}, allow_val_change=True)
+        y_train = np.load(args.distill)
+        assert(X_train.shape[0]==y_train.shape[0])
+        if args.predict_std != wandb.config['std']:
+            # predict std
+            wandb.config.update({'std':args.predict_std}, allow_val_change=True)
+
     # adjust k in yaml 
     if args.k != wandb.config['k']:
         wandb.config.update({'k':args.k}, allow_val_change=True)
@@ -84,8 +98,25 @@ def main(args):
     if args.first_activation != wandb.config['first_activation']:
         wandb.config.update({'first_activation':args.first_activation}, allow_val_change=True)
 
-    # create model 
-    model = DeepSTARR(X_train[0].shape, wandb.config, args.predict_std)
+    # create model
+    model = None
+    augment_list = None
+    if args.evoaug:
+        import evoaug_tf
+        from evoaug_tf import evoaug, augment
+        augment_list = [
+            # augment.RandomRC(rc_prob=0.5),
+            augment.RandomInsertionBatch(insert_min=0, insert_max=20),
+            augment.RandomDeletion(delete_min=0, delete_max=30),
+            augment.RandomTranslocationBatch(shift_min=0, shift_max=20)
+            # augment.RandomNoise(noise_mean=0, noise_std=0.3),
+            # augment.RandomMutation(mutate_frac=0.05)
+        ]   
+        wandb.config.update({'evoaug':True}, allow_val_change=True)
+        wandb.config['finetune'] = False
+        model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, augment_list=augment_list, max_augs_per_seq=1, hard_aug=True, config=wandb.config, predict_std=args.predict_std)
+    else:
+        model = DeepSTARR(X_train[0].shape, wandb.config, args.predict_std)
 
     # compile model
     model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])
@@ -99,11 +130,6 @@ def main(args):
     if wandb.config['early_stopping']:
         es_callback = EarlyStopping(patience=wandb.config['es_patience'], verbose=1, mode='min', restore_best_weights=True)
         callbacks_list.append(es_callback)
-
-    # if args.early_stopping:    
-    #     es_callback = EarlyStopping(patience=10, verbose=1, mode='min', restore_best_weights=True)
-    #     callbacks_list.append(es_callback)
-    #     wandb.config.update({'early_stopping': True, 'es_patience': 10})
 
     if args.lr_decay:
         lr_decay_callback = ReduceLROnPlateau(monitor='val_loss',
@@ -121,21 +147,53 @@ def main(args):
                         epochs=wandb.config['epochs'],
                         validation_data=(X_val, y_val),
                         callbacks=callbacks_list) 
+    if args.evoaug:
+        # save weights
+        save_path = join(args.out, f"{args.ix}_DeepSTARR_aug_weights.h5")
+        model.save_weights(save_path)
+        # save history
+        with open(join(args.out, str(args.ix) + "_historyDict_aug"), 'wb') as pickle_fh:
+            pickle.dump(history.history, pickle_fh)
+        
+        # evaluate best model (and save)
+        eval_performance(model, X_test, y_test, args, join(args.out, f'{args.ix}_performance_aug.csv'))
 
-    # evaluate model performance
-    y_pred = model.predict(X_test)
-    performance = utils.summarise_DeepSTARR_performance(y_pred, y_test, args.predict_std)
-    performance.to_csv(join(args.out, str(args.ix) + "_performance.csv"),
-                       index=False)
+        ### fine tune model (w/o augmentations)
+        wandb.config.update({'finetune':True}, allow_val_change=True)
+        finetune_epochs = 10
+        wandb.config['finetune_epochs']=finetune_epochs
+        model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, augment_list=augment_list, max_augs_per_seq=2, hard_aug=True, config=wandb.config, predict_std=args.predict_std)
+        model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])
+        model.load_weights(save_path)
+        model.finetune_mode()
+        # train
+        history = model.fit(X_train, y_train, 
+                        batch_size=wandb.config['batch_size'], 
+                        epochs=finetune_epochs,
+                        validation_data=(X_val, y_val),
+                        callbacks=callbacks_list) 
+        # save model and history
+        model.save_weights(join(args.out, f"{args.ix}_DeepSTARR_finetune.h5"))
+        with open(join(args.out, f"{args.ix}_historyDict_finetune"), 'wb') as pickle_fh:
+            pickle.dump(history.history, pickle_fh)
+        # evaluate model performance
+        eval_performance(model, X_test, y_test, args, join(args.out, f'{args.ix}_performance_finetune.csv'))
+    else:
+        # evaluate model performance
+        eval_performance(model, X_test, y_test, args, join(args.out, str(args.ix) + "_performance.csv"))
+        # y_pred = model.predict(X_test)
+        # performance = utils.summarise_DeepSTARR_performance(y_pred, y_test, args.predict_std)
+        # performance.to_csv(join(args.out, str(args.ix) + "_performance.csv"),
+        #                 index=False)
     
-    # plot loss curves and spearman correlation over training epochs and save 
-    if args.plot:
-        plotting.plot_loss(history, join(args.out, str(args.ix) + "_loss_curves.png"))
+        # plot loss curves and spearman correlation over training epochs and save 
+        if args.plot:
+            plotting.plot_loss(history, join(args.out, str(args.ix) + "_loss_curves.png"))
 
-    # save model and history
-    model.save(join(args.out, str(args.ix) + "_DeepSTARR.h5"))
-    with open(join(args.out, str(args.ix) + "_historyDict"), 'wb') as pickle_fh:
-        pickle.dump(history.history, pickle_fh)
+        # save model and history
+        model.save(join(args.out, str(args.ix) + "_DeepSTARR.h5"))
+        with open(join(args.out, str(args.ix) + "_historyDict"), 'wb') as pickle_fh:
+            pickle.dump(history.history, pickle_fh)
 
     # save updated config as yaml
     with open(join(args.out, "config.yaml"), 'w') as f:

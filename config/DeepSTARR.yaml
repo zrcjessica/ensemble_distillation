@@ -38,7 +38,7 @@ k:
   value: 1
 downsample:
   desc: Downsample training data ([0, 1])
-  value: 1
+  value: 1.0
 n_conv:
   desc: Number of convolutional layers in model
   value: 4
@@ -75,7 +75,12 @@ dense_kernels1:
 dense_kernels2:
   desc: Number of neurons in second dense layer
   value: 256
-
+std:
+  desc: If true, predict standard deviation 
+  value: false
+evoaug:
+  desc: If true, train w/ EvoAug
+  value: false
 
 
 

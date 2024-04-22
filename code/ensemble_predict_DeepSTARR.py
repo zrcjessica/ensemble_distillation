@@ -33,6 +33,8 @@ def parse_args():
                         help='if set, writes average predictions on train set (X_train) to file (ensemble_avg_y_train.npy)')
     parser.add_argument("--std", action='store_true',
                         help='if set, also evaluate performance on std predictions')
+    parser.add_argument("--downsample", type=float,
+                        help='if set, downsample training data')
     # parser.add_argument("--set", default='test',
     #                     help='one of train/test/val; determine which set of data to make predictions on')
     args = parser.parse_args()
@@ -42,6 +44,11 @@ def main(args):
 
     # load data from h5
     X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data, std=args.std)
+    if args.distill and args.downsample:
+        # downsample training data
+        X_train, y_train = utils.downsample(X_train, y_train, args.downsample)
+        print(f'number of training samples after downsampling: {X_train.shape[0]}')
+
     # data_dict = utils.load_DeepSTARR_data(args.data, std=args.std, dict=True)
 
     # collect cumsum of predictions from each model in ensemble
@@ -67,6 +74,11 @@ def main(args):
             preds = model.predict(X_train)
         else:
             preds = model.predict(X_test)
+            if args.plot:
+                # plot pred vs. true
+                plotting.prediction_scatterplot(preds, y_test,
+                                                colnames=['Hk','Dev','Hk-std','Dev-std'][:(preds.shape[-1])],
+                                                outfh=join(outdir, f'{i+1}_pred_scatterplot.png'))
         # preds = model.predict(data_dict[args.set]['X'])
         cumsum += preds
     
@@ -81,7 +93,7 @@ def main(args):
             # plot average predictions against true values 
             plotting.prediction_scatterplot(avg_pred, y_test, 
                                             colnames=['Hk','Dev', 'Hk-std', 'Dev-std'][:(avg_pred.shape[-1])], 
-                                            outfh=join(outdir, "pred_scatterplot.png"))
+                                            outfh=join(outdir, "avg_pred_scatterplot.png"))
 
     if args.distill:
         # save average predictions on X_train to file and use for training distilled model
