@@ -1,11 +1,16 @@
 # train an ensemble distilled DeepSTARR model for downsample =0.25, model_ix=9 (originally failed)
 
 N_MODS=10
-# DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 )
+DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 )
 MODELS_DIR=../results/DeepSTARR_lr-decay
 DATA=../data/DeepSTARR/Sequences_activity_all.h5
 CONFIG=../config/DeepSTARR.yaml
 PROJECT_NAME=DeepSTARR_ensemble # for wandb logger
+EVOAUG=true
+
+if [ "$EVOAUG" = true ]; then
+	ENSEMBLE_DIR=../results/DeepSTARR_evoaug
+fi
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 
