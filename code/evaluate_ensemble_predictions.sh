@@ -14,12 +14,9 @@ if [ "$DOWNSAMPLED" = true ]; then
 	DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 )
 	for p in "${!DOWNSAMPLE_ARR[@]}"
 	do
-		echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
-		for i in $(seq 1 $N_MODS)
-		do 
-			echo "python ensemble_predict_DeepSTARR.py --model_dir ${MODEL_DIR}/downsample_${DOWNSAMPLE_ARR[$p]} --n_mods $N_MODS --data $DATA --eval"
-		done | simple_gpu_scheduler --gpus 4,5
-	done 
+		# echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
+		echo "python ensemble_predict_DeepSTARR.py --model_dir ${MODEL_DIR}/downsample_${DOWNSAMPLE_ARR[$p]} --n_mods $N_MODS --data $DATA --eval"
+	done | simple_gpu_scheduler --gpus 4,5
 else
 	CUDA_VISIBLE_DEVICES=4,5 python ensemble_predict_DeepSTARR.py --model_dir $MODEL_DIR --n_mods $N_MODS --data $DATA --eval
 fi 

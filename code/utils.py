@@ -12,6 +12,11 @@ from tensorflow import Variable
 import keras
 import gc
 np.random.seed(1)
+from keras.optimizers import Adam
+from model_zoo import DeepSTARR
+import evoaug_tf
+from evoaug_tf import evoaug, augment
+import yaml
 
 def parse_data_dict(X_train, y_train, X_test, y_test, X_val, y_val):
     '''
@@ -366,3 +371,15 @@ def attribution_analysis(model, seqs, method, enhancer='Dev', ref_size=100, back
 #     all_results.reset_index(drop=True, inplace=True)
 #     all_results['downsample'] = downsample
 #     return all_results
+
+def load_model_from_weights(weights, input_shape, augment_list, config_file, predict_std, with_evoaug=True):
+    config = yaml.safe_load(open(config_file, 'r'))
+    model = None
+    if with_evoaug:
+        model = evoaug.RobustModel(DeepSTARR, input_shape=input_shape, augment_list=augment_list, max_augs_per_seq=1, hard_aug=True, config=config, predict_std=predict_std)
+    else:
+        model = DeepSTARR(input_shape, config, predict_std)
+    model.compile(optimizer=Adam(learning_rate=config['optim_lr']),
+                  loss=config['loss_fxn'])
+    model.load_weights(weights)
+    return model

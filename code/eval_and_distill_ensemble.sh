@@ -23,10 +23,7 @@ if [ "$DOWNSAMPLED" = true ]; then
 	for p in "${!DOWNSAMPLE_ARR[@]}"
 	do
 		echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
-		for i in $(seq 1 $N_MODS)
-		do 
-			CUDA_VISIBLE_DEVICES=4 python ensemble_predict_DeepSTARR.py --model_dir ${MODEL_DIR}/downsample_${DOWNSAMPLE_ARR[$p]} --n_mods $N_MODS --data $DATA --distill --eval --downsample ${DOWNSAMPLE_ARR[$p]}
-		done 
+		CUDA_VISIBLE_DEVICES=4 python ensemble_predict_DeepSTARR.py --model_dir ${MODEL_DIR}/downsample_${DOWNSAMPLE_ARR[$p]} --n_mods $N_MODS --data $DATA --distill --eval --downsample ${DOWNSAMPLE_ARR[$p]} 
 	done 
 else
 	CUDA_VISIBLE_DEVICES=4 python ensemble_predict_DeepSTARR.py --model_dir $MODEL_DIR --n_mods $N_MODS --data $DATA --distill --eval

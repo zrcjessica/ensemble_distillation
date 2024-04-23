@@ -37,6 +37,10 @@ def parse_args():
                         help='if set, downsample training data')
     # parser.add_argument("--set", default='test',
     #                     help='one of train/test/val; determine which set of data to make predictions on')
+    parser.add_argument("--evoaug", action='store_true',
+                        help='set if working with models trained w/ EvoAug')
+    parser.add_argument("--config", default=None,
+                        help='provide if --evoaug flag set; needed to load model from weights')
     args = parser.parse_args()
     return args
 
@@ -52,7 +56,7 @@ def main(args):
     # data_dict = utils.load_DeepSTARR_data(args.data, std=args.std, dict=True)
 
     # collect cumsum of predictions from each model in ensemble
-    cumsum = 0
+    train_cumsum, test_cumsum = 0, 0
 
     # if no output directory is specified, use same as model_dir
     outdir = args.out
@@ -67,37 +71,53 @@ def main(args):
         gc.collect()
 
         # load model and predict 
-        model = load_model(join(args.model_dir, str(i+1) + "_DeepSTARR.h5"))
-        preds = 0
+        model = None
+        if args.evoaug:
+            import evoaug_tf
+            from evoaug_tf import evoaug, augment
+            augment_list = [
+                augment.RandomInsertionBatch(insert_min=0, insert_max=20),
+                augment.RandomDeletion(delete_min=0, delete_max=30),
+                augment.RandomTranslocationBatch(shift_min=0, shift_max=20)
+            ]   
+            model = utils.load_model_from_weights(weights=join(args.model_dir, str(i+1) + "_DeepSTARR_finetune.h5"), 
+                                                  input_shape=X_train[0].shape, 
+                                                  augment_list=augment_list, 
+                                                  config_file=args.config, 
+                                                  predict_std=args.std)
+        else:
+            model = load_model(join(args.model_dir, str(i+1) + "_DeepSTARR.h5"))
+        train_preds, test_preds = 0, 0
         if args.distill:
             # predict on train data to generate training data for distillation
-            preds = model.predict(X_train)
-        else:
-            preds = model.predict(X_test)
+            train_preds = model.predict(X_train)
+            train_cumsum += train_preds
+        if args.eval:
+            test_preds = model.predict(X_test)
             if args.plot:
                 # plot pred vs. true
-                plotting.prediction_scatterplot(preds, y_test,
-                                                colnames=['Hk','Dev','Hk-std','Dev-std'][:(preds.shape[-1])],
+                plotting.prediction_scatterplot(test_preds, y_test,
+                                                colnames=['Hk','Dev','Hk-std','Dev-std'][:(test_preds.shape[-1])],
                                                 outfh=join(outdir, f'{i+1}_pred_scatterplot.png'))
-        # preds = model.predict(data_dict[args.set]['X'])
-        cumsum += preds
+            test_cumsum += test_preds
     
     # calculate average across ensemble predictions
-    avg_pred = cumsum/args.n_mods 
+    avg_train_pred = train_cumsum/args.n_mods 
+    avg_test_pred = test_cumsum/args.n_mods
 
     if args.eval:
         # evaluate performance + write to file
-        performance = utils.summarise_DeepSTARR_performance(avg_pred, y_test, args.std)
+        performance = utils.summarise_DeepSTARR_performance(avg_test_pred, y_test, args.std)
         performance.to_csv(join(outdir, "ensemble_performance_avg.csv"), index=False)
         if args.plot:
             # plot average predictions against true values 
-            plotting.prediction_scatterplot(avg_pred, y_test, 
-                                            colnames=['Hk','Dev', 'Hk-std', 'Dev-std'][:(avg_pred.shape[-1])], 
+            plotting.prediction_scatterplot(avg_test_pred, y_test, 
+                                            colnames=['Hk','Dev', 'Hk-std', 'Dev-std'][:(avg_test_pred.shape[-1])], 
                                             outfh=join(outdir, "avg_pred_scatterplot.png"))
 
     if args.distill:
         # save average predictions on X_train to file and use for training distilled model
-        np.save(join(outdir, "ensemble_avg_y_train.npy"), avg_pred)
+        np.save(join(outdir, "ensemble_avg_y_train.npy"), avg_train_pred)
 
 if __name__ == "__main__":
     args = parse_args()

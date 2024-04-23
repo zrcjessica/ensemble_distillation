@@ -81,7 +81,6 @@ def main(args):
             X_train, y_train = utils.downsample(X_train, y_train, args.downsample)
         
     # for training an ensemble distilled model
-    # if args.distill != wandb.config['distill']:
     if args.distill is not None:
         wandb.config.update({'distill':True}, allow_val_change=True)
         y_train = np.load(args.distill)
@@ -102,6 +101,7 @@ def main(args):
     model = None
     augment_list = None
     if args.evoaug:
+        # for training w/ evoaug
         import evoaug_tf
         from evoaug_tf import evoaug, augment
         augment_list = [
@@ -116,14 +116,15 @@ def main(args):
         wandb.config['finetune'] = False
         model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, augment_list=augment_list, max_augs_per_seq=1, hard_aug=True, config=wandb.config, predict_std=args.predict_std)
     else:
+        # training w/o evoaug
         model = DeepSTARR(X_train[0].shape, wandb.config, args.predict_std)
 
-    # compile model
-    model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])
-    
     # update lr in config if different value provided to input
     if args.lr != wandb.config['optim_lr']:
         wandb.config.update({'optim_lr':args.lr}, allow_val_change=True)
+
+    # compile model
+    model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])
 
     # define callbacks
     callbacks_list = [WandbMetricsLogger()]
@@ -132,6 +133,7 @@ def main(args):
         callbacks_list.append(es_callback)
 
     if args.lr_decay:
+        # train w/ LR decay
         lr_decay_callback = ReduceLROnPlateau(monitor='val_loss',
                                               factor=0.2,
                                               patience=5,
@@ -181,10 +183,6 @@ def main(args):
     else:
         # evaluate model performance
         eval_performance(model, X_test, y_test, args, join(args.out, str(args.ix) + "_performance.csv"))
-        # y_pred = model.predict(X_test)
-        # performance = utils.summarise_DeepSTARR_performance(y_pred, y_test, args.predict_std)
-        # performance.to_csv(join(args.out, str(args.ix) + "_performance.csv"),
-        #                 index=False)
     
         # plot loss curves and spearman correlation over training epochs and save 
         if args.plot:
