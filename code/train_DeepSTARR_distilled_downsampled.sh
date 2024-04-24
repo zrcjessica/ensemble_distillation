@@ -1,7 +1,8 @@
 # train an ensemble distilled DeepSTARR model for all downsampled ensembles using distilled training data
 
 N_MODS=10
-DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 )
+# DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 )
+DOWNSAMPLE_ARR=( 0.5 )
 MODELS_DIR=../results/DeepSTARR_lr-decay
 DATA=../data/DeepSTARR/Sequences_activity_all.h5
 CONFIG=../config/DeepSTARR.yaml
