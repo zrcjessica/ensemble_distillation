@@ -28,13 +28,13 @@ def parse_args():
     parser.add_argument("--eval", action='store_true',
                         help='if set, evaluates average predictions and saves to file (ensemble_performance_avg.csv)')
     parser.add_argument("--plot", action='store_true',
-                        help='if set, generate scatterplots comparing predictions with ground truth')
+                        help='if set, generate scatterplots comparing predictions with ground truth (only used in eval mode)')
     parser.add_argument("--distill", action='store_true',
                         help='if set, writes average predictions on train set (X_train) to file (ensemble_avg_y_train.npy)')
     parser.add_argument("--std", action='store_true',
                         help='if set, also evaluate performance on std predictions')
     parser.add_argument("--downsample", type=float,
-                        help='if set, downsample training data')
+                        help='if set, downsample training data (only used if in distill mode)')
     # parser.add_argument("--set", default='test',
     #                     help='one of train/test/val; determine which set of data to make predictions on')
     parser.add_argument("--evoaug", action='store_true',

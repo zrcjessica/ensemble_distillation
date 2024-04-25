@@ -9,8 +9,8 @@ DATA=../data/DeepSTARR/Sequences_activity_all.h5
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 
 if [ "$DOWNSAMPLED" = true ]; then
-	# DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 )
-	DOWNSAMPLE_ARR=( 0.5 )
+	DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 )
+	# DOWNSAMPLE_ARR=( 0.5 )
 	for p in "${!DOWNSAMPLE_ARR[@]}"
 	do
 		# echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
