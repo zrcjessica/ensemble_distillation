@@ -1,8 +1,8 @@
 # runs ensemble_predict_DeepSTARR.py in eval mode only
-# for non-distilled models
+# for distilled models
 
 ### bool flags
-DOWNSAMPLED=true # toggle true/false to evaluate models trained on downsampled data
+DOWNSAMPLED=false # toggle true/false to evaluate models trained on downsampled data
 EVOAUG=true # toggle true/false for models trained w/ evoaug
 
 ### run variables
@@ -22,19 +22,18 @@ if [ "$DOWNSAMPLED" = true ]; then
 	DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 )
 	for p in "${!DOWNSAMPLE_ARR[@]}"
 	do
-		# echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
 		if [ "$EVOAUG" = true ]; then 
 			echo "python ensemble_predict_DeepSTARR.py \
-					--model_dir ${MODEL_DIR}/downsample_${DOWNSAMPLE_ARR[$p]} \
+					--model_dir ${MODEL_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}/ensemble_distilled \
 					--n_mods $N_MODS \
 					--data $DATA \
 					--eval \
 					--plot \
 					--evoaug \
-					--config ${MODEL_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}/config.yaml"
+					--config ${MODEL_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}/ensemble_distilled/config.yaml"
 		else
 			echo "python ensemble_predict_DeepSTARR.py \
-					--model_dir ${MODEL_DIR}/downsample_${DOWNSAMPLE_ARR[$p]} \
+					--model_dir ${MODEL_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}/ensemble_distilled \
 					--n_mods $N_MODS \
 					--data $DATA \
 					--eval \
@@ -43,9 +42,9 @@ if [ "$DOWNSAMPLED" = true ]; then
 	done | simple_gpu_scheduler --gpus 1,2,3,4
 else
 	if [ "$EVOAUG" = true ]; then 
-		CUDA_VISIBLE_DEVICES=4,5 python ensemble_predict_DeepSTARR.py --model_dir $MODEL_DIR --n_mods $N_MODS --data $DATA --eval --plot --evoaug --config ${MODEL_DIR}/config.yaml
+		CUDA_VISIBLE_DEVICES=4,5 python ensemble_predict_DeepSTARR.py --model_dir ${MODEL_DIR}/ensemble_distilled --n_mods $N_MODS --data $DATA --eval --plot --evoaug --config ${MODEL_DIR}/ensemble_distilled/config.yaml
 	else
-		CUDA_VISIBLE_DEVICES=4,5 python ensemble_predict_DeepSTARR.py --model_dir $MODEL_DIR --n_mods $N_MODS --data $DATA --eval --plot 
+		CUDA_VISIBLE_DEVICES=4,5 python ensemble_predict_DeepSTARR.py --model_dir ${MODEL_DIR}/ensemble_distilled --n_mods $N_MODS --data $DATA --eval --plot 
 	fi
 fi 
 
@@ -55,15 +54,15 @@ if command -v 'slack' &>/dev/null; then
     if [ "$exit_code" -eq 0 ]; then
 		if [ "$DOWNSAMPLED" = true ]; then
 			if [ "$EVOAUG" = true ]; then
-				slack "running ensemble_predict_DeepSTARR.py on $MODEL_DIR (downsampled, trained with EvoAug) in eval mode completed successfully" &>/dev/null 
+				slack "running ensemble_predict_DeepSTARR.py on distilled $MODEL_DIR (downsampled, trained with EvoAug) in eval mode completed successfully" &>/dev/null 
 			else
-				slack "running ensemble_predict_DeepSTARR.py on $MODEL_DIR (downsampled) in eval mode completed successfully" &>/dev/null
+				slack "running ensemble_predict_DeepSTARR.py on distilled $MODEL_DIR (downsampled) in eval mode completed successfully" &>/dev/null
 			fi
 		else
 			if [ "$EVOAUG" = true ]; then 
-				slack "running ensemble_predict_DeepSTARR.py for $MODEL_DIR (full, trained with EvoAug) in eval mode completed successfully" &>/dev/null
+				slack "running ensemble_predict_DeepSTARR.py for distilled $MODEL_DIR (full, trained with EvoAug) in eval mode completed successfully" &>/dev/null
 			else	
-				slack "running ensemble_predict_DeepSTARR.py for $MODEL_DIR (full) in eval mode completed successfully" &>/dev/null
+				slack "running ensemble_predict_DeepSTARR.py for distilled $MODEL_DIR (full) in eval mode completed successfully" &>/dev/null
 			fi
 		fi
 	else
