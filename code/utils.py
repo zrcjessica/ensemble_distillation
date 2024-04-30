@@ -7,6 +7,7 @@ from os.path import basename
 from os.path import join
 import glob
 import shap # shap must be imported before keras
+import tensorflow as tf
 from tensorflow import GradientTape
 from tensorflow import Variable
 import keras
@@ -309,6 +310,20 @@ def dinuc_shuffle(seq, num_shufs=None, rng=None):
             all_results[i] = tokens_to_one_hot(chars[result], one_hot_dim)
     return all_results if num_shufs else all_results[0]
 
+def _pad_end(x, insert_max=20):
+        """Add random DNA padding of length insert_max to the end of each sequence in batch.
+        for saliency analysis with EvoAug models"""
+
+        N = tf.shape(x)[0]
+        L = tf.shape(x)[1]
+        A = tf.cast(tf.shape(x)[2], dtype = tf.float32)
+        p = tf.ones((A,)) / A
+        padding = tf.transpose(tf.gather(tf.eye(A), tf.random.categorical(tf.math.log([p] * insert_max), N)), perm=[1,0,2])
+
+        half = int(insert_max/2)
+        x_padded = tf.concat([padding[:,:half,:], x, padding[:,half:,:]], axis=1)
+        return x_padded
+    
 def attribution_analysis(model, seqs, method, enhancer='Dev', ref_size=100, background=None):
     '''
     returns attribution maps for model and seqs based on method (saliency/shap)
@@ -319,8 +334,11 @@ def attribution_analysis(model, seqs, method, enhancer='Dev', ref_size=100, back
     if method == 'saliency':
         # saliency analysis
         with GradientTape() as tape:
-            seqs = Variable(seqs)
+            if model.insert_max != 0:
+                seqs = _pad_end(seqs)
+            seqs = Variable(seqs, dtype='float32')
             preds = model(seqs, training=False)
+            # preds = model.predict(seqs)
             loss = preds[:,0 if enhancer=='Dev' else 1]
         return tape.gradient(loss, seqs)
     else:
@@ -373,7 +391,9 @@ def attribution_analysis(model, seqs, method, enhancer='Dev', ref_size=100, back
 #     return all_results
 
 def load_model_from_weights(weights, input_shape, augment_list, config_file, predict_std, with_evoaug=True):
+    print(config_file)
     config = yaml.safe_load(open(config_file, 'r'))
+    print(config)
     model = None
     if with_evoaug:
         model = evoaug.RobustModel(DeepSTARR, input_shape=input_shape, augment_list=augment_list, max_augs_per_seq=1, hard_aug=True, config=config, predict_std=predict_std)

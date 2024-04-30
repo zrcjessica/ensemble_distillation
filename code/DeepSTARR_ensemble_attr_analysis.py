@@ -37,6 +37,10 @@ def parse_args():
                         help='set if method=shap; if true, use dinucleotide shuffled seqs for shap reference per sequence')
     parser.add_argument("--ref_size", default=100, type=int,
                         help='set if method=shap; size of reference set')
+    parser.add_argument("--evoaug", action='store_true',
+                        help='set when using models trained w/ EvoAug')
+    parser.add_argument("--config", default=None,
+                        help='provide if --evoaug flag set; needed to load model from weights')
     parser.add_argument("--std", action='store_true',
                         help='if true, model predicts standard deviation')
     args = parser.parse_args()
@@ -59,6 +63,7 @@ def main(args):
 
     # parse sequences to perform attribution analysis on
     examples = X_test[top_ix]
+
     # if args.method == 'saliency':
     #     # instantiate Variable class of examples to analyze
     #     examples = Variable(X_test[top_ix])
@@ -84,7 +89,21 @@ def main(args):
         gc.collect()
 
         # load model 
-        model = load_model(join(args.model_dir, str(i+1) + "_DeepSTARR.h5"))
+        if args.evoaug:
+            import evoaug_tf
+            from evoaug_tf import evoaug, augment
+            augment_list = [
+                augment.RandomInsertionBatch(insert_min=0, insert_max=20),
+                augment.RandomDeletion(delete_min=0, delete_max=30),
+                augment.RandomTranslocationBatch(shift_min=0, shift_max=20)
+            ]   
+            model = utils.load_model_from_weights(weights=join(args.model_dir, str(i+1) + "_DeepSTARR_finetune.h5"), 
+                                                  input_shape=X_train[0].shape, 
+                                                  augment_list=augment_list, 
+                                                  config_file=args.config, 
+                                                  predict_std=args.std)
+        else:
+            model = load_model(join(args.model_dir, str(i+1) + "_DeepSTARR.h5"))
         
         # calculate gradients depending on which method is specified
         grads = utils.attribution_analysis(model, examples, args.method, 
@@ -110,6 +129,7 @@ def main(args):
     if args.average:
         avg_pred = cumsum/args.n_mods 
         if args.dinuc_shuffle:
+            assert((args.dinuc_shuffle and args.method=='saliency') is not True) # make sure dinuc_shuffle is not set with saliency
             np.save(file=join(outdir, "average_top" + str(args.top_n) + f"_{args.method}_dinuc_shuffle.npy"), 
                 arr=avg_pred)
         else:

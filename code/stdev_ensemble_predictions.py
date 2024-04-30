@@ -20,6 +20,10 @@ def parse_args():
                         help="output directory to save results")
     parser.add_argument("--data", type=str,
                         help='h5 file containing original train/val/test data')
+    parser.add_argument("--evoaug", action='store_true',
+                        help='set when using models trained w/ EvoAug')
+    parser.add_argument("--config", default=None,
+                        help='provide if --evoaug flag set; needed to load model from weights')
     args = parser.parse_args()
     return args
 
@@ -45,8 +49,25 @@ def main(args):
         keras.backend.clear_session()
         gc.collect()
 
-        # load model and predict on test data
-        model = load_model(join(args.model_dir, str(i+1) + "_DeepSTARR.h5"))
+        # load model 
+        if args.evoaug:
+            import evoaug_tf
+            from evoaug_tf import evoaug, augment
+            augment_list = [
+                augment.RandomInsertionBatch(insert_min=0, insert_max=20),
+                augment.RandomDeletion(delete_min=0, delete_max=30),
+                augment.RandomTranslocationBatch(shift_min=0, shift_max=20)
+            ]   
+            model = utils.load_model_from_weights(weights=join(args.model_dir, str(i+1) + "_DeepSTARR_finetune.h5"), 
+                                                  input_shape=X_train[0].shape, 
+                                                  augment_list=augment_list, 
+                                                  config_file=args.config, 
+                                                  predict_std=False)
+        else:
+            model = load_model(join(args.model_dir, str(i+1) + "_DeepSTARR.h5"))
+
+        # # load model and predict on test data
+        # model = load_model(join(args.model_dir, str(i+1) + "_DeepSTARR.h5"))
 
         # train
         ensemble_preds_train[i,:,:] = model.predict(X_train)
