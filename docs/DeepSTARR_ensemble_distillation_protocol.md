@@ -121,7 +121,7 @@ With saliency and SHAP.
 - `plot_saliency_rmse_for_evoaug_deepstarr.ipynb`: plot attribution score RMSE
 
 # 8. Get ensemble standard deviation 
-Get the ensemble standard deviation for all data (train/test/val) to train distilled models with uncertainty estimation. 
+Get the ensemble standard deviation for all data (train/test/val) to train and evaluate distilled models with uncertainty estimation. 
 
 ## Scripts
 - `stdev_ensemble_predictions.py`: make predictions on train/test/val data with DeepSTARR ensemble and save ensemble standard deviation to file

@@ -1,4 +1,4 @@
-# trains a single distilled DeepSTARR model that predicts uncertainty (stdev) and mean
+# trains a single distilled DeepSTARR model that predicts uncertainty (stdev) and mean w/ EvoAug
 
 OUTDIR=../results/DeepSTARR_evoaug/distilled_with_std
 DATA=../data/DeepSTARR/evoaug/all_data_with_ensemble_metrics_hierarchical.h5
