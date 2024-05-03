@@ -34,6 +34,7 @@ def load_DeepSTARR_data(file, std=False, dict=False):
     load Train/Test/Val data from DeepSTARR h5
     if ensemble=True, return ensemble mean for y_train 
     if std=True, append std values to y for train/test/val
+    if dict=True, return train/test/val data as a dictionary
     '''
     if 'hierarchical' in file:
         print('loading data from h5 file with hierarchical structure')
@@ -391,9 +392,7 @@ def attribution_analysis(model, seqs, method, enhancer='Dev', ref_size=100, back
 #     return all_results
 
 def load_model_from_weights(weights, input_shape, augment_list, config_file, predict_std, with_evoaug=True):
-    print(config_file)
     config = yaml.safe_load(open(config_file, 'r'))
-    print(config)
     model = None
     if with_evoaug:
         model = evoaug.RobustModel(DeepSTARR, input_shape=input_shape, augment_list=augment_list, max_augs_per_seq=1, hard_aug=True, config=config, predict_std=predict_std)
