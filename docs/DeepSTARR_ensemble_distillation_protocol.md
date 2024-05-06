@@ -28,6 +28,8 @@
 - [10. Train distilled model with stdev. prediction](#10-train-distilled-model-with-stdev-prediction)
   - [Scripts](#scripts-9)
 
+Note: all bash scripts use a Slack bot to message user upon completion. To use this feature, refer to the Slack docs: [Sending messages using incoming webhooks](https://api.slack.com/messaging/webhooks)
+
 # 1. Train replicates of original DeepSTARR model
 - on entire training dataset
 - on subsets of training dataset
