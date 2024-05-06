@@ -14,7 +14,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 # CUDA_VISIBLE_DEVICES=4,5 python train_DeepSTARR.py --ix 1 --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --distill --predict_std
 
 # train multiple replicates
-for i in $(seq 2 $NMODS)
+for i in $(seq 1 $NMODS)
 do 
 	echo "python train_DeepSTARR.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --distill --predict_std"
 done | simple_gpu_scheduler --gpus 0,1

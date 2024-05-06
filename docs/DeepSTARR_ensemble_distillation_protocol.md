@@ -24,6 +24,7 @@
   - [Scripts](#scripts-7)
 - [9. Make an h5 file that contains the DeepSTARR training data and the ensemble standard deviation](#9-make-an-h5-file-that-contains-the-deepstarr-training-data-and-the-ensemble-standard-deviation)
   - [Scripts](#scripts-8)
+  - [Outputs](#outputs-4)
 - [10. Train distilled model with stdev. prediction](#10-train-distilled-model-with-stdev-prediction)
   - [Scripts](#scripts-9)
 
@@ -32,14 +33,18 @@
 - on subsets of training dataset
 
 ## Scripts
-- `train_DeepSTARR.py`
-- `train_DeepSTARR_ensemble.sh`: for training on entire training dataset
-- `train_DeepSTARR_ensemble_downsampled.sh`: for training on subsets of the training dataset
+- `train_DeepSTARR.py`: train an ensemble of DeepSTARR models
+- `train_DeepSTARR_ensemble.sh`: runs `train_DeepSTARR.py`; for training on entire training dataset. Toggle `evoaug` variable to train with/without EvoAug.
+- `train_DeepSTARR_ensemble_downsampled.sh`: runs `train_DeepSTARR.py` with `--downsample` flag set to various values; for training on subsets of the training dataset. Toggle `evoaug` variable to train with/without EvoAug
+  
 ## Outputs
 - `[model_ix]_DeepSTARR.h5`: model saved to h5 file w/ `model.save()`
 - `[model_ix]_historyDict`: pickled model history (`history.history`)
 - `[model_ix]_performance.csv`: model performance on test set 
 - `[model_ix]_loss_curves.png` if run with `--plot` flag
+
+Outputs for downsampled models are saved in a subdirectory named according to downsampling proportion (as defined in bash script).
+
 ### Trained w/ EvoAug
 - `[model_ix]_DeepSTARR_aug_weights.h5`: weights of model trained w/ EvoAug (saved w/ `model.save_weights()`)
 - `[model_ix]_historyDict_aug`: pickled weights of augmented model 
@@ -79,7 +84,7 @@ Make predictions with the replicate models on the training dataset. If using a m
 
 # 4. Train distilled models 
 - trained on all training data
-- trained on subsets of training data (matching same subsampled seqs used to train downsampled ensembles)
+- trained on subsets of training data, specifically using the same samples in the subsets used to train the downsampled ensembles... the random seed set in line 15 of `utils.py` *should* account for this. 
 
 Requires output of step 2 (`ensemble_avg_y_train.npy`).
 
@@ -121,7 +126,7 @@ With saliency and SHAP.
 - `plot_saliency_rmse_for_evoaug_deepstarr.ipynb`: plot attribution score RMSE
 
 # 8. Get ensemble standard deviation 
-Get the ensemble standard deviation for all data (train/test/val) to train and evaluate distilled models with uncertainty estimation. 
+Get the ensemble standard deviation for all data (train/test/val) to train & evaluate distilled models with uncertainty estimation. 
 
 ## Scripts
 - `stdev_ensemble_predictions.py`: make predictions on train/test/val data with DeepSTARR ensemble and save ensemble standard deviation to file
@@ -131,10 +136,14 @@ Get the ensemble standard deviation for all data (train/test/val) to train and e
 This will be used to train distilled models with uncertainty estimation.
 
 ## Scripts
-- `parse_data.ipynb`: (in `data_preprocessing` dir)
+- `parse_DeepSTARR_data.ipynb`: (in `data_preprocessing` dir)
+
+## Outputs
+Currently using file `all_data_with_ensemble_metrics_hierarchical.h5`.
 
 # 10. Train distilled model with stdev. prediction
 
 ## Scripts
 - `train_stdev_DeepSTARR.py`: python script for training distilled model w/ stdev. prediction (modified from `train_DeepSTARR.py`)
-- `distill_evoaug_DeepSTARR_with_std.sh`: run `train_stdev_DeepSTARR.py`
+- `distill_evoaug_DeepSTARR_with_std.sh`: run `train_stdev_DeepSTARR.py` with `--evoaug` flag
+  

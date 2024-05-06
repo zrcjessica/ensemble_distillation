@@ -1,5 +1,6 @@
 /data
 /results
+/data_preprocess/parse_data.ipynb
 /notebooks
 /code/test.sh
 /code/train_without_scheduler.sh

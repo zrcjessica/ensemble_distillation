@@ -29,10 +29,41 @@ def parse_data_dict(X_train, y_train, X_test, y_test, X_val, y_val):
     data_dict['val'] = {'X':X_val, 'y':y_val}
     return data_dict
 
+def load_data(file, dset, std=False, dict=False):
+    '''
+    load Train/Test/Val splits for specified dset (DeepSTARR/lentiMPRA)    
+    if std=True, append std values to y for train/test/val
+    if dict=True, return train/test/val data as a dictionary
+    '''
+    assert(dset in ['DeepSTARR','lentiMPRA'])
+    if dset=='DeepSTARR':
+        return(load_DeepSTARR_data(file, std, dict))
+    else:
+        return(load_lentiMPRA_data(file))
+
+def load_lentiMPRA_data(file):
+    '''
+    load Train/Test/Val lentiMPRA data
+    '''
+    data = h5py.File(file, 'r')
+
+    # train
+    X_train = np.array(data['Train']['X'])
+    y_train = np.array(data['Train']['y'])
+
+    # test
+    X_test = np.array(data['Test']['X'])
+    y_test = np.array(data['Test']['y'])
+
+    # val
+    X_val = np.array(data['Val']['X'])
+    y_val = np.array(data['Val']['y'])
+
+    return X_train, y_train, X_test, y_test, X_val, y_val
+
 def load_DeepSTARR_data(file, std=False, dict=False):
     '''
     load Train/Test/Val data from DeepSTARR h5
-    if ensemble=True, return ensemble mean for y_train 
     if std=True, append std values to y for train/test/val
     if dict=True, return train/test/val data as a dictionary
     '''
@@ -113,15 +144,15 @@ def downsample(X_train, y_train, p, return_ix=False):
     else:
         return X_train[ix,:], y_train[ix,:]
 
-def downsample_eval(X_train, y_train, p):
-    '''
-    randomly downsample training data 
-    p = [0,1) determines proportion of training data to keep
-    '''
-    n_samples = X_train.shape[0]
-    n_downsample = round(n_samples*p)
-    ix = np.random.randint(0, n_samples, size=n_downsample)
-    return ix
+# def downsample_eval(X_train, y_train, p):
+#     '''
+#     randomly downsample training data 
+#     p = [0,1) determines proportion of training data to keep
+#     '''
+#     n_samples = X_train.shape[0]
+#     n_downsample = round(n_samples*p)
+#     ix = np.random.randint(0, n_samples, size=n_downsample)
+#     return ix
 
 def evaluate_performance(y_pred, y_truth):
     '''
@@ -132,12 +163,26 @@ def evaluate_performance(y_pred, y_truth):
     spearman = spearmanr(y_truth, y_pred)[0]
     return [mse, pearson, spearman]
 
+def summarise_lentiMPRA_performance(y_pred, y_truth, celltype, std=False):
+    '''
+    calculate MSE, Spearman + Pearson corr on test data
+    return summary as data frame
+    '''
+    performance_dict = {}
+    # calculate metrics for celltype
+    performance_dict[celltype] = evaluate_performance(y_pred[:,0], y_truth[:,0])
+    # calculate metrics for standard deviation predictions
+    if std:
+        performance_dict[f'{celltype}-std'] = evaluate_performance(y_pred[:,1], y_truth[:,1])
+    summary = pd.DataFrame(performance_dict)
+    summary['metric'] = ['MSE', 'Pearson', 'Spearman']
+    return summary
+
 def summarise_DeepSTARR_performance(y_pred, y_truth, std=False):
     '''
     calculate MSE, Spearman + Pearson corr on test data
     return summary for Dev + Hk as data frame
     '''
-
     performance_dict = {}
     # calculate metrics for Dev
     performance_dict['Dev'] = evaluate_performance(y_pred[:,0], y_truth[:,0])

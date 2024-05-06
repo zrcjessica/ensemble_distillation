@@ -1,0 +1,47 @@
+## Default values for training lentiMPRA model
+
+epochs:
+  desc: Number of epochs to train over
+  value: 100
+batch_size:
+  desc: Size of each mini-batch
+  value: 128
+loss_fxn:
+  desc: Loss function
+  value: 'mse'
+optimizer:
+  desc: Name of optimizer to use
+  value: 'Adam'
+optim_lr:
+  desc: Learning rate used by optimizer
+  value: 0.001
+n_dilations:
+  desc: Number of dilation blocks to include in model
+  value: 5
+early_stopping:
+  desc: If true, train with early stopping
+  value: true
+es_patience:
+  desc: Patience to use for early stopping
+  value: 10
+lr_decay:
+  desc: If true, train with learning rate decay
+  value: false
+dilation_activation:
+  desc: Activation function to use in dilated layers
+  value: silu
+k:
+  desc: Factor for adjusting number of parameters in each layer
+  value: 1
+downsample:
+  desc: Downsample training data ([0, 1])
+  value: 1.0
+std:
+  desc: If true, predict standard deviation 
+  value: false
+evoaug:
+  desc: If true, train w/ EvoAug
+  value: false
+distill:
+  desc: If true, model is distilled, e.g. trained on distilled training data
+  value: false

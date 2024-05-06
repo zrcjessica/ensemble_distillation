@@ -5,7 +5,7 @@ import keras
 from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 import utils
-from model_zoo import DeepSTARR
+from model_zoo import lentiMPRA
 import plotting
 import pandas as pd
 import wandb
@@ -14,7 +14,7 @@ import yaml
 import numpy as np
 
 '''
-train an ensemble of DeepSTARR models
+train an ensemble of lentiMPRA models
 --downsample flag allows models to be trained with a subset of training data
 --distill flag determines if a distilled model is trained (using ensemble average of training data)
 --predict_std flag determines whether model will be trained to predict standard deviation as well as mean
@@ -37,8 +37,6 @@ def parse_args():
                         help="if set, downsample training data to this amount ([0,1])")
     parser.add_argument("--first_activation", default='relu',
                         help='if provided, defines the first layer activation function')
-    # parser.add_argument("--early_stopping", action="store_true",
-    #                     help="if set, train with early stopping")
     parser.add_argument("--lr_decay", action="store_true",
                         help="if set, train with LR decay")
     parser.add_argument("--project", type=str,
@@ -47,21 +45,25 @@ def parse_args():
                         help='path to wandb config (yaml)')
     parser.add_argument("--distill", type=str, default=None,
                         help='if provided, trains a   model using distilled training data')
-    # parser.add_argument("--distill", action='store_true',
-    #                     help='if set, train distilled DeepSTARR models')
     parser.add_argument("--k", type=int, default=1,
                         help='factor for adjusting number of parameters in hidden layers')
     parser.add_argument("--predict_std", action='store_true',
                         help='if set, predict ensemble stdev in addition to mean; distill flag must be set as well')
     parser.add_argument("--evoaug", action='store_true',
                         help='if set, train models with evoaug')
+    parser.add_argument("--celltype", type=str,
+                        help='define celltype (K562/HepG2)')
     args = parser.parse_args()
     return args
 
-def eval_performance(model, X_test, y_test, args, outfh):
+def eval_performance(model, X_test, y_test, std, outfh):
     y_pred = model.predict(X_test)
-    performance = utils.summarise_DeepSTARR_performance(y_pred, y_test, args.predict_std)
-    performance.to_csv(outfh, index=False)
+    results = None
+    if y_pred.shape != y_test.shape:
+        results = utils.summarise_lentiMPRA_performance(y_pred, np.expand_dims(y_test, axis=-1), std)
+    else:
+        results = utils.summarise_lentiMPRA_performance(y_pred, y_test, std)
+    results.to_csv(outfh, index=False)
 
 def main(args):
 
@@ -69,33 +71,30 @@ def main(args):
     wandb.login()
     wandb.init(project=args.project, config=args.config)
     wandb.config['model_ix'] = args.ix
+    wandb.config['celltype'] = args.celltype
 
     # load data from h5
-    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_data(file=args.data, 
-                                                                               dset='DeepSTARR',
-                                                                               std=args.predict_std)
+    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_data(file=args.data,
+                                                                     dset='lentiMPRA', 
+                                                                     std=args.predict_std)
     # downsample training data
     if args.downsample != wandb.config['downsample']:
         wandb.config.update({'downsample':args.downsample}, allow_val_change=True)
         if args.downsample<1:
             X_train, y_train = utils.downsample(X_train, y_train, args.downsample)
         
-    # for training an ensemble distilled model
+    # for training an ensemble distilled model (training data provided to --distill)
     if args.distill is not None:
         wandb.config.update({'distill':True}, allow_val_change=True)
         y_train = np.load(args.distill)
         assert(X_train.shape[0]==y_train.shape[0])
-        if args.predict_std != wandb.config['std']:
+        if args.predict_std and args.predict_std != wandb.config['std']:
             # predict std
             wandb.config.update({'std':args.predict_std}, allow_val_change=True)
 
     # adjust k in yaml 
     if args.k != wandb.config['k']:
         wandb.config.update({'k':args.k}, allow_val_change=True)
-
-    # adjust first_layer_activation in yaml
-    if args.first_activation != wandb.config['first_activation']:
-        wandb.config.update({'first_activation':args.first_activation}, allow_val_change=True)
 
     # create model
     model = None
@@ -114,10 +113,10 @@ def main(args):
         ]   
         wandb.config.update({'evoaug':True}, allow_val_change=True)
         wandb.config['finetune'] = False
-        model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, augment_list=augment_list, max_augs_per_seq=1, hard_aug=True, config=wandb.config, predict_std=args.predict_std)
+        model = evoaug.RobustModel(lentiMPRA, input_shape=X_train[0].shape, augment_list=augment_list, max_augs_per_seq=1, hard_aug=True, config=wandb.config, predict_std=args.predict_std)
     else:
         # training w/o evoaug
-        model = DeepSTARR(X_train[0].shape, wandb.config, args.predict_std)
+        model = lentiMPRA(X_train[0].shape, wandb.config, args.predict_std)
 
     # update lr in config if different value provided to input
     if args.lr != wandb.config['optim_lr']:
@@ -158,13 +157,13 @@ def main(args):
             pickle.dump(history.history, pickle_fh)
         
         # evaluate best model (and save)
-        eval_performance(model, X_test, y_test, args, join(args.out, f'{args.ix}_performance_aug.csv'))
+        eval_performance(model, X_test, y_test, args.predict_std, join(args.out, f'{args.ix}_performance_aug.csv'))
 
         ### fine tune model (w/o augmentations)
         wandb.config.update({'finetune':True}, allow_val_change=True)
         finetune_epochs = 10
         wandb.config['finetune_epochs']=finetune_epochs
-        model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, augment_list=augment_list, max_augs_per_seq=2, hard_aug=True, config=wandb.config, predict_std=args.predict_std)
+        model = evoaug.RobustModel(lentiMPRA, input_shape=X_train[0].shape, augment_list=augment_list, max_augs_per_seq=2, hard_aug=True, config=wandb.config, predict_std=args.predict_std)
         model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])
         model.load_weights(save_path)
         model.finetune_mode()
@@ -175,7 +174,7 @@ def main(args):
                         validation_data=(X_val, y_val),
                         callbacks=callbacks_list) 
         # save model and history
-        model.save_weights(join(args.out, f"{args.ix}_DeepSTARR_finetune.h5"))
+        model.save_weights(join(args.out, f"{args.ix}_lentiMPRA_finetune.h5"))
         with open(join(args.out, f"{args.ix}_historyDict_finetune"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
         # evaluate model performance
@@ -189,7 +188,7 @@ def main(args):
             plotting.plot_loss(history, join(args.out, str(args.ix) + "_loss_curves.png"))
 
         # save model and history
-        model.save(join(args.out, str(args.ix) + "_DeepSTARR.h5"))
+        model.save(join(args.out, str(args.ix) + "_lentiMPRA.h5"))
         with open(join(args.out, str(args.ix) + "_historyDict"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
 
