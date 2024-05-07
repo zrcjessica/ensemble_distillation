@@ -109,9 +109,8 @@ def load_DeepSTARR_data_hierarchical(file, std=False):
     '''
     data = h5py.File(file, 'r')
     
-    # train
+    # train - y_train should already represent ensemble mean
     X_train = np.array(data['Train']['X'])
-    # y_train = np.array(data['Train']['ensemble_mean']) if ensemble else np.array(data['Train']['y'])
     y_train = np.array(data['Train']['y'])
 
     # test
@@ -142,7 +141,10 @@ def downsample(X_train, y_train, p, return_ix=False):
     if return_ix:
         return ix
     else:
-        return X_train[ix,:], y_train[ix,:]
+        if len(y_train.shape)==1:
+            return X_train[ix,:], y_train[ix]
+        else:
+            return X_train[ix,:], y_train[ix,:]
 
 # def downsample_eval(X_train, y_train, p):
 #     '''

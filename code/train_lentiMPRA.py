@@ -56,13 +56,13 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def eval_performance(model, X_test, y_test, std, outfh):
+def eval_performance(model, X_test, y_test, std, outfh, celltype):
     y_pred = model.predict(X_test)
     results = None
     if y_pred.shape != y_test.shape:
-        results = utils.summarise_lentiMPRA_performance(y_pred, np.expand_dims(y_test, axis=-1), std)
+        results = utils.summarise_lentiMPRA_performance(y_pred, np.expand_dims(y_test, axis=-1), celltype, std)
     else:
-        results = utils.summarise_lentiMPRA_performance(y_pred, y_test, std)
+        results = utils.summarise_lentiMPRA_performance(y_pred, y_test, celltype, std)
     results.to_csv(outfh, index=False)
 
 def main(args):
@@ -72,6 +72,9 @@ def main(args):
     wandb.init(project=args.project, config=args.config)
     wandb.config['model_ix'] = args.ix
     wandb.config['celltype'] = args.celltype
+
+    if args.predict_std:
+        print('predicting std')
 
     # load data from h5
     X_train, y_train, X_test, y_test, X_val, y_val = utils.load_data(file=args.data,
@@ -157,7 +160,7 @@ def main(args):
             pickle.dump(history.history, pickle_fh)
         
         # evaluate best model (and save)
-        eval_performance(model, X_test, y_test, args.predict_std, join(args.out, f'{args.ix}_performance_aug.csv'))
+        eval_performance(model, X_test, y_test, args.predict_std, join(args.out, f'{args.ix}_performance_aug.csv'), args.celltype)
 
         ### fine tune model (w/o augmentations)
         wandb.config.update({'finetune':True}, allow_val_change=True)
@@ -178,10 +181,10 @@ def main(args):
         with open(join(args.out, f"{args.ix}_historyDict_finetune"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
         # evaluate model performance
-        eval_performance(model, X_test, y_test, args, join(args.out, f'{args.ix}_performance_finetune.csv'))
+        eval_performance(model, X_test, y_test, args.predict_std, join(args.out, f'{args.ix}_performance_finetune.csv'), args.celltype)
     else:
         # evaluate model performance
-        eval_performance(model, X_test, y_test, args, join(args.out, str(args.ix) + "_performance.csv"))
+        eval_performance(model, X_test, y_test, args.predict_std, join(args.out, str(args.ix) + "_performance.csv"), args.celltype)
     
         # plot loss curves and spearman correlation over training epochs and save 
         if args.plot:

@@ -10,7 +10,7 @@ DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 ) # used if downsample set to true
 
 ### boolean flags
 # train downsampled models
-downsample=false
+downsample=true
 # train w/ evoaug
 evoaug=false
 if [ "$evoaug" = true ]; then
@@ -27,6 +27,7 @@ mkdir -p $OUTDIR
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 
 if [ "$downsample" = true ]; then
+    echo 'training on downsampled data'
     for p in "${!DOWNSAMPLE_ARR[@]}"
     do
         echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
@@ -39,7 +40,7 @@ if [ "$downsample" = true ]; then
             else
                 echo "python train_lentiMPRA.py --ix $i --out $OUTDIR_DOWNSAMPLE --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE"
             fi
-        done | simple_gpu_scheduler --gpus 5,6,7
+        done | simple_gpu_scheduler --gpus 4,5,6,7
     done 
 else
     for i in $(seq 1 $ENSEMBLE_SIZE)

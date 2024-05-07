@@ -58,8 +58,8 @@ def parse_args():
 
 def eval_performance(model, X_test, y_test, args, outfh):
     y_pred = model.predict(X_test)
-    aug_results = utils.summarise_DeepSTARR_performance(y_pred, y_test, std=True)
-    aug_results.to_csv(outfh, index=False)
+    results = utils.summarise_DeepSTARR_performance(y_pred, y_test, std=True)
+    results.to_csv(outfh, index=False)
 
 def main(args):
 
