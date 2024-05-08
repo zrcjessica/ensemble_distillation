@@ -126,6 +126,7 @@ With saliency and SHAP.
 ## Plotting 
 - `euclidean_distance_attribution_maps.ipynb`: plot results
 - `plot_attribution_analysis_evoaug_deepstarr.ipynb`: visualize the results of the attribution analyses conducted for DeepSTARR ensembles & distilled models trained w/ EvoAug
+- `variance_attribution_maps.ipynb`: (unclean) used to visualize results of attribution analyses conducted for DeepSTARR ensembles & distilled models (no EvoAug)
 
 # 8. Get ensemble standard deviation 
 Get the ensemble standard deviation for all data (train/test/val) to train & evaluate distilled models with uncertainty estimation. 
