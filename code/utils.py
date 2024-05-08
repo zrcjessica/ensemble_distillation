@@ -12,12 +12,15 @@ from tensorflow import GradientTape
 from tensorflow import Variable
 import keras
 import gc
-np.random.seed(1)
+# np.random.seed(1)
 from keras.optimizers import Adam
 from model_zoo import DeepSTARR
 import evoaug_tf
 from evoaug_tf import evoaug, augment
 import yaml
+
+### define rng 
+rng = np.random.default_rng(1234)
 
 def parse_data_dict(X_train, y_train, X_test, y_test, X_val, y_val):
     '''
@@ -138,6 +141,7 @@ def downsample(X_train, y_train, p, return_ix=False):
     n_samples = X_train.shape[0]
     n_downsample = round(n_samples*p)
     ix = np.random.randint(0, n_samples, size=n_downsample)
+    # ix = rng.integers(0, n_samples, size=n_downsample)
     if return_ix:
         return ix
     else:

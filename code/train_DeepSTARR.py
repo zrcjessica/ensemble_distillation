@@ -71,14 +71,14 @@ def main(args):
     wandb.config['model_ix'] = args.ix
 
     # load data from h5
-    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_data(file=args.data, 
-                                                                               dset='DeepSTARR',
+    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(file=args.data, 
                                                                                std=args.predict_std)
     # downsample training data
     if args.downsample != wandb.config['downsample']:
         wandb.config.update({'downsample':args.downsample}, allow_val_change=True)
         if args.downsample<1:
-            X_train, y_train = utils.downsample(X_train, y_train, args.downsample)
+            rng = np.random.default_rng(1234)
+            X_train, y_train = utils.downsample(X_train, y_train, rng, args.downsample)
         
     # for training an ensemble distilled model
     if args.distill is not None:

@@ -65,7 +65,7 @@ if command -v 'slack' &>/dev/null; then
 		        slack "training ensemble of $ENSEMBLE_SIZE lentiMPRA models for $CELLTYPE w/ EvoAug completed successfully" &>/dev/null
             fi
         else
-            if [ "$evoaug" = true ]; then
+            if [ "$downsample" = true ]; then
                 slack "training ensemble of downsampled $ENSEMBLE_SIZE lentiMPRA models for $CELLTYPE completed successfully" &>/dev/null
             else
                 slack "training ensemble of $ENSEMBLE_SIZE lentiMPRA models for $CELLTYPE completed successfully" &>/dev/null
