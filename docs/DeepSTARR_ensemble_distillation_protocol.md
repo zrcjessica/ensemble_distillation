@@ -125,7 +125,7 @@ With saliency and SHAP.
   
 ## Plotting 
 - `euclidean_distance_attribution_maps.ipynb`: plot results
-- `plot_saliency_rmse_for_evoaug_deepstarr.ipynb`: plot attribution score RMSE
+- `plot_attribution_analysis_evoaug_deepstarr.ipynb`: visualize the results of the attribution analyses conducted for DeepSTARR ensembles & distilled models trained w/ EvoAug
 
 # 8. Get ensemble standard deviation 
 Get the ensemble standard deviation for all data (train/test/val) to train & evaluate distilled models with uncertainty estimation. 

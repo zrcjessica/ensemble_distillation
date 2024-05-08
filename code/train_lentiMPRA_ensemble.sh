@@ -10,7 +10,7 @@ DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 ) # used if downsample set to true
 
 ### boolean flags
 # train downsampled models
-downsample=true
+downsample=false
 # train w/ evoaug
 evoaug=false
 if [ "$evoaug" = true ]; then
@@ -18,7 +18,7 @@ if [ "$evoaug" = true ]; then
 fi
 
 ### define cell type
-CELLTYPE='HepG2' # HepG2 or K562
+CELLTYPE='K562' # HepG2 or K562
 OUTDIR=${OUTDIR}/${CELLTYPE}
 DATA=${DATA_DIR}/${CELLTYPE}_data.h5
 
