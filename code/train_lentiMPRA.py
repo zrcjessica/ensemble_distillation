@@ -84,7 +84,8 @@ def main(args):
     if args.downsample != wandb.config['downsample']:
         wandb.config.update({'downsample':args.downsample}, allow_val_change=True)
         if args.downsample<1:
-            X_train, y_train = utils.downsample(X_train, y_train, args.downsample)
+            rng = np.random.default_rng(1234)
+            X_train, y_train = utils.downsample(X_train, y_train, rng, args.downsample)
         
     # for training an ensemble distilled model (training data provided to --distill)
     if args.distill is not None:

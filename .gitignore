@@ -7,3 +7,4 @@
 /code/wandb
 /code/__pycache__
 /code/korb
+/code/eval_distilled_avg_DeepSTARR.sh

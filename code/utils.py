@@ -19,9 +19,6 @@ import evoaug_tf
 from evoaug_tf import evoaug, augment
 import yaml
 
-### define rng 
-rng = np.random.default_rng(1234)
-
 def parse_data_dict(X_train, y_train, X_test, y_test, X_val, y_val):
     '''
     return train/test/val data as dictionary of dictionaries
@@ -133,15 +130,16 @@ def load_DeepSTARR_data_hierarchical(file, std=False):
     data.close()
     return X_train, y_train, X_test, y_test, X_val, y_val 
 
-def downsample(X_train, y_train, p, return_ix=False):
+def downsample(X_train, y_train, rng, p, return_ix=False):
     '''
     randomly downsample training data 
     p = [0,1) determines proportion of training data to keep
     '''
     n_samples = X_train.shape[0]
     n_downsample = round(n_samples*p)
-    ix = np.random.randint(0, n_samples, size=n_downsample)
+    # ix = np.random.randint(0, n_samples, size=n_downsample)
     # ix = rng.integers(0, n_samples, size=n_downsample)
+    ix = rng.choice(np.arange(n_samples), size=n_downsample, replace=False, shuffle=False)
     if return_ix:
         return ix
     else:

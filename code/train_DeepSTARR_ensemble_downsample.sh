@@ -1,7 +1,7 @@
 # train an ensemble of DeepSTARR models on downsampled training data
 # loops through an array of different downsampling proportions
 
-ENSEMBLE_SIZE=10
+ENSEMBLE_SIZE=3
 DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 )
 # DOWNSAMPLE_ARR=( 0.5 )
 DATA=../data/DeepSTARR/Sequences_activity_all.h5
@@ -31,7 +31,7 @@ do
         else
             echo "python train_DeepSTARR.py --ix $i --out $OUTDIR --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay"
         fi
-    done | simple_gpu_scheduler --gpus 1,2,3
+    done | simple_gpu_scheduler --gpus 1,2
 done 
 
 # message the user on slack if possible

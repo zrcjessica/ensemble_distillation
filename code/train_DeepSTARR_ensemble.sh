@@ -9,7 +9,7 @@ PROJECT_NAME=DeepSTARR_ensemble
 # train w/ evoaug
 evoaug=true
 if [ "$evoaug" = true ]; then
-    OUTDIR=../results/DeepSTARR_lr-decay/evoaug
+    OUTDIR=../results/DeepSTARR_evoaug
     # PROJECT_NAME=DeepSTARR_ensemble_with_evoaug
 fi
 
