@@ -45,7 +45,7 @@ Note: all bash scripts use a Slack bot to message user upon completion. To use t
 - `[model_ix]_performance.csv`: model performance on test set 
 - `[model_ix]_loss_curves.png` if run with `--plot` flag
 
-Outputs for downsampled models are saved in a subdirectory named according to downsampling proportion (as defined in bash script).
+Outputs for dow`nsampled models are saved in a subdirectory named according to downsampling proportion (as defined in bash script).
 
 ### Trained w/ EvoAug
 - `[model_ix]_DeepSTARR_aug_weights.h5`: weights of model trained w/ EvoAug (saved w/ `model.save_weights()`)
@@ -71,6 +71,9 @@ Make predictions with the replicate models on the training dataset. If using a m
 - for original models
   - trained on all training data
   - trained on subsets of training data
+- for ensemble average
+  - for ensembles trained on all training data
+  - for ensembles trained on subsetes of training data
 - for distilled models 
   - trained on all training data
   - trained on subsets of training data

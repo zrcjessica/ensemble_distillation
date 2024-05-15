@@ -2,7 +2,8 @@
 # for DeepSTARR models trained w/ EvoAug
 
 DOWNSAMPLED=true # toggle true/false
-MODEL_DIR=../results/DeepSTARR_evoaug
+# MODEL_DIR=../results/DeepSTARR_evoaug
+MODEL_DIR=../results/DeepSTARR_evoaug/sanity_check
 N_MODS=10
 DATA=../data/DeepSTARR/Sequences_activity_all.h5
 
@@ -10,7 +11,6 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 
 if [ "$DOWNSAMPLED" = true ]; then
 	DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 )
-	# DOWNSAMPLE_ARR=( 0.5 )
 	for p in "${!DOWNSAMPLE_ARR[@]}"
 	do
 		# echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
@@ -24,9 +24,9 @@ if [ "$DOWNSAMPLED" = true ]; then
 					--downsample ${DOWNSAMPLE_ARR[$p]} \
 					--evoaug \
 					--config ${MODEL_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}/config.yaml"
-	done | simple_gpu_scheduler --gpus 1,2
+	done | simple_gpu_scheduler --gpus 1,2,3,4
 else
-	CUDA_VISIBLE_DEVICES=1,2 python ensemble_predict_DeepSTARR.py \
+	CUDA_VISIBLE_DEVICES=1 python ensemble_predict_DeepSTARR.py \
 									--model_dir $MODEL_DIR \
 									--n_mods $N_MODS \
 									--data $DATA \

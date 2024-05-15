@@ -4,6 +4,8 @@
   - [Scripts](#scripts-1)
 - [3. Get ensemble average of training data](#3-get-ensemble-average-of-training-data)
   - [Scripts](#scripts-2)
+- [4. Train replicates of distilled models](#4-train-replicates-of-distilled-models)
+  - [Scripts](#scripts-3)
 
 
 # 1. Train lentiMPRA models
@@ -26,3 +28,11 @@ The output is used to train the distilled models. Can be combined with [step 2](
 ## Scripts
 - `ensemble_predict_lentiMPRA.py`: use with `--distill` flag to calculate average of ensemble predictions on training data and save it to an .npy file that can be provided to `train_lentiMPRA.py` to train distilled models 
 - `eval_and_distill_ensemble_lentiMPRA.sh`: runs `ensemble_predict_lentiMPRA.py` with `--eval` and `--distill` flags set
+
+# 4. Train replicates of distilled models
+For HepG2 and K562.
+
+## Scripts 
+- `train_lentiMPRA_distilled.sh`: runs `train_lentiMPRA.py` with `ensemble_avg_y_train.npy` file generated in [step 3](#3-get-ensemble-average-of-training-data) as input to the `--distill` flag
+  - set `downsample` equal to `true`/`false` to train distilled models on subsets of the trainig data or not 
+  - set `evoaug` equal to `true`/`false` to train distilled models w/ EvoAug

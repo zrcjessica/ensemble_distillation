@@ -140,6 +140,7 @@ def downsample(X_train, y_train, rng, p, return_ix=False):
     # ix = np.random.randint(0, n_samples, size=n_downsample)
     # ix = rng.integers(0, n_samples, size=n_downsample)
     ix = rng.choice(np.arange(n_samples), size=n_downsample, replace=False, shuffle=False)
+    # print(np.unique(ix).shape)
     if return_ix:
         return ix
     else:

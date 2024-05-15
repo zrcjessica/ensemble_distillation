@@ -50,7 +50,8 @@ def main(args):
     X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data, std=args.std)
     if args.distill and args.downsample:
         # downsample training data
-        X_train, y_train = utils.downsample(X_train, y_train, args.downsample)
+        rng = np.random.default_rng(1234)
+        X_train, y_train = utils.downsample(X_train, y_train, rng, args.downsample)
         print(f'number of training samples after downsampling: {X_train.shape[0]}')
 
     # data_dict = utils.load_DeepSTARR_data(args.data, std=args.std, dict=True)

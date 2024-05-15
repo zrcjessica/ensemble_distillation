@@ -53,7 +53,8 @@ def main(args):
 
     if args.distill and args.downsample:
         # downsample training data
-        X_train, y_train = utils.downsample(X_train, y_train, args.downsample)
+        rng = np.random.default_rng(1234)
+        X_train, y_train = utils.downsample(X_train, y_train, rng, args.downsample)
         print(f'number of training samples after downsampling: {X_train.shape[0]}')
 
     # collect cumsum of predictions from each model in ensemble

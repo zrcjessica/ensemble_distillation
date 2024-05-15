@@ -1,28 +1,31 @@
 # train an ensemble distilled DeepSTARR model for all downsampled ensembles using distilled training data
 
-N_MODS=1
+N_MODS=10
 DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 )
-# DOWNSAMPLE_ARR=( 0.5 )
-MODELS_DIR=../results/DeepSTARR_lr-decay
+# MODELS_DIR=../results/DeepSTARR_lr-decay
 DATA=../data/DeepSTARR/Sequences_activity_all.h5
 CONFIG=../config/DeepSTARR.yaml
 PROJECT_NAME=DeepSTARR_ensemble # for wandb logger
 EVOAUG=true
 
-if [ "$EVOAUG" = true ]; then
-	MODELS_DIR=../results/DeepSTARR_evoaug
-fi
-
+# if [ "$EVOAUG" = true ]; then
+# 	MODELS_DIR=../results/DeepSTARR_evoaug
+# fi
+MODELS_DIR=../results/DeepSTARR_evoaug/sanity_check
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 
-for i in $(seq 1 $N_MODS)
+for p in "${!DOWNSAMPLE_ARR[@]}"
 do
-    for p in "${!DOWNSAMPLE_ARR[@]}"
+    ENSEMBLE_DIR=${MODELS_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}
+    OUTDIR=${ENSEMBLE_DIR}/ensemble_distilled
+    mkdir -p $OUTDIR
+    for i in $(seq 4 $N_MODS)
     do
         # echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
-        ENSEMBLE_DIR=${MODELS_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}
-        OUTDIR=${ENSEMBLE_DIR}/ensemble_distilled
-        mkdir -p $OUTDIR
+        # ENSEMBLE_DIR=${MODELS_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}
+        # # OUTDIR=${ENSEMBLE_DIR}/ensemble_distilled
+        # OUTDIR=${ENSEMBLE_DIR}/sanity_check/downsample_${DOWNSAMPLE_ARR[$p]}/ensemble_distilled
+        # mkdir -p $OUTDIR
         if [ "$EVOAUG" = true ]; then 
             echo "python train_DeepSTARR.py --ix $i \
                                             --out $OUTDIR \
@@ -31,7 +34,7 @@ do
                                             --config $CONFIG \
                                             --project $PROJECT_NAME \
                                             --lr_decay \
-                                            --distill $ENSEMBLE_DIR/ensemble_avg_y_train.npy \
+                                            --distill ${ENSEMBLE_DIR}/ensemble_avg_y_train.npy \
                                             --downsample ${DOWNSAMPLE_ARR[$p]} \
                                             --evoaug" 
         else
@@ -42,7 +45,7 @@ do
                                             --config $CONFIG \
                                             --project $PROJECT_NAME \
                                             --lr_decay \
-                                            --distill $ENSEMBLE_DIR/ensemble_avg_y_train.npy \
+                                            --distill ${ENSEMBLE_DIR}/ensemble_avg_y_train.npy \
                                             --downsample ${DOWNSAMPLE_ARR[$p]}" 
         fi
     done | simple_gpu_scheduler --gpus 4,5,6,7

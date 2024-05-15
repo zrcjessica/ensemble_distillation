@@ -11,7 +11,7 @@ DATA_DIR=../data/lentiMPRA
 
 ### boolean flags
 EVOAUG=false # toggle true/false 
-DOWNSAMPLED=false # toggle true/false
+DOWNSAMPLED=true # toggle true/false
 
 if [ "$EVOAUG" = true ]; then
     MODEL_DIR=${MODEL_DIR}/evoaug
@@ -22,7 +22,6 @@ CELLTYPE='HepG2' # HepG2 or K562
 DATA=${DATA_DIR}/${CELLTYPE}_data.h5
 MODELS_DIR=${MODELS_DIR}/${CELLTYPE}
 
-
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 
 if [ "$DOWNSAMPLED" = true ]; then
@@ -31,10 +30,10 @@ if [ "$DOWNSAMPLED" = true ]; then
 	do
 		echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
 		# cannot use simple_gpu_scheduler bc running this script in parallel will result in errors due to multiple jobs reading from the same h5 file
-		CUDA_VISIBLE_DEVICES=4 python ensemble_predict_lentiMPRA.py --model_dir ${MODELS_DIR}/downsample_${DOWNSAMPLE_ARR[$p]} --n_mods $N_MODS --data $DATA --distill --eval --downsample ${DOWNSAMPLE_ARR[$p]} --celltype $CELLTYPE
+		CUDA_VISIBLE_DEVICES=1 python ensemble_predict_lentiMPRA.py --model_dir ${MODELS_DIR}/downsample_${DOWNSAMPLE_ARR[$p]} --n_mods $N_MODS --data $DATA --distill --eval --downsample ${DOWNSAMPLE_ARR[$p]} --celltype $CELLTYPE
 	done 
 else
-	CUDA_VISIBLE_DEVICES=4 python ensemble_predict_lentiMPRA.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --distill --eval --celltype $CELLTYPE
+	CUDA_VISIBLE_DEVICES=1 python ensemble_predict_lentiMPRA.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --distill --eval --celltype $CELLTYPE
 fi 
 
 # message the user on slack if possible
