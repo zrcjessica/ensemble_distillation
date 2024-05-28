@@ -17,6 +17,7 @@ import numpy as np
 train distilled DeepSTARR models w/ stdev prediction 
 --downsample flag allows models to be trained with a subset of training data
 --evoaug flag determines whether model will be trained w/ evoaug augmentations
+--logvar flag trains w/ logvar targets but evaluates performance w/ std
 '''
 
 def parse_args():
@@ -44,20 +45,24 @@ def parse_args():
     parser.add_argument("--config", type=str,
                         help='path to wandb config (yaml)')
     # parser.add_argument("--distill", type=str, default=None,
-    #                     help='if provided, trains a   model using distilled training data')
-    # parser.add_argument("--distill", action='store_true',
-    #                     help='if set, train distilled DeepSTARR models')
+    #                     help='if provided, trains a model using distilled training data')
     parser.add_argument("--k", type=int, default=1,
                         help='factor for adjusting number of parameters in hidden layers')
     # parser.add_argument("--predict_std", action='store_true',
     #                     help='if set, predict ensemble stdev in addition to mean; distill flag must be set as well')
     parser.add_argument("--evoaug", action='store_true',
                         help='if set, train models with evoaug')
+    parser.add_argument("--logvar", action='store_true',
+                        help='if set, use logvar as target values instead of std (default)')
     args = parser.parse_args()
     return args
 
-def eval_performance(model, X_test, y_test, args, outfh):
+def eval_performance(model, X_test, y_test, outfh, logvar=False):
     y_pred = model.predict(X_test)
+    if logvar:
+        # convert logvar back to std for evaluation
+        y_pred[:,2] = np.sqrt(np.exp(y_pred[:,2]))
+        y_pred[:,3] = np.sqrt(np.exp(y_pred[:,3]))
     results = utils.summarise_DeepSTARR_performance(y_pred, y_test, std=True)
     results.to_csv(outfh, index=False)
 
@@ -69,7 +74,7 @@ def main(args):
     wandb.config['model_ix'] = args.ix
     wandb.config.update({'distill':True, 'std':True}, allow_val_change=True) # update config
 
-    # load data from h5
+    # load data from h5 (ensemble avg and std returned for y_train)
     X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data,  
                                                                                std=True)
     
@@ -79,16 +84,16 @@ def main(args):
     if args.downsample != wandb.config['downsample']:
         wandb.config.update({'downsample':args.downsample}, allow_val_change=True)
         if args.downsample<1:
+            rng = np.random.default_rng(1234)
             X_train, y_train = utils.downsample(X_train, y_train, args.downsample)
-        
-    # # for training an ensemble distilled model
-    # if args.distill is not None:
-    #     wandb.config.update({'distill':True}, allow_val_change=True)
-    #     y_train = np.load(args.distill)
-    #     assert(X_train.shape[0]==y_train.shape[0])
-    #     if args.predict_std != wandb.config['std']:
-    #         # predict std
-    #         wandb.config.update({'std':args.predict_std}, allow_val_change=True)
+    
+    # use logvar instead of std as training targets 
+    if args.logvar:
+        wandb.config.update({'std':False, 'logvar':True}, allow_val_change=True)
+        y_train[:,2] = np.log(np.square(y_train[:,2]))
+        y_train[:,3] = np.log(np.square(y_train[:,3]))
+        y_val[:,2] = np.log(np.square(y_val[:,2]))
+        y_val[:,3] = np.log(np.square(y_val[:,3]))
 
     # adjust k in yaml 
     if args.k != wandb.config['k']:
@@ -159,7 +164,7 @@ def main(args):
             pickle.dump(history.history, pickle_fh)
         
         # evaluate best model (and save)
-        eval_performance(model, X_test, y_test, args, join(args.out, f'{args.ix}_performance_aug.csv'))
+        eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_performance_aug.csv'), args.logvar)
 
         ### fine tune model (w/o augmentations)
         wandb.config.update({'finetune':True}, allow_val_change=True)
@@ -180,10 +185,10 @@ def main(args):
         with open(join(args.out, f"{args.ix}_historyDict_finetune"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
         # evaluate model performance
-        eval_performance(model, X_test, y_test, args, join(args.out, f'{args.ix}_performance_finetune.csv'))
+        eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_performance_finetune.csv'), args.logvar)
     else:
         # evaluate model performance
-        eval_performance(model, X_test, y_test, args, join(args.out, str(args.ix) + "_performance.csv"))
+        eval_performance(model, X_test, y_test, join(args.out, str(args.ix) + "_performance.csv"), args.logvar)
     
         # plot loss curves and spearman correlation over training epochs and save 
         if args.plot:

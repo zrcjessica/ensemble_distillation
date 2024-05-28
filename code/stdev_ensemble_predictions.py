@@ -24,6 +24,8 @@ def parse_args():
                         help='set when using models trained w/ EvoAug')
     parser.add_argument("--config", default=None,
                         help='provide if --evoaug flag set; needed to load model from weights')
+    parser.add_argument("--downsample", default=1, type=float,
+                        help="if set, downsample training data to this amount ([0,1])")
     args = parser.parse_args()
     return args
 
@@ -31,6 +33,11 @@ def main(args):
 
     # load data from h5
     X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data)
+
+    # downsample training data
+    if args.downsample < 1:
+        rng = np.random.default_rng(1234)
+        X_train, y_train = utils.downsample(X_train, y_train, rng, args.downsample)
 
     # empty matrix to collect predictions 
     ensemble_preds_train = np.zeros((args.n_mods, X_train.shape[0], 2))
@@ -85,9 +92,14 @@ def main(args):
     val_std = np.std(ensemble_preds_val, axis=0)
     
     ### write to files
-    np.save(join(outdir, "ensemble_std_train.npy"), train_std)
-    np.save(join(outdir, "ensemble_std_test.npy"), test_std)
-    np.save(join(outdir, "ensemble_std_val.npy"), val_std)
+    if args.downsample<1:
+        np.save(join(outdir, f"downsample{args.downsample}_ensemble_std_train.npy"), train_std)
+        np.save(join(outdir, f"downsample{args.downsample}_ensemble_std_test.npy"), test_std)
+        np.save(join(outdir, f"downsample{args.downsample}_ensemble_std_val.npy"), val_std)
+    else:
+        np.save(join(outdir, "ensemble_std_train.npy"), train_std)
+        np.save(join(outdir, "ensemble_std_test.npy"), test_std)
+        np.save(join(outdir, "ensemble_std_val.npy"), val_std)
 
 if __name__ == "__main__":
     args = parse_args()
