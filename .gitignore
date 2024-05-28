@@ -8,3 +8,5 @@
 /code/__pycache__
 /code/korb
 /code/eval_distilled_avg_DeepSTARR.sh
+/code/get_rng_downsample_ix.sh
+/code/test_rng_downsampling.py
