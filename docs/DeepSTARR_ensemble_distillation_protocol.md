@@ -151,5 +151,8 @@ Currently using file `all_data_with_ensemble_metrics_hierarchical.h5`.
 
 ## Scripts
 - `train_stdev_DeepSTARR.py`: python script for training distilled model w/ stdev. prediction (modified from `train_DeepSTARR.py`)
-- `distill_evoaug_DeepSTARR_with_std.sh`: run `train_stdev_DeepSTARR.py` with `--evoaug` flag
+- `distill_DeepSTARR_with_std.sh`: run `train_stdev_DeepSTARR.py` 
+  - can toggle `evoaug` and `downsample` boolean variables accordingly
+- `distill_evoaug_DeepSTARR_with_std.sh`: run `train_stdev_DeepSTARR.py` with `--evoaug` flag (has now been wrapped into above script)
+- `distil_DeepSTARR_with_logvar.sh`: runs `train_stdev_DeepSTARR.py` w/ `--logvar` flag (currently exploratory, in .gitignore)
   
