@@ -14,7 +14,7 @@ import keras
 import gc
 # np.random.seed(1)
 from keras.optimizers import Adam
-from model_zoo import DeepSTARR
+from model_zoo import DeepSTARR, lentiMPRA
 import evoaug_tf
 from evoaug_tf import evoaug, augment
 import yaml
@@ -41,7 +41,7 @@ def load_data(file, dset, std=False, dict=False):
     else:
         return(load_lentiMPRA_data(file))
 
-def load_lentiMPRA_data(file):
+def load_lentiMPRA_data(file, std=False):
     '''
     load Train/Test/Val lentiMPRA data
     '''
@@ -80,7 +80,6 @@ def load_DeepSTARR_data(file, std=False, dict=False):
         
         # test
         X_train = np.array(data['X_Train'])
-        # y_train = np.array(data['ensemble_mean']) if ensemble else np.array(data['y_Train'])
         y_train = np.array(data['y_Train'])
 
         # train
@@ -93,6 +92,7 @@ def load_DeepSTARR_data(file, std=False, dict=False):
 
         # add standard deviation data 
         if std:
+            y_train = np.array(data['ensemble_mean']) # ensemble avg. of train seqs should be in h5
             y_train = np.append(y_train, np.array(data['std_Train']), axis=1)
             y_test = np.append(y_test, np.array(data['std_Test']), axis=1)
             y_val = np.append(y_val, np.array(data['std_Val']), axis=1)
@@ -107,9 +107,9 @@ def load_DeepSTARR_data_hierarchical(file, std=False):
     '''
     load Train/Test/Val data from DeepSTARR h5 with hierarchical structure
     '''
-    data = h5py.File(file, 'r')
+    data = h5py.File(file, 'r') 
     
-    # train - y_train should already represent ensemble mean
+    # train
     X_train = np.array(data['Train']['X'])
     y_train = np.array(data['Train']['y'])
 
@@ -123,6 +123,7 @@ def load_DeepSTARR_data_hierarchical(file, std=False):
 
     # add standard deviation data 
     if std:
+        y_train = np.array(data['Train']['ensemble_mean']) # ensemble avg. of train seqs should be in h5
         y_train = np.append(y_train, np.array(data['Train']['std']), axis=1)
         y_test = np.append(y_test, np.array(data['Test']['std']), axis=1)
         y_val = np.append(y_val, np.array(data['Val']['std']), axis=1)
@@ -137,10 +138,7 @@ def downsample(X_train, y_train, rng, p, return_ix=False):
     '''
     n_samples = X_train.shape[0]
     n_downsample = round(n_samples*p)
-    # ix = np.random.randint(0, n_samples, size=n_downsample)
-    # ix = rng.integers(0, n_samples, size=n_downsample)
-    ix = rng.choice(np.arange(n_samples), size=n_downsample, replace=False, shuffle=False)
-    # print(np.unique(ix).shape)
+    ix = rng.choice(n_samples, size=n_downsample, replace=False, shuffle=False)
     if return_ix:
         return ix
     else:
@@ -168,7 +166,7 @@ def evaluate_performance(y_pred, y_truth):
     spearman = spearmanr(y_truth, y_pred)[0]
     return [mse, pearson, spearman]
 
-def summarise_lentiMPRA_performance(y_pred, y_truth, celltype, std=False):
+def summarise_lentiMPRA_performance(y_pred, y_truth, celltype, aleatoric=False, epistemic=False):
     '''
     calculate MSE, Spearman + Pearson corr on test data
     return summary as data frame
@@ -177,8 +175,13 @@ def summarise_lentiMPRA_performance(y_pred, y_truth, celltype, std=False):
     # calculate metrics for celltype
     performance_dict[celltype] = evaluate_performance(y_pred[:,0], y_truth[:,0])
     # calculate metrics for standard deviation predictions
-    if std:
-        performance_dict[f'{celltype}-std'] = evaluate_performance(y_pred[:,1], y_truth[:,1])
+    if aleatoric and epistemic:
+        performance_dict[f'{celltype}-aleatoric'] = evaluate_performance(y_pred[:,1], y_truth[:,1])
+        performance_dict[f'{celltype}-epistemic'] = evaluate_performance(y_pred[:,2], y_truth[:,2])
+    elif aleatoric:
+        performance_dict[f'{celltype}-aleatoric'] = evaluate_performance(y_pred[:,1], y_truth[:,1])
+    elif epistemic:
+        performance_dict[f'{celltype}-epistemic'] = evaluate_performance(y_pred[:,1], y_truth[:,1])
     summary = pd.DataFrame(performance_dict)
     summary['metric'] = ['MSE', 'Pearson', 'Spearman']
     return summary
@@ -201,7 +204,7 @@ def summarise_DeepSTARR_performance(y_pred, y_truth, std=False):
     summary['metric'] = ['MSE', 'Pearson', 'Spearman']
     return summary
 
-def get_attribution_files(dir, method, avg_file=None):
+def get_attribution_files(dir, method, enhancer='Dev', top_n=500, avg_file=None):
     '''
     returns a list of all files containing attribution analysis results for an ensemble
     if average is None (no average attribution map provided), assumes it is in the same directory
@@ -210,8 +213,8 @@ def get_attribution_files(dir, method, avg_file=None):
     '''
     if avg_file is None:
         # avg_file = join(dir, f"average*{method}.npy")
-        avg_file = join(dir, f"average_top500_{method}.npy")
-    attr_files = glob.glob(join(dir, f"*_top500_{method}.npy"))
+        avg_file = join(dir, f"avg_top{top_n}_{enhancer}_{method}.npy")
+    attr_files = glob.glob(join(dir, f"*_top{top_n}_{enhancer}_{method}.npy"))
     # check if avg file is here
     if avg_file in attr_files:
         attr_files = list(set(attr_files) - set([avg_file]))
@@ -375,23 +378,24 @@ def _pad_end(x, insert_max=20):
         x_padded = tf.concat([padding[:,:half,:], x, padding[:,half:,:]], axis=1)
         return x_padded
     
-def attribution_analysis(model, seqs, method, enhancer='Dev', ref_size=100, background=None):
+def attribution_analysis(model, seqs, method, enhancer='Dev', std=False, ref_size=100, background=None, evoaug=False):
     '''
-    returns attribution maps for model and seqs based on method (saliency/shap)
+    returns attribution maps for DeepSTARR models and seqs based on method (saliency/shap)
     if method=shap, will use provided background seqs or randomly generate dinucleotide shuffled sets per seq
-    by default, returns attributions cores for Dev enhancers, can also specify Hk
+    by default, returns attribution scores for Dev enhancers, can also specify Hk
     '''
     print(f'calculating attribution maps with {method}')
+    if evoaug and model.insert_max != 0:
+        seqs = _pad_end(seqs)
     if method == 'saliency':
         # saliency analysis
+        seqs = Variable(seqs, dtype='float32')
         with GradientTape() as tape:
-            if model.insert_max != 0:
-                seqs = _pad_end(seqs)
-            seqs = Variable(seqs, dtype='float32')
             preds = model(seqs, training=False)
             # preds = model.predict(seqs)
             loss = preds[:,0 if enhancer=='Dev' else 1]
-        return tape.gradient(loss, seqs)
+        mean_saliency = tape.gradient(loss, seqs)
+        return mean_saliency
     else:
         # DeepExplainer 
         shap.explainers._deep.deep_tf.op_handlers["AddV2"] = shap.explainers._deep.deep_tf.passthrough # this is required due to conflict between versions (https://github.com/slundberg/shap/issues/1110)
@@ -412,10 +416,11 @@ def attribution_analysis(model, seqs, method, enhancer='Dev', ref_size=100, back
             return shap_values_arr
         else:
             # use provided background seqs
-            print('performing shap analysis without dinucleotide shuffled background seqs')
+            if evoaug:
+                background = _pad_end(background)
+            print('performing shap analysis without provided background seqs')
             explainer_dev = shap.DeepExplainer((model.input, model.output), data=background)
-            # print('explainer initialized')
-            return explainer_dev.shap_values(seqs)[0]
+            return explainer_dev.shap_values(seqs)[0 if enhancer=='Dev' else 1]
 
 # def summarise_ensemble_performance(files, downsample=1):
 #     '''
@@ -448,6 +453,25 @@ def load_model_from_weights(weights, input_shape, augment_list, config_file, pre
         model = evoaug.RobustModel(DeepSTARR, input_shape=input_shape, augment_list=augment_list, max_augs_per_seq=1, hard_aug=True, config=config, predict_std=predict_std)
     else:
         model = DeepSTARR(input_shape, config, predict_std)
+    model.compile(optimizer=Adam(learning_rate=config['optim_lr']),
+                  loss=config['loss_fxn'])
+    model.load_weights(weights)
+    return model
+
+def load_lentiMPRA_from_weights(weights, input_shape, augment_list, config_file, predict_aleatoric=False, predict_epistemic=False, with_evoaug=True):
+    config = yaml.safe_load(open(config_file, 'r'))
+    model = None
+    if with_evoaug:
+        model = evoaug.RobustModel(lentiMPRA, 
+                                   input_shape=input_shape, 
+                                   augment_list=augment_list, 
+                                   max_augs_per_seq=1, 
+                                   hard_aug=True, 
+                                   config=config,
+                                   aleatoric=predict_aleatoric,
+                                   epistemic=predict_epistemic)
+    else:
+        model = lentiMPRA(input_shape, config, aleatoric=predict_aleatoric, epistemic=predict_epistemic)
     model.compile(optimizer=Adam(learning_rate=config['optim_lr']),
                   loss=config['loss_fxn'])
     model.load_weights(weights)

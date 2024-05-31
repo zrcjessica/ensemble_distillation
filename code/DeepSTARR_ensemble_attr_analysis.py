@@ -61,28 +61,22 @@ def main(args):
     # get top predictions from y_test for specified enhancer class
     top_ix = y_test_sorted[:args.top_n,0 if args.enhancer=='Dev' else 1] 
 
-    # parse sequences to perform attribution analysis on
+    # get sequences to perform attribution analysis on
     examples = X_test[top_ix]
-
-    # if args.method == 'saliency':
-    #     # instantiate Variable class of examples to analyze
-    #     examples = Variable(X_test[top_ix])
 
     # select background data for shap
     background_seqs = None
     if args.method == 'shap' and not args.dinuc_shuffle:
         # select a set of background examples to take an expectation over
-        np.random.seed(seed=1234)
-        print(type(X_test.shape[0]))
-        print(type(args.ref_size))
-        background_seqs = X_test[np.random.choice(X_test.shape[0], args.ref_size, replace=False)]
+        rng = np.random.default_rng(1234)
+        background_seqs = X_test[rng.choice(X_test.shape[0], size=args.ref_size, replace=False, shuffle=False)]
 
     # collect cumsum of values for averaging 
     cumsum = 0
 
     # iterate through models in ensemble
     for i in range(args.n_mods):
-        print(f'ensemble {args.method} analysis on model {i+1}/{args.n_mods}')
+        print(f'{args.method} analysis on model {i+1}/{args.n_mods}')
 
         # clear history
         keras.backend.clear_session()
@@ -106,8 +100,11 @@ def main(args):
             model = load_model(join(args.model_dir, str(i+1) + "_DeepSTARR.h5"))
         
         # calculate gradients depending on which method is specified
-        grads = utils.attribution_analysis(model, examples, args.method, 
-                                           enhancer=args.enhancer, ref_size=args.ref_size,
+        grads = utils.attribution_analysis(model, 
+                                           examples, 
+                                           args.method, 
+                                           enhancer=args.enhancer, 
+                                           ref_size=args.ref_size,
                                            background=background_seqs)
 
         # gradient correction
@@ -118,11 +115,11 @@ def main(args):
             cumsum += grads
 
         # save as npy file
-        if args.dinuc_shuffle:
-            np.save(file=join(outdir, str(i+1) + "_top" + str(args.top_n) + f"_shap_dinuc_shuffle.npy"),
+        if args.method=='shap' and args.dinuc_shuffle:
+            np.save(file=join(outdir, str(i+1) + "_top" + str(args.top_n) + f"_{args.enhancer}_shap_dinuc_shuffle.npy"),
                 arr=grads)
         else:
-            np.save(file=join(outdir, str(i+1) + "_top" + str(args.top_n) + f"_{args.method}.npy"),
+            np.save(file=join(outdir, str(i+1) + "_top" + str(args.top_n) + f"_{args.enhancer}_{args.method}.npy"),
                     arr=grads)
     
     # calculate avg and save as npy file
@@ -130,10 +127,10 @@ def main(args):
         avg_pred = cumsum/args.n_mods 
         if args.dinuc_shuffle:
             assert((args.dinuc_shuffle and args.method=='saliency') is not True) # make sure dinuc_shuffle is not set with saliency
-            np.save(file=join(outdir, "average_top" + str(args.top_n) + f"_{args.method}_dinuc_shuffle.npy"), 
+            np.save(file=join(outdir, "avg_top" + str(args.top_n) + f"_{args.enhancer}_{args.method}_dinuc_shuffle.npy"), 
                 arr=avg_pred)
         else:
-            np.save(file=join(outdir, "average_top" + str(args.top_n) + f"_{args.method}.npy"), 
+            np.save(file=join(outdir, "avg_top" + str(args.top_n) + f"_{args.enhancer}_{args.method}.npy"), 
                     arr=avg_pred)
 
 

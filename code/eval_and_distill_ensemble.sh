@@ -5,10 +5,10 @@
 # toggle DOWNSAMPLED to control whether distilled training data is obtained for downsampled models
 
 DOWNSAMPLED=true # toggle true/false
-MODEL_DIR=../results/DeepSTARR_lr-decay
+MODEL_DIR=../results/DeepSTARR_lr-decay/sanity_check
 N_MODS=10
 DATA=../data/DeepSTARR/Sequences_activity_all.h5
-EVOAUG=true # toggle true/false 
+EVOAUG=false # toggle true/false 
 
 if [ "$EVOAUG" = true ]; then
     MODEL_DIR=${MODEL_DIR}/evoaug

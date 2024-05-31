@@ -39,9 +39,11 @@ def DeepSTARR(input_shape, config, predict_std=False):
     model = Model(inputs=inputs, outputs=outputs)
     return model 
 
-def lentiMPRA(input_shape, config, predict_std=False):
+def lentiMPRA(input_shape, config, aleatoric=False, epistemic=False):
     '''
     CNN for predicting lentiMPRA data
+    if aleatoric=True, predict aleatoric uncertainty
+    if epistemic=True, predict epistemic uncertainty 
     '''
 
     def residual_block(input_layer, filter_size, activation='relu', dilated=5):
@@ -111,7 +113,15 @@ def lentiMPRA(input_shape, config, predict_std=False):
     x = kl.Activation('silu')(x)
     x = kl.Dropout(0.5)(x)
 
-    outputs = kl.Dense(1, activation='linear')(x)
+    if aleatoric and epistemic:
+        # outputs: [mean, aleatoric std, epistemic std]
+        outputs = kl.Dense(3, activation='linear')(x)
+    elif aleatoric or epistemic:
+        # outputs: [mean, std]
+        outputs = kl.Dense(2, activation='linear')(x)
+    else:
+        # outputs: [mean]
+        outputs = kl.Dense(1, activation='linear')(x)
 
     model = Model(inputs=inputs, outputs=outputs)
     return model 

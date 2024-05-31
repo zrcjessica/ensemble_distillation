@@ -14,7 +14,7 @@ import yaml
 import numpy as np
 
 '''
-train distilled DeepSTARR models w/ stdev prediction 
+train distilled DeepSTARR models w/ mean+ prediction 
 --downsample flag allows models to be trained with a subset of training data
 --evoaug flag determines whether model will be trained w/ evoaug augmentations
 --logvar flag trains w/ logvar targets but evaluates performance w/ std
@@ -85,7 +85,7 @@ def main(args):
         wandb.config.update({'downsample':args.downsample}, allow_val_change=True)
         if args.downsample<1:
             rng = np.random.default_rng(1234)
-            X_train, y_train = utils.downsample(X_train, y_train, args.downsample)
+            X_train, y_train = utils.downsample(X_train, y_train, rng=rng, p=args.downsample, return_ix=False)
     
     # use logvar instead of std as training targets 
     if args.logvar:

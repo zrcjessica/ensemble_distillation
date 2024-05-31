@@ -1,12 +1,13 @@
 # train an ensemble of lentiMPRA models 
 
 ### script params/variables
-ENSEMBLE_SIZE=10
+ENSEMBLE_SIZE=20
 OUTDIR=../results/lentiMPRA
 DATA_DIR=../data/lentiMPRA
 CONFIG=../config/lentiMPRA.yaml
 PROJECT_NAME=lentiMPRA_ensemble
-DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 ) # used if downsample set to true
+# DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 ) # used if downsample set to true
+DOWNSAMPLE_ARR=( 0.1 ) # used if downsample set to true
 
 ### boolean flags
 # train downsampled models
@@ -33,14 +34,14 @@ if [ "$downsample" = true ]; then
         echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
         OUTDIR_DOWNSAMPLE=${OUTDIR}/downsample_${DOWNSAMPLE_ARR[$p]}
         mkdir -p $OUTDIR_DOWNSAMPLE
-        for i in $(seq 1 $ENSEMBLE_SIZE)
+        for i in $(seq 11 $ENSEMBLE_SIZE)
         do 
             if [ "$evoaug" = true ]; then
                 echo "echo 'model_ix=$i' && python train_lentiMPRA.py --ix $i --out $OUTDIR_DOWNSAMPLE --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug --celltype $CELLTYPE"
             else
-                echo "python train_lentiMPRA.py --ix $i --out $OUTDIR_DOWNSAMPLE --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE"
+                echo "echo 'model_ix=$i' && python train_lentiMPRA.py --ix $i --out $OUTDIR_DOWNSAMPLE --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE"
             fi
-        done | simple_gpu_scheduler --gpus 0,1,3
+        done | simple_gpu_scheduler --gpus 1,2,3,4,5
     done 
 else
     for i in $(seq 1 $ENSEMBLE_SIZE)
@@ -50,7 +51,7 @@ else
         else
             echo "python train_lentiMPRA.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE"
         fi
-    done | simple_gpu_scheduler --gpus 0,1,3
+    done | simple_gpu_scheduler --gpus 0,1,2,3,4
 fi
 
 

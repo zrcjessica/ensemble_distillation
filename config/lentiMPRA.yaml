@@ -36,12 +36,18 @@ k:
 downsample:
   desc: Downsample training data ([0, 1])
   value: 1.0
-std:
-  desc: If true, predict standard deviation 
-  value: false
+# std:
+#   desc: If true, predict standard deviation 
+#   value: false
 evoaug:
   desc: If true, train w/ EvoAug
   value: false
 distill:
   desc: If true, model is distilled, e.g. trained on distilled training data
+  value: false
+aleatoric:
+  desc: If true, model predicts aleatoric uncertainty (not necessarily distilled)
+  value: false
+epistemic:
+  desc: If true, model predicts epistemic uncertainty (model should be distilled)
   value: false

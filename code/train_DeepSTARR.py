@@ -46,7 +46,7 @@ def parse_args():
     parser.add_argument("--config", type=str,
                         help='path to wandb config (yaml)')
     parser.add_argument("--distill", type=str, default=None,
-                        help='if provided, trains a   model using distilled training data')
+                        help='if provided, trains a model using provided distilled training data')
     # parser.add_argument("--distill", action='store_true',
     #                     help='if set, train distilled DeepSTARR models')
     parser.add_argument("--k", type=int, default=1,
@@ -110,7 +110,7 @@ def main(args):
             augment.RandomDeletion(delete_min=0, delete_max=30),
             augment.RandomTranslocationBatch(shift_min=0, shift_max=20)
             # augment.RandomNoise(noise_mean=0, noise_std=0.3),
-            # augment.RandomMutation(mutate_frac=0.05)
+            # augment.RandomMutation(mutate_frac=0.25) 
         ]   
         wandb.config.update({'evoaug':True}, allow_val_change=True)
         wandb.config['finetune'] = False
