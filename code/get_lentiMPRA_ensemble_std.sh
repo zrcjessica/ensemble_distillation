@@ -2,10 +2,10 @@
 
 CELLTYPE=K562
 MODELS_DIR=../results/lentiMPRA_aleatoric/${CELLTYPE}
-OUTDIR=../data/lentiMPRA/${CELLTYPE}
+OUTDIR=../data/lentiMPRA
 N_MODS=10
 CONFIG=../config/lentiMPRA.yaml
-
+DATA=../data/lentiMPRA/${CELLTYPE}_data_with_aleatoric.h5
 # boolean vars (toggle true/false)
 EVOAUG=false
 DOWNSAMPLE=false
@@ -13,7 +13,7 @@ DOWNSAMPLE=false
 # flag dependent changes
 if [ "$EVOAUG" = true ]; then
 	MODELS_DIR=../results/lentiMPRA_aleatoric-evoaug/${CELLTYPE}
-	OUTDIR=../data/lentiMPRA/evoaug/${CELLTYPE}
+	OUTDIR=../data/lentiMPRA/evoaug
 fi
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
@@ -23,16 +23,16 @@ if [ "$DOWNSAMPLE" = true ]; then
 	for p in "${!DOWNSAMPLE_ARR[@]}"
 	do	
 		if [ "$EVOAUG" = true ]; then
-			CUDA_VISIBLE_DEVICES=4 python get_lentiMPRA_ensemble_std.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR --evoaug --config $MODELS_DIR/config.yaml --downsample ${DOWNSAMPLE_ARR[$p]} --celltype $CELLTYPE
+			CUDA_VISIBLE_DEVICES=6 python get_lentiMPRA_ensemble_std.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR --evoaug --config $MODELS_DIR/config.yaml --downsample ${DOWNSAMPLE_ARR[$p]} --celltype $CELLTYPE
 		else
-			CUDA_VISIBLE_DEVICES=4 python get_lentiMPRA_ensemble_std.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR --downsample ${DOWNSAMPLE_ARR[$p]} --celltype $CELLTYPE
+			CUDA_VISIBLE_DEVICES=6 python get_lentiMPRA_ensemble_std.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR --downsample ${DOWNSAMPLE_ARR[$p]} --celltype $CELLTYPE
 		fi
 	done
 else
 	if [ "$EVOAUG" = true ]; then
-		CUDA_VISIBLE_DEVICES=4 python get_lentiMPRA_ensemble_std.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR --evoaug --config $MODELS_DIR/config.yaml --celltype $CELLTYPE
+		CUDA_VISIBLE_DEVICES=6 python get_lentiMPRA_ensemble_std.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR --evoaug --config $MODELS_DIR/config.yaml --celltype $CELLTYPE
 	else
-		CUDA_VISIBLE_DEVICES=4 python get_lentiMPRA_ensemble_std.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR --celltype $CELLTYPE
+		CUDA_VISIBLE_DEVICES=6 python get_lentiMPRA_ensemble_std.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR --celltype $CELLTYPE
 	fi
 fi 
 

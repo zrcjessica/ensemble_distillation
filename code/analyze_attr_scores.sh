@@ -11,7 +11,7 @@ EVOAUG=false
 METHOD=shap 
 
 ### which enhancer output 
-ENHANCER=Dev 
+ENHANCER=Hk 
 
 ### top n seqs
 TOP_N=1000
@@ -78,7 +78,12 @@ else
             --var
         fi 
     else
-        python analyze_attr_scores.py --files_dir $FILES_DIR --method $METHOD --top_n $TOP_N --enhancer $ENHANCER --rmse --var 
+        python analyze_attr_scores.py --files_dir $FILES_DIR \
+        --method $METHOD \
+        --top_n $TOP_N \
+        --enhancer $ENHANCER \
+        --rmse \
+        --var 
     fi
 fi
 

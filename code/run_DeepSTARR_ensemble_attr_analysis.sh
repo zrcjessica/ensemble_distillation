@@ -3,11 +3,11 @@
 # set METHOD as saliency or shap to define method of attribution analysis
 
 DISTILLED=true # toggle flag
-STD=true
-METHOD=saliency # set saliency or shap
+STD=false # test this 
+METHOD=shap # set saliency or shap
 N_MODS=10
 TOP_N=1000
-ENHANCER=Hk # Dev/Hk
+ENHANCER=Dev # Dev/Hk
 MODELS_DIR=../results/DeepSTARR_lr-decay
 DATA=../data/DeepSTARR/Sequences_activity_all.h5
 if [ "$DISTILLED" = true ]; then 

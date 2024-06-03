@@ -416,8 +416,6 @@ def attribution_analysis(model, seqs, method, enhancer='Dev', std=False, ref_siz
             return shap_values_arr
         else:
             # use provided background seqs
-            if evoaug:
-                background = _pad_end(background)
             print('performing shap analysis without provided background seqs')
             explainer_dev = shap.DeepExplainer((model.input, model.output), data=background)
             return explainer_dev.shap_values(seqs)[0 if enhancer=='Dev' else 1]

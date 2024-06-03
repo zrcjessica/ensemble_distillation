@@ -146,38 +146,39 @@ def main(args):
                         epochs=wandb.config['epochs'],
                         validation_data=(X_val, y_val),
                         callbacks=callbacks_list) 
-    wandb.finish()
-
+    
     # save model weights
     if args.append:
         save_path = join(args.out, f"{args.ix}_DeepSTARR_{args.aug}_append.h5")
         model.save_weights(save_path)
         # save history
-        with open(join(args.out, str(args.ix) + f"_historyDict_{args.aug}_append"), 'wb') as pickle_fh:
+        with open(join(args.out, f"{args.ix}_{args.aug}_append_historyDict"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
         # evaluate best model (and save)
-        eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_performance_{args.aug}_append.csv'))
+        eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_{args.aug}_append_performance.csv'))
 
         # plot loss curves and spearman correlation over training epochs and save 
         if args.plot:
-            plotting.plot_loss(history, join(args.out, str(args.ix) + f"_loss_curves_{args.aug}_append.png"))
+            plotting.plot_loss(history, join(args.out, f"{args.ix}_{args.aug}_append_loss_curves.png"))
     else:
+        # save model weights
         save_path = join(args.out, f"{args.ix}_DeepSTARR_{args.aug}.h5")
         model.save_weights(save_path)
         # save history
-        with open(join(args.out, str(args.ix) + f"_historyDict_{args.aug}"), 'wb') as pickle_fh:
+        with open(join(args.out, f"{args.ix}_{args.aug}_historyDict"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
         # evaluate best model (and save)
-        eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_performance_{args.aug}.csv'))
+        eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_{args.aug}_performance.csv'))
 
         # plot loss curves and spearman correlation over training epochs and save 
         if args.plot:
-            plotting.plot_loss(history, join(args.out, str(args.ix) + f"_loss_curves_{args.aug}.png"))
+            plotting.plot_loss(history, join(args.out, f"{args.ix}_{args.aug}_loss_curves.png"))
     
     # save updated config as yaml
     with open(join(args.out, "config.yaml"), 'w') as f:
         yaml.dump(dict(wandb.config), f, allow_unicode=True, default_flow_style=False)
 
+    wandb.finish()
 if __name__ == "__main__":
     args = parse_args()
     main(args)

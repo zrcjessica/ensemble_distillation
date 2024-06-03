@@ -1,7 +1,7 @@
 # train distilled DeepSTARR models w/ mean+std using dynamic augmentations
 
-AUG='evoaug' # evoaug/mutagenesis/random 
-APPEND=true 
+AUG='random' # evoaug/mutagenesis/random 
+APPEND=false 
 ENSEMBLE_DIR=../results/DeepSTARR_lr-decay/
 DATA_DIR=../data/DeepSTARR
 DATA=${DATA_DIR}/all_data_with_ensemble_metrics_hierarchical.h5
