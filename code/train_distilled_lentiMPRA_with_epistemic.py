@@ -14,15 +14,10 @@ import yaml
 import numpy as np
 
 '''
-train an ensemble of lentiMPRA models
+train distilled lentiMPRA models w/ mean+aleatoric+epistemic predictions 
+assumes that h5 file provided contains ensemble avg/std data (that would otherwise be provided to --distill arugment of train_lentiMPRA.py)
 --downsample flag allows models to be trained with a subset of training data
---distill flag determines if a distilled model is trained (using ensemble average of training data)
 --evoaug flag determines whether model will be trained w/ evoaug augmentations
---aleatoric flag set if training model to predict aleatoric uncertainty (model does not need to be distilled)
---epistemic flag set if training model to predict epistemic uncertainty (data comes from ensemble avg; part of distilled model)
-
-This script is used to train lentiMPRA models w/ predictions for activity and aleatoric. 
-Another script will be used to distill lentiMPRA models w/ mean+aleatoric+epistemic predictions.
 '''
 
 def parse_args():
@@ -39,24 +34,12 @@ def parse_args():
                         help="if set, save training plots")
     parser.add_argument("--downsample", default=1, type=float,
                         help="if set, downsample training data to this amount ([0,1])")
-    parser.add_argument("--first_activation", default='relu',
-                        help='if provided, defines the first layer activation function')
     parser.add_argument("--lr_decay", action="store_true",
                         help="if set, train with LR decay")
     parser.add_argument("--project", type=str,
                         help='project name for wandb')
     parser.add_argument("--config", type=str,
                         help='path to wandb config (yaml)')
-    parser.add_argument("--distill", type=str, default=None,
-                        help='if provided, trains a model using distilled training data')
-    parser.add_argument("--k", type=int, default=1,
-                        help='factor for adjusting number of parameters in hidden layers')
-    # parser.add_argument("--predict_std", action='store_true',
-    #                     help='if set, predict ensemble stdev in addition to mean; distill flag must be set as well')
-    parser.add_argument("--aleatoric", action='store_true',
-                        help='if set, predict aleatoric uncertainty')
-    parser.add_argument("--epistemic", action='store_true',
-                        help='if set, predict epistemic uncertainty')
     parser.add_argument("--evoaug", action='store_true',
                         help='if set, train models with evoaug')
     parser.add_argument("--celltype", type=str,
@@ -68,9 +51,9 @@ def eval_performance(model, X_test, y_test, outfh, celltype, aleatoric=False, ep
     y_pred = model.predict(X_test)
     results = None
     if y_pred.shape != y_test.shape:
-        results = utils.summarise_lentiMPRA_performance(y_pred, np.expand_dims(y_test, axis=-1), celltype, aleatoric=args.aleatoric, epistemic=args.epistemic)
+        results = utils.summarise_lentiMPRA_performance(y_pred, np.expand_dims(y_test, axis=-1), celltype, aleatoric=True, epistemic=True)
     else:
-        results = utils.summarise_lentiMPRA_performance(y_pred, y_test, celltype, aleatoric=args.aleatoric, epistemic=args.epistemic)
+        results = utils.summarise_lentiMPRA_performance(y_pred, y_test, celltype, aleatoric=True, epistemic=True)
     results.to_csv(outfh, index=False)
 
 def main(args):
@@ -80,23 +63,10 @@ def main(args):
     wandb.init(project=args.project, config=args.config)
     wandb.config['model_ix'] = args.ix
     wandb.config['celltype'] = args.celltype
+    wandb.config.update({'distill':True, 'aleatoric':True, 'epistemic':True}, allow_val_change=True)
 
     # load data from h5
-    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_lentiMPRA_data(file=args.data)
-
-    if args.aleatoric and args.epistemic:
-        print('predicting aleatoric and epistemic uncertainty')
-        assert(y_train.shape[-1]==3 & y_test.shape[-1]==3 & y_val.shape[-1]==3)
-        wandb.config.update({'aleatoric':args.aleatoric, 'epistemic':args.epistemic}, allow_val_change=True)
-    elif args.aleatoric:
-        print('predicting aleatoric uncertainty')
-        assert(y_train.shape[-1]==2 & y_test.shape[-1]==2 & y_val.shape[-1]==2)
-        wandb.config.update({'aleatoric':args.aleatoric}, allow_val_change=True)
-    elif args.epistemic:
-        print('predicting epistemic uncertainty')
-        assert(y_train.shape[-1]==2 & y_test.shape[-1]==2 & y_val.shape[-1]==2)
-        assert(args.distill) # epistemic uncertainty only available for distilled models 
-        wandb.config.update({'epistemic':args.epistemic}, allow_val_change=True)
+    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_lentiMPRA_data(file=args.data, epistemic=True)
 
     # downsample training data
     if args.downsample != wandb.config['downsample']:
@@ -104,19 +74,6 @@ def main(args):
         if args.downsample<1:
             rng = np.random.default_rng(1234)
             X_train, y_train = utils.downsample(X_train, y_train, rng, args.downsample)
-        
-    # for training an ensemble distilled model (training data provided to --distill)
-    if args.distill is not None:
-        wandb.config.update({'distill':True}, allow_val_change=True)
-        y_train = np.load(args.distill)
-        assert(X_train.shape[0]==y_train.shape[0])
-        # if args.predict_std and args.predict_std != wandb.config['std']:
-        #     # predict std
-        #     wandb.config.update({'std':args.predict_std}, allow_val_change=True)
-
-    # adjust k in yaml 
-    if args.k != wandb.config['k']:
-        wandb.config.update({'k':args.k}, allow_val_change=True)
 
     # create model
     model = None
@@ -141,11 +98,11 @@ def main(args):
                                    max_augs_per_seq=1, 
                                    hard_aug=True, 
                                    config=wandb.config, 
-                                   aleatoric=args.aleatoric,
-                                   epistemic=args.epistemic)
+                                   aleatoric=True,
+                                   epistemic=True)
     else:
         # training w/o evoaug
-        model = lentiMPRA(X_train[0].shape, wandb.config, aleatoric=args.aleatoric, epistemic=args.epistemic)
+        model = lentiMPRA(X_train[0].shape, wandb.config, aleatoric=True, epistemic=True)
 
     # update lr in config if different value provided to input
     if args.lr != wandb.config['optim_lr']:

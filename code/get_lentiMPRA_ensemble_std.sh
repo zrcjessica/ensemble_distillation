@@ -1,6 +1,6 @@
 # calculates stdev of lentiMPRA (mean+aleatoric) ensemble predictions for activity level on train/test/val sets
 
-CELLTYPE=K562
+CELLTYPE=HepG2
 MODELS_DIR=../results/lentiMPRA_aleatoric/${CELLTYPE}
 OUTDIR=../data/lentiMPRA
 N_MODS=10

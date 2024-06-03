@@ -2,6 +2,7 @@
   - [Data](#data)
     - [Replicate mean only](#replicate-mean-only)
     - [Replicate mean and std.](#replicate-mean-and-std)
+    - [Distillation data for mean+aleatoric+epistemic models](#distillation-data-for-meanaleatoricepistemic-models)
   - [Train/Test/Val splits](#traintestval-splits)
     - [Replicate mean only](#replicate-mean-only-1)
     - [Replicate mean and std.](#replicate-mean-and-std-1)
@@ -9,6 +10,7 @@
   - [Data](#data-1)
     - [Replicate mean only](#replicate-mean-only-2)
     - [Replicate mean and std.](#replicate-mean-and-std-2)
+    - [Distillation data for mean+aleatoric+epistemic models](#distillation-data-for-meanaleatoricepistemic-models-1)
   - [Train/Test/Val splits](#traintestval-splits-1)
     - [Replicate mean only](#replicate-mean-only-3)
     - [Replicate mean and std.](#replicate-mean-and-std-3)
@@ -40,6 +42,12 @@
     - 61253/67215 seqs have complementary forward seqs w/ mean & std. of activity data 
   - **122506 seqs from complementary fwd/rev seq pairs w/ mean & std. of activity data**
   - **16893 seqs (other) in dataset w/ mean & std. of activity data**
+
+### Distillation data for mean+aleatoric+epistemic models
+- `HepG2_distillation_data_with_epistemic.h5`: used to train distilled lentiMPRA models with mean+aleatoric+epistemic output heads. Contains ensemble-level metrics based on ensemble of lentiMPRA models w/ mean+aleatoric outputs appended to replicate mean+std data. To train a distilled model with epistemic uncertainty prediction where the epistemic uncertainty concerns the activity prediction, remember to omit the last column.
+  - `y_train` contains average of ensemble predictions on `X_train` and the standard deviation of the ensemble predictions using the ensemble of lentiMPRA models w/ mean+aleatoric outputs. 
+  - `y_test`, `y_val`: contains replicate mean and std. and the standard deviation of the ensemble predictions on `X_test` and `X_val, respectively. 
+
 ## Train/Test/Val splits
 80/10/10
 
@@ -74,6 +82,7 @@ Randomly selected corresponding percentage of seqs from each the fwd/rev pairs a
     - 109598/112868 seqs have complementary forward seqs with activity data
   - **219196 seqs from complementary fwd/rev pairs**
   - **7058 seqs (other)**
+
 ### Replicate mean and std.
 - `K562_data_with_aleatoric.h5`: one-hot encoded DNA seqs and corresponding replicate level mean and standard deviation of activity saved in train/test/val splits
   - 225705/226254 unique seqs have replicate level std. values
@@ -82,6 +91,12 @@ Randomly selected corresponding percentage of seqs from each the fwd/rev pairs a
     - 109156/112599 seqs have complementary forward seqs with replicate level mean & std. of activity 
   - **218312 seqs from complementary fwd/rev pairs** 
   - **7393 seqs (other)**
+
+### Distillation data for mean+aleatoric+epistemic models
+- `K562_distillation_data_with_epistemic.h5`: used to train distilled lentiMPRA models with mean+aleatoric+epistemic output heads. Contains ensemble-level metrics based on ensemble of lentiMPRA models w/ mean+aleatoric outputs appended to replicate mean+std data. To train a distilled model with epistemic uncertainty prediction where the epistemic uncertainty concerns the activity prediction, remember to omit the last column.
+  - `y_train` contains average of ensemble predictions on `X_train` and the standard deviation of the ensemble predictions using the ensemble of lentiMPRA models w/ mean+aleatoric outputs. 
+  - `y_test`, `y_val`: contains replicate mean and std. and the standard deviation of the ensemble predictions on `X_test` and `X_val, respectively. 
+
 ## Train/Test/Val splits
 80/10/10
 

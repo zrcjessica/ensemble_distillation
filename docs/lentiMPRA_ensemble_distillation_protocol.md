@@ -62,4 +62,8 @@ Use average of ensemble average on training seqs to replace `y_train` and train 
 Finally, train distilled models using ensemble trained in [step 5](#5-train-ensemble-of-lentimpra-models-meanaleatoric-std) that predict epistemic uncertainty in addition to aleatoric uncertainty. This requires getting the standard deviation of the ensemble's predictions for the activity level and using those as the epistemic uncertainty target values for the train, test, and validation sets. 
 
 ## Scripts
-- `get_lentiMPRA_ensemble_std.sh`: run `get_lentiMPRA_ensemble_std.py`
+- `get_lentiMPRA_ensemble_std.sh`: run `get_lentiMPRA_ensemble_std.py` on ensemble of models w/ activity+aleatoric outputs
+- `parse_lentiMPRA_data_with_epistemic.ipynb`: parse h5 file containing all data for distilling mean+aleatoric+epistemic models using ensemble mean for train seqs and ensemble std for train/test/val seqs 
+  - ensemble std. was calculated for both activity and aleatoric outputs; last column is omitted when training distilled models, as epistemic output head describes epistemic uncertainty about activity prediction
+- `train_distilled_lentiMPRA_with_epistemic.py`: replaces `train_lentiMPRA.py`, assumes `--aleatoric` and `--epistemic` are `True` and that h5 file provided to `--data` contains only data for distillation to bypass need for `--distill` flag and explicitly providing ensemble level metrics. 
+- `distill_lentiMPRA_epistemic.sh`: runs above script

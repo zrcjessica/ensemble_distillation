@@ -41,7 +41,7 @@ def load_data(file, dset, std=False, dict=False):
     else:
         return(load_lentiMPRA_data(file))
 
-def load_lentiMPRA_data(file, std=False):
+def load_lentiMPRA_data(file, epistemic=False):
     '''
     load Train/Test/Val lentiMPRA data
     '''
@@ -58,6 +58,12 @@ def load_lentiMPRA_data(file, std=False):
     # val
     X_val = np.array(data['Val']['X'])
     y_val = np.array(data['Val']['y'])
+
+    if epistemic:
+        # file w/ data for epistemic models has std for aleatoric prediction in last col
+        y_train = y_train[:,:-1]
+        y_test = y_test[:,:-1]
+        y_val = y_val[:,:-1]
 
     return X_train, y_train, X_test, y_test, X_val, y_val
 
