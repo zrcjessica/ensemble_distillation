@@ -44,11 +44,16 @@ def parse_args():
                         help='if set, train models with evoaug')
     parser.add_argument("--celltype", type=str,
                         help='define celltype (K562/HepG2)')
+    parser.add_argument("--logvar", action='store_true',
+                        help='if set, predict epistemic uncertainty as logvar instead of std')
     args = parser.parse_args()
     return args
 
-def eval_performance(model, X_test, y_test, outfh, celltype, aleatoric=False, epistemic=False):
+def eval_performance(model, X_test, y_test, outfh, celltype, logvar=False):
     y_pred = model.predict(X_test)
+    if logvar:
+        # convert logvar back to std for evaluation
+        y_pred[:,-1] = np.sqrt(np.exp(y_pred[:,-1]))
     results = None
     if y_pred.shape != y_test.shape:
         results = utils.summarise_lentiMPRA_performance(y_pred, np.expand_dims(y_test, axis=-1), celltype, aleatoric=True, epistemic=True)
@@ -74,6 +79,13 @@ def main(args):
         if args.downsample<1:
             rng = np.random.default_rng(1234)
             X_train, y_train = utils.downsample(X_train, y_train, rng, args.downsample)
+
+    # use logvar instead of std as training targets 
+    if args.logvar:
+        wandb.config.update({'std':False, 'logvar':True}, allow_val_change=True)
+        y_train[:,-1] = np.log(np.square(y_train[:,-1]))
+        y_val[:,-1] = np.log(np.square(y_val[:,-1]))
+
 
     # create model
     model = None
@@ -143,13 +155,20 @@ def main(args):
             pickle.dump(history.history, pickle_fh)
         
         # evaluate best model (and save)
-        eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_performance_aug.csv'), args.celltype, aleatoric=args.aleatoric, epistemic=args.epistemic)
+        eval_performance(model, X_test, y_test, 
+                         join(args.out, f'{args.ix}_performance_aug.csv'), 
+                         args.celltype, 
+                         logvar=args.logvar)
 
         ### fine tune model (w/o augmentations)
         wandb.config.update({'finetune':True}, allow_val_change=True)
         finetune_epochs = 10
         wandb.config['finetune_epochs']=finetune_epochs
-        model = evoaug.RobustModel(lentiMPRA, input_shape=X_train[0].shape, augment_list=augment_list, max_augs_per_seq=2, hard_aug=True, config=wandb.config, aleatoric=args.aleatoric, epistemic=args.epistemic)
+        model = evoaug.RobustModel(lentiMPRA, input_shape=X_train[0].shape, 
+                                   augment_list=augment_list, 
+                                   max_augs_per_seq=2, hard_aug=True, 
+                                   config=wandb.config, 
+                                   aleatoric=True, epistemic=True)
         model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])
         model.load_weights(save_path)
         model.finetune_mode()
@@ -164,18 +183,23 @@ def main(args):
         with open(join(args.out, f"{args.ix}_historyDict_finetune"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
         # evaluate model performance
-        eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_performance_finetune.csv'), args.celltype, aleatoric=args.aleatoric, epistemic=args.epistemic)
+        eval_performance(model, X_test, y_test, 
+                         join(args.out, f'{args.ix}_performance_finetune.csv'), 
+                         args.celltype, logvar=args.logvar)
     else:
         # evaluate model performance
-        eval_performance(model, X_test, y_test, join(args.out, str(args.ix) + "_performance.csv"), args.celltype, aleatoric=args.aleatoric, epistemic=args.epistemic)
+        eval_performance(model, X_test, y_test, 
+                         join(args.out, f"{args.ix}_performance.csv"), 
+                         args.celltype, 
+                         logvar=args.logvar)
     
         # plot loss curves and spearman correlation over training epochs and save 
         if args.plot:
-            plotting.plot_loss(history, join(args.out, str(args.ix) + "_loss_curves.png"))
+            plotting.plot_loss(history, join(args.out, f"{args.ix}_loss_curves.png"))
 
         # save model and history
-        model.save(join(args.out, str(args.ix) + "_lentiMPRA.h5"))
-        with open(join(args.out, str(args.ix) + "_historyDict"), 'wb') as pickle_fh:
+        model.save(join(args.out, f"{args.ix}_lentiMPRA.h5"))
+        with open(join(args.out, f"{args.ix}_historyDict"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
 
     # save updated config as yaml

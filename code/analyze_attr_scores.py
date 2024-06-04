@@ -29,6 +29,8 @@ def parse_args():
                         help='how many of top predictions from test set to analyze')
     parser.add_argument('--enhancer', type=str, default='Dev',
                         help='which class of predictions to sort top predictions for')
+    parser.add_argument('--head', type=str, default='mean',
+                        help='which output head is being analyzed')
     args = parser.parse_args()
     return args
 

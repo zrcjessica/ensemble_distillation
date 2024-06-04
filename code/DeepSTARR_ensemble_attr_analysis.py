@@ -29,6 +29,8 @@ def parse_args():
                         help='how many of top predictions from test set to analyze')
     parser.add_argument('--enhancer', type=str, default='Dev',
                         help='which class of predictions to sort top predictions for')
+    parser.add_argument("--head", type=str, default='mean',
+                        help='one of mean/std/logvar; determines which head to perform attribution analysis for')
     parser.add_argument("--average", action='store_true',
                         help='if set, calculate average saliency map across all models provided')
     parser.add_argument("--method", type=str,
@@ -43,6 +45,7 @@ def parse_args():
                         help='provide if --evoaug flag set; needed to load model from weights')
     parser.add_argument("--std", action='store_true',
                         help='if true, model predicts standard deviation')
+
     args = parser.parse_args()
     return args
 
@@ -104,6 +107,7 @@ def main(args):
                                            examples, 
                                            args.method, 
                                            enhancer=args.enhancer, 
+                                           head=args.head,
                                            ref_size=args.ref_size,
                                            background=background_seqs)
 
@@ -116,10 +120,10 @@ def main(args):
 
         # save as npy file
         if args.method=='shap' and args.dinuc_shuffle:
-            np.save(file=join(outdir, str(i+1) + "_top" + str(args.top_n) + f"_{args.enhancer}_shap_dinuc_shuffle.npy"),
+            np.save(file=join(outdir, str(i+1) + "_top" + str(args.top_n) + f"_{args.enhancer}-{args.head}_shap_dinuc_shuffle.npy"),
                 arr=grads)
         else:
-            np.save(file=join(outdir, str(i+1) + "_top" + str(args.top_n) + f"_{args.enhancer}_{args.method}.npy"),
+            np.save(file=join(outdir, str(i+1) + "_top" + str(args.top_n) + f"_{args.enhancer}-{args.head}_{args.method}.npy"),
                     arr=grads)
     
     # calculate avg and save as npy file
@@ -127,10 +131,10 @@ def main(args):
         avg_pred = cumsum/args.n_mods 
         if args.dinuc_shuffle:
             assert((args.dinuc_shuffle and args.method=='saliency') is not True) # make sure dinuc_shuffle is not set with saliency
-            np.save(file=join(outdir, "avg_top" + str(args.top_n) + f"_{args.enhancer}_{args.method}_dinuc_shuffle.npy"), 
+            np.save(file=join(outdir, "avg_top" + str(args.top_n) + f"_{args.enhancer}-{args.head}_{args.method}_dinuc_shuffle.npy"), 
                 arr=avg_pred)
         else:
-            np.save(file=join(outdir, "avg_top" + str(args.top_n) + f"_{args.enhancer}_{args.method}.npy"), 
+            np.save(file=join(outdir, "avg_top" + str(args.top_n) + f"_{args.enhancer}-{args.head}_{args.method}.npy"), 
                     arr=avg_pred)
 
 

@@ -384,7 +384,7 @@ def _pad_end(x, insert_max=20):
         x_padded = tf.concat([padding[:,:half,:], x, padding[:,half:,:]], axis=1)
         return x_padded
     
-def attribution_analysis(model, seqs, method, enhancer='Dev', std=False, ref_size=100, background=None, evoaug=False):
+def attribution_analysis(model, seqs, method, enhancer='Dev', head='mean', ref_size=100, background=None, evoaug=False):
     '''
     returns attribution maps for DeepSTARR models and seqs based on method (saliency/shap)
     if method=shap, will use provided background seqs or randomly generate dinucleotide shuffled sets per seq
@@ -398,8 +398,11 @@ def attribution_analysis(model, seqs, method, enhancer='Dev', std=False, ref_siz
         seqs = Variable(seqs, dtype='float32')
         with GradientTape() as tape:
             preds = model(seqs, training=False)
-            # preds = model.predict(seqs)
-            loss = preds[:,0 if enhancer=='Dev' else 1]
+            if enhancer=='Dev':
+                loss = preds[:, 0 if head=='mean' else 2]
+            else: # Hk 
+                loss = preds[:, 1 if head=='mean' else 3]
+            # loss = preds[:,0 if enhancer=='Dev' else 1]
         mean_saliency = tape.gradient(loss, seqs)
         return mean_saliency
     else:
@@ -418,13 +421,21 @@ def attribution_analysis(model, seqs, method, enhancer='Dev', std=False, ref_siz
                 seq = seqs[i]
                 bg = dinuc_shuffle(seq, num_shufs=ref_size, rng=rng) # can we remove this feature if random selection works fine?
                 explainer_dev = shap.DeepExplainer((model.input, model.output), data=bg)
-                shap_values_arr[i] = np.squeeze(explainer_dev.shap_values(np.expand_dims(seq, axis=0))[0], axis=0)
+                if enhancer=='Dev':
+                    shap_values_arr[i] = np.squeeze(explainer_dev.shap_values(np.expand_dims(seq, axis=0))[0 if head=='mean' else 2], axis=0)
+                else: # Hk 
+                    shap_values_arr[i] = np.squeeze(explainer_dev.shap_values(np.expand_dims(seq, axis=0))[1 if head=='mean' else 3], axis=0)
+                # shap_values_arr[i] = np.squeeze(explainer_dev.shap_values(np.expand_dims(seq, axis=0))[0 if enhancer=='Dev' else 1], axis=0)
             return shap_values_arr
         else:
             # use provided background seqs
             print('performing shap analysis without provided background seqs')
             explainer_dev = shap.DeepExplainer((model.input, model.output), data=background)
-            return explainer_dev.shap_values(seqs)[0 if enhancer=='Dev' else 1]
+            if enhancer=='Dev':
+                return explainer_dev.shap_values(seqs)[0 if head=='mean' else 2]
+            else: # Hk
+                return explainer_dev.shap_values(seqs)[1 if head=='mean' else 3]
+            # return explainer_dev.shap_values(seqs)[0 if enhancer=='Dev' else 1]
 
 # def summarise_ensemble_performance(files, downsample=1):
 #     '''

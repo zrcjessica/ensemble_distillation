@@ -19,7 +19,7 @@ mkdir -p $OUTDIR
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 
 # train multiple replicates
-for i in $(seq 4 $NMODS)
+for i in $(seq 1 $NMODS)
 do 
 	if [ "$evoaug" = true ]; then
 		echo "python train_stdev_DeepSTARR.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug --logvar"

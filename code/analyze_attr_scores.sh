@@ -30,7 +30,7 @@ if [ "$DOWNSAMPLED" = true ]; then
             if [ "$STD" = true ]; then 
                 python analyze_attr_scores.py \
                 --files_dir ${FILES_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}/distilled_with_std \
-                --reference ${FILES_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}/avg_top${TOP_N}_${ENHANCER}_saliency.npy \
+                --reference ${FILES_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}/avg_top${TOP_N}_${ENHANCER}_${METHOD}.npy \
                 --method $METHOD \
                 --top_n $TOP_N \
                 --enhancer $ENHANCER \
@@ -39,7 +39,7 @@ if [ "$DOWNSAMPLED" = true ]; then
             else  
                 python analyze_attr_scores.py \
                 --files_dir ${FILES_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}/ensemble_distilled \
-                --reference ${FILES_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}/avg_top${TOP_N}_${ENHANCER}_saliency.npy \
+                --reference ${FILES_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}/avg_top${TOP_N}_${ENHANCER}_${METHOD}.npy \
                 --method $METHOD \
                 --top_n $TOP_N \
                 --enhancer $ENHANCER \
@@ -60,8 +60,8 @@ else
     if [ "$DISTILLED" = true ]; then
         if [ "$STD" = true ]; then  
             python analyze_attr_scores.py \
-            --files_dir $FILES_DIR/distilled_with_std \
-            --reference ${FILES_DIR}/avg_top${TOP_N}_${ENHANCER}_saliency.npy \
+            --files_dir ${FILES_DIR}/distilled_with_std \
+            --reference ${FILES_DIR}/avg_top${TOP_N}_${ENHANCER}_${METHOD}.npy \
             --method $METHOD \
             --top_n $TOP_N \
             --enhancer $ENHANCER \
@@ -70,7 +70,7 @@ else
         else 
             python analyze_attr_scores.py \
             --files_dir $FILES_DIR/ensemble_distilled \
-            --reference ${FILES_DIR}/avg_top${TOP_N}_${ENHANCER}_saliency.npy \
+            --reference ${FILES_DIR}/avg_top${TOP_N}_${ENHANCER}_${METHOD}.npy \
             --method $METHOD \
             --top_n $TOP_N \
             --enhancer $ENHANCER \
