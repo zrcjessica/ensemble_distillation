@@ -491,3 +491,17 @@ def load_lentiMPRA_from_weights(weights, input_shape, augment_list, config_file,
                   loss=config['loss_fxn'])
     model.load_weights(weights)
     return model
+
+def Gaussian_NLL_logvar(y, mu, logvar, reduce=True):
+    ax = list(range(1, len(y.shape)))
+
+    log_liklihood = 0.5 * (
+        -tf.exp(-logvar)*(mu-y)**2 - tf.math.log(2*tf.constant(np.pi, dtype=logvar.dtype)) - logvar
+    )
+    loss = tf.reduce_mean(-log_liklihood, axis=ax)
+    return tf.reduce_mean(loss) if reduce else loss
+
+def EvidentialRegression(y_true, evidential_output):
+    mu, logvar = tf.split(evidential_output, 2, axis=-1)
+    loss_nll = Gaussian_NLL_logvar(y_true, mu, logvar)
+    return loss_nll

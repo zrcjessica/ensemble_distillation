@@ -29,8 +29,8 @@ def parse_args():
                         help="output directory to save model and plots")
     parser.add_argument("--data", type=str,
                         help='h5 file containing train/val/test data')
-    parser.add_argument("--lr", default=0.001,
-                        help="fixed learning rate")
+    # parser.add_argument("--lr", default=0.001,
+    #                     help="fixed learning rate")
     parser.add_argument("--plot", action='store_true',
                         help="if set, save training plots")
     parser.add_argument("--downsample", default=1, type=float,
@@ -55,6 +55,8 @@ def parse_args():
                         help='if set, predict ensemble stdev in addition to mean; distill flag must be set as well')
     parser.add_argument("--evoaug", action='store_true',
                         help='if set, train models with evoaug')
+    parser.add_argument("--evidential", action='store_true',
+                        help='if set, train with evidential regression loss')
     args = parser.parse_args()
     return args
 
@@ -69,6 +71,8 @@ def main(args):
     wandb.login()
     wandb.init(project=args.project, config=args.config)
     wandb.config['model_ix'] = args.ix
+    if args.evidential:
+        wandb.config.update({'loss_fxn':'evidential'}, allow_val_change=True)
 
     # load data from h5
     X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(file=args.data, 
@@ -80,11 +84,11 @@ def main(args):
             rng = np.random.default_rng(1234)
             X_train, y_train = utils.downsample(X_train, y_train, rng, args.downsample)
         
-    # for training an ensemble distilled model
+    # for training a distilled model with ensemble avg provided to --distill
     if args.distill is not None:
         wandb.config.update({'distill':True}, allow_val_change=True)
-        y_train = np.load(args.distill)
-        assert(X_train.shape[0]==y_train.shape[0])
+        y_train = np.load(args.distill) 
+        assert(X_train.shape[0]==y_train.shape[0]) # check dims 
         if args.predict_std != wandb.config['std']:
             # predict std
             wandb.config.update({'std':args.predict_std}, allow_val_change=True)
@@ -120,11 +124,15 @@ def main(args):
         model = DeepSTARR(X_train[0].shape, wandb.config, args.predict_std)
 
     # update lr in config if different value provided to input
-    if args.lr != wandb.config['optim_lr']:
-        wandb.config.update({'optim_lr':args.lr}, allow_val_change=True)
+    # if args.lr != wandb.config['optim_lr']:
+    #     wandb.config.update({'optim_lr':args.lr}, allow_val_change=True)
 
     # compile model
-    model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])
+    if args.evidential:
+        # train w/ evidential regression
+        model.compile(optimizer=Adam(learning_rate=wandb.config['optim_lr']), loss=utils.EvidentialRegression)
+    else:
+        model.compile(optimizer=Adam(learning_rate=wandb.config['optim_lr']), loss=wandb.config['loss_fxn'])
 
     # define callbacks
     callbacks_list = [WandbMetricsLogger()]
@@ -165,7 +173,10 @@ def main(args):
         finetune_epochs = 10
         wandb.config['finetune_epochs']=finetune_epochs
         model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, augment_list=augment_list, max_augs_per_seq=2, hard_aug=True, config=wandb.config, predict_std=args.predict_std)
-        model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])
+        if args.evidential:
+            model.compile(optimizer=Adam(learning_rate=wandb.config['optim_lr']), loss=utils.EvidentialRegression)
+        else:
+            model.compile(optimizer=Adam(learning_rate=wandb.config['optim_lr']), loss=wandb.config['loss_fxn'])
         model.load_weights(save_path)
         model.finetune_mode()
         # train

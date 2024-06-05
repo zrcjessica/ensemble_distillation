@@ -32,6 +32,10 @@ def DeepSTARR(input_shape, config, predict_std=False):
     if predict_std:
         # outputs: [Dev-mean, Hk-mean, Dev-std, Hk-std]
         outputs = kl.Dense(4, activation='linear')(x)
+    elif config['loss_fxn']=='evidential':
+        import evidential_deep_learning as edl
+        # outputs: [Dev, Hk, Dev-uncertainty, Hk-uncertainty]
+        outputs = edl.layers.DenseNormal(2)(x)
     else:
         # outputs: [Dev, Hk]
         outputs = kl.Dense(2, activation='linear')(x) # why specify if default is linear? 
