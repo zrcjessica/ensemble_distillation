@@ -51,8 +51,6 @@ def parse_args():
                         help='if provided, trains a model using distilled training data')
     parser.add_argument("--k", type=int, default=1,
                         help='factor for adjusting number of parameters in hidden layers')
-    # parser.add_argument("--predict_std", action='store_true',
-    #                     help='if set, predict ensemble stdev in addition to mean; distill flag must be set as well')
     parser.add_argument("--aleatoric", action='store_true',
                         help='if set, predict aleatoric uncertainty')
     parser.add_argument("--epistemic", action='store_true',
@@ -61,6 +59,8 @@ def parse_args():
                         help='if set, train models with evoaug')
     parser.add_argument("--celltype", type=str,
                         help='define celltype (K562/HepG2)')
+    parser.add_argument("--evidential", action='store_true',
+                        help='if set, train with evidential regression loss')
     args = parser.parse_args()
     return args
 
@@ -68,9 +68,9 @@ def eval_performance(model, X_test, y_test, outfh, celltype, aleatoric=False, ep
     y_pred = model.predict(X_test)
     results = None
     if y_pred.shape != y_test.shape:
-        results = utils.summarise_lentiMPRA_performance(y_pred, np.expand_dims(y_test, axis=-1), celltype, aleatoric=args.aleatoric, epistemic=args.epistemic)
+        results = utils.summarise_lentiMPRA_performance(y_pred, np.expand_dims(y_test, axis=-1), celltype, aleatoric=aleatoric, epistemic=epistemic)
     else:
-        results = utils.summarise_lentiMPRA_performance(y_pred, y_test, celltype, aleatoric=args.aleatoric, epistemic=args.epistemic)
+        results = utils.summarise_lentiMPRA_performance(y_pred, y_test, celltype, aleatoric=aleatoric, epistemic=epistemic)
     results.to_csv(outfh, index=False)
 
 def main(args):
@@ -80,7 +80,10 @@ def main(args):
     wandb.init(project=args.project, config=args.config)
     wandb.config['model_ix'] = args.ix
     wandb.config['celltype'] = args.celltype
+    if args.evidential:
+        wandb.config.update({'loss_fxn':'evidential'}, allow_val_change=True)
 
+        
     # load data from h5
     X_train, y_train, X_test, y_test, X_val, y_val = utils.load_lentiMPRA_data(file=args.data)
 
@@ -105,7 +108,7 @@ def main(args):
             rng = np.random.default_rng(1234)
             X_train, y_train = utils.downsample(X_train, y_train, rng, args.downsample)
         
-    # for training an ensemble distilled model (training data provided to --distill)
+    # for training an ensemble distilled model using ensemble avg (training data provided to --distill)
     if args.distill is not None:
         wandb.config.update({'distill':True}, allow_val_change=True)
         y_train = np.load(args.distill)
@@ -152,7 +155,12 @@ def main(args):
         wandb.config.update({'optim_lr':args.lr}, allow_val_change=True)
 
     # compile model
-    model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])
+    if args.evidential:
+        # train w/ evidential regression
+        model.compile(optimizer=Adam(learning_rate=wandb.config['optim_lr']), loss=utils.EvidentialRegression)
+    else:
+        model.compile(optimizer=Adam(learning_rate=wandb.config['optim_lr']), loss=wandb.config['loss_fxn'])
+    # model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])
 
     # define callbacks
     callbacks_list = [WandbMetricsLogger()]
@@ -186,14 +194,22 @@ def main(args):
             pickle.dump(history.history, pickle_fh)
         
         # evaluate best model (and save)
-        eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_performance_aug.csv'), args.celltype, aleatoric=args.aleatoric, epistemic=args.epistemic)
+        eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_performance_aug.csv'), 
+                         args.celltype, aleatoric=args.aleatoric, epistemic=args.epistemic)
 
         ### fine tune model (w/o augmentations)
         wandb.config.update({'finetune':True}, allow_val_change=True)
         finetune_epochs = 10
         wandb.config['finetune_epochs']=finetune_epochs
-        model = evoaug.RobustModel(lentiMPRA, input_shape=X_train[0].shape, augment_list=augment_list, max_augs_per_seq=2, hard_aug=True, config=wandb.config, aleatoric=args.aleatoric, epistemic=args.epistemic)
-        model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])
+        model = evoaug.RobustModel(lentiMPRA, input_shape=X_train[0].shape, 
+                                   augment_list=augment_list, 
+                                   max_augs_per_seq=2, hard_aug=True, 
+                                   config=wandb.config, 
+                                   aleatoric=args.aleatoric, epistemic=args.epistemic)
+        if args.evidential:
+            model.compile(optimizer=Adam(learning_rate=args.lr), loss=utils.EvidentialRegression)
+        else:
+            model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])
         model.load_weights(save_path)
         model.finetune_mode()
         # train
@@ -207,18 +223,26 @@ def main(args):
         with open(join(args.out, f"{args.ix}_historyDict_finetune"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
         # evaluate model performance
-        eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_performance_finetune.csv'), args.celltype, aleatoric=args.aleatoric, epistemic=args.epistemic)
+        eval_performance(model, X_test, y_test, 
+                         join(args.out, f'{args.ix}_performance_finetune.csv'), 
+                         args.celltype, aleatoric=args.aleatoric, epistemic=args.epistemic)
     else:
         # evaluate model performance
-        eval_performance(model, X_test, y_test, join(args.out, str(args.ix) + "_performance.csv"), args.celltype, aleatoric=args.aleatoric, epistemic=args.epistemic)
+        eval_performance(model, X_test, y_test, 
+                         join(args.out, "{args.ix}_performance.csv"), 
+                         args.celltype, aleatoric=args.aleatoric, epistemic=args.epistemic)
     
         # plot loss curves and spearman correlation over training epochs and save 
         if args.plot:
             plotting.plot_loss(history, join(args.out, str(args.ix) + "_loss_curves.png"))
 
         # save model and history
-        model.save(join(args.out, str(args.ix) + "_lentiMPRA.h5"))
-        with open(join(args.out, str(args.ix) + "_historyDict"), 'wb') as pickle_fh:
+        if args.evidential:
+            # save model weights
+            model.save_weights(join(args.out, f'{args.ix}_lentiMPRA.weights.h5'))
+        else:
+            model.save(join(args.out, f"{args.ix}_lentiMPRA.h5"))
+        with open(join(args.out, f"{args.ix}_historyDict"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
 
     # save updated config as yaml

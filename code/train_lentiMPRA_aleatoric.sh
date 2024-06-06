@@ -19,7 +19,7 @@ if [ "$evoaug" = true ]; then
 fi
 
 ### define cell type
-CELLTYPE='HepG2' # HepG2 or K562
+CELLTYPE='K562' # HepG2 or K562
 OUTDIR=${OUTDIR}/${CELLTYPE}
 DATA=${DATA_DIR}/${CELLTYPE}_data_with_aleatoric.h5
 

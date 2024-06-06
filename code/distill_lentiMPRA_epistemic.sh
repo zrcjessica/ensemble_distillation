@@ -9,20 +9,20 @@ PROJECT_NAME=lentiMPRA_distilled_epistemic
 
 ### boolean flags
 # train downsampled models
-downsample=false
+downsample=true
 # train w/ evoaug
 evoaug=false
 if [ "$evoaug" = true ]; then
     MODELS_DIR=${MODELS_DIR}-evoaug
 fi
 # use logvar instead of std for epistemic uncertainty 
-logvar=true 
+logvar=false  
 if [ "$logvar" = true ]; then  
     MODELS_DIR=${MODELS_DIR}/logvar
 fi 
 
 ### define cell type
-CELLTYPE='HepG2' # HepG2 or K562
+CELLTYPE='K562' # HepG2 or K562
 MODELS_DIR=${MODELS_DIR}/${CELLTYPE}
 DATA=${DATA_DIR}/${CELLTYPE}_distillation_data_with_epistemic.h5
 
@@ -51,7 +51,7 @@ if [ "$downsample" = true ]; then
                     echo "python train_distilled_lentiMPRA_with_epistemic.py --ix $i --out $OUTDIR --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE"
                 fi
             fi
-        done | simple_gpu_scheduler --gpus 0,1,2,3,4
+        done | simple_gpu_scheduler --gpus 1,2,3,4,5
     done 
 else
     OUTDIR=${MODELS_DIR}
@@ -71,7 +71,7 @@ else
                 echo "python train_distilled_lentiMPRA_with_epistemic.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE"
             fi
         fi
-    done | simple_gpu_scheduler --gpus 0,1,2,3,4
+    done | simple_gpu_scheduler --gpus 1,2,3,4,5
 fi
 
 

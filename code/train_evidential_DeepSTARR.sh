@@ -7,7 +7,7 @@ CONFIG=../config/DeepSTARR.yaml
 PROJECT_NAME=DeepSTARR_evidential
 
 # train w/ evoaug
-evoaug=true
+evoaug=false
 if [ "$evoaug" = true ]; then
     OUTDIR=${OUTDIR}_evoaug
     # PROJECT_NAME=DeepSTARR_ensemble_with_evoaug
@@ -25,7 +25,7 @@ do
     else
         echo "python train_DeepSTARR.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --evidential"
     fi
-done | simple_gpu_scheduler --gpus 0,1,2,3,4
+done | simple_gpu_scheduler --gpus 1,2,3,4,5
 
 
 # message the user on slack if possible
