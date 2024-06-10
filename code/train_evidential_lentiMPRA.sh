@@ -19,7 +19,7 @@ if [ "$evoaug" = true ]; then
 fi
 
 ### define cell type
-CELLTYPE='K562' # HepG2 or K562
+CELLTYPE='HepG2' # HepG2 or K562
 OUTDIR=${OUTDIR}/${CELLTYPE}
 DATA=${DATA_DIR}/${CELLTYPE}_data.h5
 
@@ -41,7 +41,7 @@ if [ "$downsample" = true ]; then
             else
                 echo "echo 'model_ix=$i' && python train_lentiMPRA.py --ix $i --out $OUTDIR_DOWNSAMPLE --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE --evidential"
             fi
-        done | simple_gpu_scheduler --gpus 6,7
+        done | simple_gpu_scheduler --gpus 0,1,2,3,4
     done 
 else
     for i in $(seq 1 $ENSEMBLE_SIZE)
@@ -51,7 +51,7 @@ else
         else
             echo "python train_lentiMPRA.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE --evidential"
         fi
-    done | simple_gpu_scheduler --gpus 6,7
+    done | simple_gpu_scheduler --gpus 0,1,2,3,4
 fi
 
 
@@ -69,7 +69,7 @@ if command -v 'slack' &>/dev/null; then
             if [ "$downsample" = true ]; then
                 slack "training ensemble of downsampled $ENSEMBLE_SIZE lentiMPRA models for $CELLTYPE completed successfully" &>/dev/null
             else
-                slack "training ensemble of $ENSEMBLE_SIZE lentiMPRA models for $CELLTYPE completed successfully" &>/dev/null
+                slack "training ensemble of $ENSEMBLE_SIZE lentiMPRA models for $CELLTYPE with evidential regression completed successfully" &>/dev/null
             fi
         fi
 	else
@@ -83,7 +83,7 @@ if command -v 'slack' &>/dev/null; then
             if [ "$downsample" = true ]; then
                 slack "training ensemble of downsampled $ENSEMBLE_SIZE lentiMPRA models for $CELLTYPE exited with error code $exit_code"
             else
-                slack "training ensemble of $ENSEMBLE_SIZE lentiMPRA models for $CELLTYPE exited with error code $exit_code"
+                slack "training ensemble of $ENSEMBLE_SIZE lentiMPRA models for $CELLTYPE with evidential regression exited with error code $exit_code"
             fi
         fi
 	fi

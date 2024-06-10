@@ -16,7 +16,7 @@ import numpy as np
 '''
 train distilled lentiMPRA models w/ mean+aleatoric+epistemic predictions 
 assumes that h5 file provided contains ensemble avg/std data (that would otherwise be provided to --distill arugment of train_lentiMPRA.py)
---downsample flag allows models to be trained with a subset of training data
+for training downsampled models, make sure that h5 file provided to --data corresponds to downsample proportion
 --evoaug flag determines whether model will be trained w/ evoaug augmentations
 '''
 
@@ -55,6 +55,7 @@ def eval_performance(model, X_test, y_test, outfh, celltype, logvar=False):
         # convert logvar back to std for evaluation
         y_pred[:,-1] = np.sqrt(np.exp(y_pred[:,-1]))
     results = None
+    assert(y_pred.shape[-1]==3)
     if y_pred.shape != y_test.shape:
         results = utils.summarise_lentiMPRA_performance(y_pred, np.expand_dims(y_test, axis=-1), celltype, aleatoric=True, epistemic=True)
     else:
@@ -73,14 +74,18 @@ def main(args):
     # load data from h5
     X_train, y_train, X_test, y_test, X_val, y_val = utils.load_lentiMPRA_data(file=args.data, epistemic=True)
 
-    # downsample training data
+    assert(y_train.shape[-1]==3)
+    assert(y_test.shape[-1]==3)
+    assert(y_val.shape[-1]==3)
+    
+    # # downsample training data
     if args.downsample != wandb.config['downsample']:
         wandb.config.update({'downsample':args.downsample}, allow_val_change=True)
-        if args.downsample<1:
-            rng = np.random.default_rng(1234)
-            X_train, y_train = utils.downsample(X_train, y_train, rng, args.downsample)
+    #     if args.downsample<1:
+    #         rng = np.random.default_rng(1234)
+    #         X_train, y_train = utils.downsample(X_train, y_train, rng, args.downsample)
 
-    # use logvar instead of std as training targets 
+    # use logvar instead of std as training targets for epistemic head (last column)
     if args.logvar:
         wandb.config.update({'std':False, 'logvar':True}, allow_val_change=True)
         y_train[:,-1] = np.log(np.square(y_train[:,-1]))

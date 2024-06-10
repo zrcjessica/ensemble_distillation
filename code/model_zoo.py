@@ -126,7 +126,7 @@ def lentiMPRA(input_shape, config, aleatoric=False, epistemic=False):
     else:
         if config['loss_fxn']=='evidential':
             import evidential_deep_learning as edl
-            # outputs: [mean, uncertaomtu]
+            # outputs: [mean, uncertainty]
             outputs = edl.layers.DenseNormal(1)(x)
         else:
             # outputs: [mean]

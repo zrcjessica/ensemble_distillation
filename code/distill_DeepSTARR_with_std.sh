@@ -1,11 +1,11 @@
 # trains a single distilled DeepSTARR model that predicts uncertainty (stdev) and mean
 
-OUTDIR=../results/DeepSTARR_lr-decay/distilled_with_std
+OUTDIR=../results/DeepSTARR_lr-decay/distilled_with_std_REDO
 # OUTDIR=../results/DeepSTARR_lr-decay
 DATA_DIR=../data/DeepSTARR
 DATA=${DATA_DIR}/all_data_with_ensemble_metrics_hierarchical.h5
 CONFIG=../config/DeepSTARR.yaml
-PROJECT_NAME=DeepSTARR_distilled_with_std
+PROJECT_NAME=DeepSTARR_distilled_with_std_REDO
 NMODS=10
 
 ### boolean vars (toggle true/false)
@@ -33,9 +33,9 @@ if [ "$downsample" = true ]; then
 		for i in $(seq 1 $NMODS)
 		do
 			if [ "$evoaug" = true ]; then
-				echo "python train_stdev_DeepSTARR.py --ix $i --out $DOWNSAMPLE_OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug --downsample ${DOWNSAMPLE_ARR[$p]}"
+				echo "python train_stdev_DeepSTARR.py --ix $i --out $DOWNSAMPLE_OUTDIR --data $DOWNSAMPLE_DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug --downsample ${DOWNSAMPLE_ARR[$p]}"
 			else
-				echo "python train_stdev_DeepSTARR.py --ix $i --out $DOWNSAMPLE_OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --downsample ${DOWNSAMPLE_ARR[$p]}"
+				echo "python train_stdev_DeepSTARR.py --ix $i --out $DOWNSAMPLE_OUTDIR --data $DOWNSAMPLE_DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --downsample ${DOWNSAMPLE_ARR[$p]}"
 			fi
 		done | simple_gpu_scheduler --gpus 0,1,2,3,4
 	done 

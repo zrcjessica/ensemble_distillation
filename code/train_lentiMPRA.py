@@ -229,7 +229,7 @@ def main(args):
     else:
         # evaluate model performance
         eval_performance(model, X_test, y_test, 
-                         join(args.out, "{args.ix}_performance.csv"), 
+                         join(args.out, f"{args.ix}_performance.csv"), 
                          args.celltype, aleatoric=args.aleatoric, epistemic=args.epistemic)
     
         # plot loss curves and spearman correlation over training epochs and save 

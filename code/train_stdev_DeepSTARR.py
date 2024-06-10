@@ -83,9 +83,9 @@ def main(args):
     # downsample training data
     if args.downsample != wandb.config['downsample']:
         wandb.config.update({'downsample':args.downsample}, allow_val_change=True)
-        if args.downsample<1:
-            rng = np.random.default_rng(1234)
-            X_train, y_train = utils.downsample(X_train, y_train, rng=rng, p=args.downsample, return_ix=False)
+    #     if args.downsample<1:
+    #         rng = np.random.default_rng(1234)
+    #         X_train, y_train = utils.downsample(X_train, y_train, rng=rng, p=args.downsample, return_ix=False)
     
     # use logvar instead of std as training targets 
     if args.logvar:

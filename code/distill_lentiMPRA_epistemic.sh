@@ -13,7 +13,7 @@ downsample=true
 # train w/ evoaug
 evoaug=false
 if [ "$evoaug" = true ]; then
-    MODELS_DIR=${MODELS_DIR}-evoaug
+    MODELS_DIR=${MODELS_DIR}_evoaug
 fi
 # use logvar instead of std for epistemic uncertainty 
 logvar=false  
@@ -22,7 +22,7 @@ if [ "$logvar" = true ]; then
 fi 
 
 ### define cell type
-CELLTYPE='K562' # HepG2 or K562
+CELLTYPE='HepG2' # HepG2 or K562
 MODELS_DIR=${MODELS_DIR}/${CELLTYPE}
 DATA=${DATA_DIR}/${CELLTYPE}_distillation_data_with_epistemic.h5
 
@@ -35,23 +35,24 @@ if [ "$downsample" = true ]; then
     do
         echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
         OUTDIR=${MODELS_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}
+        DOWNSAMPLE_DATA=${DATA_DIR}/${CELLTYPE}_downsample${DOWNSAMPLE_ARR[$p]}_distillation_data_with_epistemic.h5
         mkdir -p $OUTDIR
         for i in $(seq 1 $N_MODS)
         do 
             if [ "$evoaug" = true ]; then
                 if [ "$logvar" = true ]; then
-                     echo "echo 'model_ix=$i' && python train_distilled_lentiMPRA_with_epistemic.py --ix $i --out $OUTDIR --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug --celltype $CELLTYPE --logvar"
+                     echo "echo 'model_ix=$i' && python train_distilled_lentiMPRA_with_epistemic.py --ix $i --out $OUTDIR --data $DOWNSAMPLE_DATA --downsample ${DOWNSAMPLE_ARR[$p]} --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug --celltype $CELLTYPE --logvar"
                 else 
-                    echo "echo 'model_ix=$i' && python train_distilled_lentiMPRA_with_epistemic.py --ix $i --out $OUTDIR --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug --celltype $CELLTYPE"
+                    echo "echo 'model_ix=$i' && python train_distilled_lentiMPRA_with_epistemic.py --ix $i --out $OUTDIR --data $DOWNSAMPLE_DATA --downsample ${DOWNSAMPLE_ARR[$p]} --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug --celltype $CELLTYPE"
                 fi
             else
                 if [ "$logvar" = true ]; then
-                    echo "python train_distilled_lentiMPRA_with_epistemic.py --ix $i --out $OUTDIR --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE --logvar"
+                    echo "python train_distilled_lentiMPRA_with_epistemic.py --ix $i --out $OUTDIR --data $DOWNSAMPLE_DATA --downsample ${DOWNSAMPLE_ARR[$p]} --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE --logvar"
                 else 
-                    echo "python train_distilled_lentiMPRA_with_epistemic.py --ix $i --out $OUTDIR --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE"
+                    echo "python train_distilled_lentiMPRA_with_epistemic.py --ix $i --out $OUTDIR --data $DOWNSAMPLE_DATA --downsample ${DOWNSAMPLE_ARR[$p]} --plot  --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE"
                 fi
             fi
-        done | simple_gpu_scheduler --gpus 1,2,3,4,5
+        done | simple_gpu_scheduler --gpus 4,5
     done 
 else
     OUTDIR=${MODELS_DIR}
@@ -71,7 +72,7 @@ else
                 echo "python train_distilled_lentiMPRA_with_epistemic.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE"
             fi
         fi
-    done | simple_gpu_scheduler --gpus 1,2,3,4,5
+    done | simple_gpu_scheduler --gpus 4,5
 fi
 
 
