@@ -38,7 +38,7 @@ def DeepSTARR(input_shape, config, predict_std=False):
         outputs = edl.layers.DenseNormal(2)(x)
     else:
         # outputs: [Dev, Hk]
-        outputs = kl.Dense(2, activation='linear')(x) # why specify if default is linear? 
+        outputs = kl.Dense(2, activation='linear')(x) 
 
     model = Model(inputs=inputs, outputs=outputs)
     return model 

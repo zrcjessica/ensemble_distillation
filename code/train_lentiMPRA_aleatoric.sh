@@ -13,9 +13,9 @@ downsample=true
 aleatoric=true
 epistemic=false
 # train w/ evoaug
-evoaug=false
+evoaug=true
 if [ "$evoaug" = true ]; then
-    OUTDIR=../results/lentiMPRA_aleatoric-evoaug
+    OUTDIR=../results/lentiMPRA_aleatoric_evoaug
 fi
 
 ### define cell type

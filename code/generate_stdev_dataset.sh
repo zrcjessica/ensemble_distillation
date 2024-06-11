@@ -1,18 +1,19 @@
 # calculates stdev of DeepSTARR ensemble predictions on train/test/val
 
-MODELS_DIR=../results/DeepSTARR_lr-decay
+# MODELS_DIR=../results/DeepSTARR_lr-decay
+MODELS_DIR=../results/DeepSTARR_ensemble_NEW
 N_MODS=10
 DATA=../data/DeepSTARR/Sequences_activity_all.h5
-OUTDIR=../data/DeepSTARR
+OUTDIR=../data/DeepSTARR_ensemble_NEW
 
 # boolean vars (toggle true/false)
 EVOAUG=false
-DOWNSAMPLE=true 
+DOWNSAMPLE=false 
 
 # flag dependent changes
 if [ "$EVOAUG" = true ]; then
-	MODELS_DIR=../results/DeepSTARR_evoaug
-	OUTDIR=../data/DeepSTARR/evoaug
+	MODELS_DIR=../results/DeepSTARR_evoaug_NEW
+	OUTDIR=../data/DeepSTARR/evoaug_NEW
 fi
 
 mkdir -p $OUTDIR 
@@ -24,16 +25,16 @@ if [ "$DOWNSAMPLE" = true ]; then
 	for p in "${!DOWNSAMPLE_ARR[@]}"
 	do	
 		if [ "$EVOAUG" = true ]; then
-			CUDA_VISIBLE_DEVICES=4 python stdev_ensemble_predictions.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR --evoaug --config $MODELS_DIR/config.yaml --downsample ${DOWNSAMPLE_ARR[$p]}
+			CUDA_VISIBLE_DEVICES=7 python stdev_ensemble_predictions.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR --evoaug --config $MODELS_DIR/config.yaml --downsample ${DOWNSAMPLE_ARR[$p]}
 		else
-			CUDA_VISIBLE_DEVICES=4 python stdev_ensemble_predictions.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR --downsample ${DOWNSAMPLE_ARR[$p]}
+			CUDA_VISIBLE_DEVICES=7 python stdev_ensemble_predictions.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR --downsample ${DOWNSAMPLE_ARR[$p]}
 		fi
 	done
 else
 	if [ "$EVOAUG" = true ]; then
-		CUDA_VISIBLE_DEVICES=4 python stdev_ensemble_predictions.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR --evoaug --config $MODELS_DIR/config.yaml
+		CUDA_VISIBLE_DEVICES=7 python stdev_ensemble_predictions.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR --evoaug --config $MODELS_DIR/config.yaml
 	else
-		CUDA_VISIBLE_DEVICES=4 python stdev_ensemble_predictions.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR
+		CUDA_VISIBLE_DEVICES=7 python stdev_ensemble_predictions.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR
 	fi
 fi 
 
