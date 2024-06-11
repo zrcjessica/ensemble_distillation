@@ -6,7 +6,8 @@ OUTDIR=../results/lentiMPRA_aleatoric
 DATA_DIR=../data/lentiMPRA
 CONFIG=../config/lentiMPRA.yaml
 PROJECT_NAME=lentiMPRA_ensemble_aleatoric
-DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 ) # used if downsample set to true
+# DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 ) # used if downsample set to true
+DOWNSAMPLE_ARR=( 0.25 0.5 0.75 ) # used if downsample set to true
 ### boolean flags
 # train downsampled models
 downsample=true
