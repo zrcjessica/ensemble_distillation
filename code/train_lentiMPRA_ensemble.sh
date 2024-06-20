@@ -1,13 +1,13 @@
 # train an ensemble of lentiMPRA models 
 
 ### script params/variables
-ENSEMBLE_SIZE=20
+ENSEMBLE_SIZE=10
 OUTDIR=../results/lentiMPRA
 DATA_DIR=../data/lentiMPRA
 CONFIG=../config/lentiMPRA.yaml
 PROJECT_NAME=lentiMPRA_ensemble
-# DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 ) # used if downsample set to true
-DOWNSAMPLE_ARR=( 0.1 ) # used if downsample set to true
+DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 ) # used if downsample set to true
+# DOWNSAMPLE_ARR=( 0.1 ) # used if downsample set to true
 
 ### boolean flags
 # train downsampled models
@@ -15,7 +15,7 @@ downsample=true
 # train w/ evoaug
 evoaug=false
 if [ "$evoaug" = true ]; then
-    OUTDIR=../results/lentiMPRA-evoaug
+    OUTDIR=../results/lentiMPRA_evoaug
 fi
 
 ### define cell type
@@ -34,7 +34,7 @@ if [ "$downsample" = true ]; then
         echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
         OUTDIR_DOWNSAMPLE=${OUTDIR}/downsample_${DOWNSAMPLE_ARR[$p]}
         mkdir -p $OUTDIR_DOWNSAMPLE
-        for i in $(seq 11 $ENSEMBLE_SIZE)
+        for i in $(seq 1 $ENSEMBLE_SIZE)
         do 
             if [ "$evoaug" = true ]; then
                 echo "echo 'model_ix=$i' && python train_lentiMPRA.py --ix $i --out $OUTDIR_DOWNSAMPLE --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug --celltype $CELLTYPE"

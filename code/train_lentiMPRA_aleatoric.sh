@@ -7,7 +7,7 @@ DATA_DIR=../data/lentiMPRA
 CONFIG=../config/lentiMPRA.yaml
 PROJECT_NAME=lentiMPRA_ensemble_aleatoric
 # DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 ) # used if downsample set to true
-DOWNSAMPLE_ARR=( 0.25 0.5 0.75 ) # used if downsample set to true
+DOWNSAMPLE_ARR=( 0.1 ) # used if downsample set to true
 ### boolean flags
 # train downsampled models
 downsample=true
@@ -20,7 +20,7 @@ if [ "$evoaug" = true ]; then
 fi
 
 ### define cell type
-CELLTYPE='K562' # HepG2 or K562
+CELLTYPE='HepG2' # HepG2 or K562
 OUTDIR=${OUTDIR}/${CELLTYPE}
 DATA=${DATA_DIR}/${CELLTYPE}_data_with_aleatoric.h5
 
@@ -43,7 +43,7 @@ if [ "$downsample" = true ]; then
             else
                 echo "python train_lentiMPRA.py --ix $i --out $OUTDIR_DOWNSAMPLE --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE --aleatoric"
             fi
-        done | simple_gpu_scheduler --gpus 1,2
+        done | simple_gpu_scheduler --gpus 0,1,2,3,4
     done 
 else
     for i in $(seq 1 $ENSEMBLE_SIZE)
@@ -53,7 +53,7 @@ else
         else
             echo "python train_lentiMPRA.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE --aleatoric"
         fi
-    done | simple_gpu_scheduler --gpus 0,3
+    done | simple_gpu_scheduler --gpus 0,1,2,3,4
 fi
 
 

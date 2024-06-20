@@ -59,8 +59,6 @@ def parse_args():
                         help='if set, train models with evoaug')
     parser.add_argument("--celltype", type=str,
                         help='define celltype (K562/HepG2)')
-    parser.add_argument("--evidential", action='store_true',
-                        help='if set, train with evidential regression loss')
     args = parser.parse_args()
     return args
 
@@ -80,9 +78,6 @@ def main(args):
     wandb.init(project=args.project, config=args.config)
     wandb.config['model_ix'] = args.ix
     wandb.config['celltype'] = args.celltype
-    if args.evidential:
-        wandb.config.update({'loss_fxn':'evidential'}, allow_val_change=True)
-
         
     # load data from h5
     X_train, y_train, X_test, y_test, X_val, y_val = utils.load_lentiMPRA_data(file=args.data)
@@ -153,12 +148,7 @@ def main(args):
         wandb.config.update({'optim_lr':args.lr}, allow_val_change=True)
 
     # compile model
-    if args.evidential:
-        # train w/ evidential regression
-        model.compile(optimizer=Adam(learning_rate=wandb.config['optim_lr']), loss=utils.EvidentialRegression)
-    else:
-        model.compile(optimizer=Adam(learning_rate=wandb.config['optim_lr']), loss=wandb.config['loss_fxn'])
-    # model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])
+    model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])
 
     # define callbacks
     callbacks_list = [WandbMetricsLogger()]
@@ -176,7 +166,7 @@ def main(args):
                                               mode='min',
                                               verbose=1)
         callbacks_list.append(lr_decay_callback)
-        wandb.config.update({'lr_decay': True, 'lr_decay_patience': 3, 'lr_decay_factor': 0.2}, allow_val_change=True)
+        wandb.config.update({'lr_decay': True, 'lr_decay_patience': 3, 'lr_decay_factor': 0.1}, allow_val_change=True)
 
     # train model
     history = model.fit(X_train, y_train, 
@@ -206,10 +196,7 @@ def main(args):
                                    max_augs_per_seq=2, hard_aug=True, 
                                    config=wandb.config, 
                                    aleatoric=args.aleatoric, epistemic=args.epistemic)
-        if args.evidential:
-            model.compile(optimizer=Adam(learning_rate=0.0001), loss=utils.EvidentialRegression)
-        else:
-            model.compile(optimizer=Adam(learning_rate=0.0001), loss=wandb.config['loss_fxn'])
+        model.compile(optimizer=Adam(learning_rate=0.0001), loss=wandb.config['loss_fxn'])
         model.load_weights(save_path)
         model.finetune_mode()
         # train
@@ -237,11 +224,7 @@ def main(args):
             plotting.plot_loss(history, join(args.out, str(args.ix) + "_loss_curves.png"))
 
         # save model and history
-        if args.evidential:
-            # save model weights
-            model.save_weights(join(args.out, f'{args.ix}_lentiMPRA.weights.h5'))
-        else:
-            model.save(join(args.out, f"{args.ix}_lentiMPRA.h5"))
+        model.save(join(args.out, f"{args.ix}_lentiMPRA.h5"))
         with open(join(args.out, f"{args.ix}_historyDict"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
 

@@ -29,6 +29,8 @@ def parse_args():
                         help="if set, downsample training data to this amount ([0,1])")
     parser.add_argument("--celltype", type=str,
                         help='celltype for lentiMPRA data')
+    parser.add_argument("--aleatoric", action='store_true',
+                        help='if set, using models with aleatoric output head')
     args = parser.parse_args()
     return args
 
@@ -68,11 +70,12 @@ def main(args):
                 augment.RandomDeletion(delete_min=0, delete_max=30),
                 augment.RandomTranslocationBatch(shift_min=0, shift_max=20)
             ]   
-            model = utils.load_model_from_weights(weights=join(args.model_dir, str(i+1) + "_lentiMPRA_finetune.h5"), 
+            model = utils.load_lentiMPRA_from_weights(weights=join(args.model_dir, str(i+1) + "_lentiMPRA_finetune.h5"), 
                                                   input_shape=X_train[0].shape, 
                                                   augment_list=augment_list, 
                                                   config_file=args.config, 
-                                                  predict_std=False)
+                                                  aleatoric=args.aleatoric,
+                                                  epistemic=False)
         else:
             model = load_model(join(args.model_dir, str(i+1) + "_lentiMPRA.h5"))
 

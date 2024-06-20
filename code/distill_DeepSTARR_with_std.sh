@@ -1,11 +1,12 @@
 # trains a single distilled DeepSTARR model that predicts uncertainty (stdev) and mean
 
-OUTDIR=../results/DeepSTARR_lr-decay/distilled_with_std_REDO
+OUTDIR=../results/DeepSTARR_ensemble_NEW
 # OUTDIR=../results/DeepSTARR_lr-decay
-DATA_DIR=../data/DeepSTARR
+# DATA_DIR=../data/DeepSTARR
+DATA_DIR=../data/DeepSTARR_ensemble_NEW
 DATA=${DATA_DIR}/all_data_with_ensemble_metrics_hierarchical.h5
 CONFIG=../config/DeepSTARR.yaml
-PROJECT_NAME=DeepSTARR_distilled_with_std_REDO
+PROJECT_NAME=DeepSTARR_distilled_epistemic
 NMODS=10
 
 ### boolean vars (toggle true/false)
@@ -16,7 +17,7 @@ if [ "$evoaug" = true ]; then
 	# OUTDIR=../results/DeepSTARR_evoaug
 	DATA=${DATA_DIR}/evoaug/all_data_with_ensemble_metrics_hierarchical.h5
 fi
-downsample=true 
+downsample=false 
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 
@@ -37,7 +38,7 @@ if [ "$downsample" = true ]; then
 			else
 				echo "python train_stdev_DeepSTARR.py --ix $i --out $DOWNSAMPLE_OUTDIR --data $DOWNSAMPLE_DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --downsample ${DOWNSAMPLE_ARR[$p]}"
 			fi
-		done | simple_gpu_scheduler --gpus 0,1,2,3,4
+		done | simple_gpu_scheduler --gpus 2,4
 	done 
 else 
 	# train multiple replicates
@@ -50,7 +51,7 @@ else
 		else
 			echo "python train_stdev_DeepSTARR.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay"
 		fi
-	done | simple_gpu_scheduler --gpus 0,1,2,3,4
+	done | simple_gpu_scheduler --gpus 2,4
 fi
 
 # message the user on slack if possible

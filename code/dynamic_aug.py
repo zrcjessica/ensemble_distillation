@@ -41,9 +41,10 @@ class DynamicAugModel(keras.Model):
     append: bool
         Flag to determine whether augmentations replace or are added to original training seqs, default=False
     aug: str
-        Type of augmentation to apply: one of random, mutagenesis, evoaug (default)
+        Type of augmentation to apply: one of random, mutagenesis, evoaug, None (default)
     '''
-    def __init__(self, model_func, ensemble, input_shape=None, aug='evoaug', augment_list=[], max_augs_per_seq=2, inference_aug=False, hard_aug=False, append=False, **kwargs):
+    def __init__(self, model_func, ensemble=None, input_shape=None, aug=None, augment_list=[],
+                max_augs_per_seq=2, inference_aug=False, hard_aug=False, append=False, **kwargs):
         super(DynamicAugModel, self).__init__()
         self.model = model_func
         self.append = append
@@ -52,17 +53,19 @@ class DynamicAugModel(keras.Model):
         self.inference_aug = inference_aug
         # make sure augment_list is consistent with aug argument
         if aug=='evoaug' and len(augment_list)==0:
-            # no augment_list provided; set default
+            # no augment_list provided for evoaug; set default
             augment_list = [augment.RandomDeletion(delete_min=0, delete_max=20),
                             augment.RandomTranslocationBatch(shift_min=0, shift_max=20),
                             augment.RandomNoise(noise_mean=0, noise_std=0.2),
                             augment.RandomMutation(mutate_frac=0.05)]
         elif aug=='mutagenesis':
             augment_list = [augment.RandomMutation(mutate_frac=0.25)]
-        elif aug=='random' and len(augment_list)!=0:
+        elif len(augment_list)!=0:
+            # random aug does not require augment list
             augment_list = []
-        self.augment_list = augment_list
+        
         # params for evoaug/mutagenesis 
+        self.augment_list = augment_list
         self.max_num_aug = len(augment_list)
         self.insert_max = augment_max_len(augment_list)
         self.max_augs_per_seq = tf.math.minimum(max_augs_per_seq, len(augment_list))
@@ -92,8 +95,15 @@ class DynamicAugModel(keras.Model):
         X, y = data
         X, y = tf.cast(X, tf.float32), tf.cast(y, tf.float32)
         print(f"X shape: {X.shape}, y shape: {y.shape}")
-        # generate augmentations + labels 
-        X_aug, y_aug = self._aug_seqs(seqs=X, labels=y)
+        if self.aug:
+            # generate augmentations + labels 
+            X_aug, y_aug = self._aug_seqs(seqs=X, labels=y)
+        else:
+            # training w/o augs
+            X_aug, y_aug = X, y
+            if self.insert_max!=0:
+                # pad seqs if insertions was used 
+                X_aug = self._pad_end(X_aug)
 
         with tf.GradientTape() as tape:
             y_pred = self(X_aug, training=True)  # Forward pass
@@ -158,14 +168,16 @@ class DynamicAugModel(keras.Model):
         '''
         generate augmentations for sequences in batch and append to batch
         '''
-
+        assert(self.aug is not None)
         if self.append:
+            # append augmented seqs to original training seqs 
             print('appending augmented seqs')
             # make copy of seqs in batch - these will be augmented
             aug_seqs = tf.identity(seqs)
             if self.aug == 'random':
                 aug_seqs = tf.random.shuffle(aug_seqs)
             else:
+                # evoaug/mutagenesis
                 aug_seqs = self._apply_augment(aug_seqs)
             # pad original seqs in batch to match dims of aug_seqs
             if self.insert_max != 0:
@@ -181,17 +193,22 @@ class DynamicAugModel(keras.Model):
                 aug_seqs = self._apply_augment(seqs)
             batch_seqs = aug_seqs 
 
-        # use ensemble to generate labels for aug_seqs
-        aug_labels = self._ensemble_predict(aug_seqs)
-        aug_labels = tf.cast(tf.convert_to_tensor(aug_labels), tf.float32)
+        # use ensemble to generate labels for batch 
+        batch_labels = self._ensemble_predict(batch_seqs)
+        batch_labels = tf.cast(tf.convert_to_tensor(batch_labels), tf.float32)
 
-        if self.append:
-            # add labels for augmented seqs to labels for original data in batch
-            assert labels.shape[-1]==aug_labels.shape[-1], "Error appending augmented data: shape of target labels for augmented seqs differs from shape of original target labels"
-            # concatenate labels for original and aug seqs
-            batch_labels = tf.concat([labels, aug_labels], axis=0)
-        else:
-            batch_labels = aug_labels 
+        assert(batch_seqs.shape[0]==batch_labels.shape[0])
+        # # use ensemble to generate labels for aug_seqs
+        # aug_labels = self._ensemble_predict(aug_seqs)
+        # aug_labels = tf.cast(tf.convert_to_tensor(aug_labels), tf.float32)
+
+        # if self.append:
+        #     # add labels for augmented seqs to labels for original data in batch
+        #     assert labels.shape[-1]==aug_labels.shape[-1], "Error appending augmented data: shape of target labels for augmented seqs differs from shape of original target labels"
+        #     # concatenate labels for original and aug seqs
+        #     batch_labels = tf.concat([labels, aug_labels], axis=0)
+        # else:
+        #     batch_labels = aug_labels 
         return batch_seqs, batch_labels
 
     @tf.function
@@ -247,11 +264,9 @@ class DynamicAugModel(keras.Model):
         model_ix = 0
         for model in self.ensemble:
             model_preds = model(seqs, training=False)
-            print(type(model_preds))
             all_preds.append(model_preds)
             model_ix += 1
         all_preds = tf.stack(all_preds)
-        print(all_preds.shape)
         if self.kwargs['predict_std']:
             return tf.concat([tf.math.reduce_mean(all_preds, axis=0), tf.math.reduce_std(all_preds, axis=0)], axis=1)
         else: 

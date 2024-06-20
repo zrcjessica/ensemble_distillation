@@ -2,22 +2,23 @@
 # can set DOWNSAMPLE and DISTILLED boolean variables  
 
 ### boolean vars 
-DOWNSAMPLED=false # toggle true/false
-DISTILLED=true # toggle true/false
-STD=true # only used if DISTILLED=true
+DOWNSAMPLED=false # toggle true/false to analyze models trained on downsampled data
+DISTILLED=true # toggle true/false to analyze distilled models 
+EPISTEMIC=true # if set, analyze distilled models w/ epistemic output; only used if DISTILLED=true
 EVOAUG=false
 
 ### define method (saliency/shap)
 METHOD=shap 
 
 ### which enhancer output 
-ENHANCER=Hk 
+ENHANCER=Dev 
 
 ### top n seqs
 TOP_N=1000
 
 ### define root directory where all files are located 
-FILES_DIR=../results/DeepSTARR_lr-decay
+# FILES_DIR=../results/DeepSTARR_lr-decay
+FILES_DIR=../results/DeepSTARR_ensemble_NEW
 
 
 if [ "$DOWNSAMPLED" = true ]; then
@@ -27,10 +28,10 @@ if [ "$DOWNSAMPLED" = true ]; then
 	do
 		echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
         if [ "$DISTILLED" = true ]; then
-            if [ "$STD" = true ]; then 
+            if [ "$EPISTEMIC" = true ]; then 
                 python analyze_attr_scores.py \
                 --files_dir ${FILES_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}/distilled_with_std \
-                --reference ${FILES_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}/avg_top${TOP_N}_${ENHANCER}_${METHOD}.npy \
+                --reference ${FILES_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}/avg_top${TOP_N}_${ENHANCER}-mean_${METHOD}.npy \
                 --method $METHOD \
                 --top_n $TOP_N \
                 --enhancer $ENHANCER \
@@ -39,7 +40,7 @@ if [ "$DOWNSAMPLED" = true ]; then
             else  
                 python analyze_attr_scores.py \
                 --files_dir ${FILES_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}/ensemble_distilled \
-                --reference ${FILES_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}/avg_top${TOP_N}_${ENHANCER}_${METHOD}.npy \
+                --reference ${FILES_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}/avg_top${TOP_N}_${ENHANCER}-mean_${METHOD}.npy \
                 --method $METHOD \
                 --top_n $TOP_N \
                 --enhancer $ENHANCER \
@@ -58,10 +59,10 @@ if [ "$DOWNSAMPLED" = true ]; then
     done 
 else
     if [ "$DISTILLED" = true ]; then
-        if [ "$STD" = true ]; then  
+        if [ "$EPISTEMIC" = true ]; then  
             python analyze_attr_scores.py \
             --files_dir ${FILES_DIR}/distilled_with_std \
-            --reference ${FILES_DIR}/avg_top${TOP_N}_${ENHANCER}_${METHOD}.npy \
+            --reference ${FILES_DIR}/avg_top${TOP_N}_${ENHANCER}-mean_${METHOD}.npy \
             --method $METHOD \
             --top_n $TOP_N \
             --enhancer $ENHANCER \
@@ -70,7 +71,7 @@ else
         else 
             python analyze_attr_scores.py \
             --files_dir $FILES_DIR/ensemble_distilled \
-            --reference ${FILES_DIR}/avg_top${TOP_N}_${ENHANCER}_${METHOD}.npy \
+            --reference ${FILES_DIR}/avg_top${TOP_N}_${ENHANCER}-mean_${METHOD}.npy \
             --method $METHOD \
             --top_n $TOP_N \
             --enhancer $ENHANCER \
@@ -78,7 +79,8 @@ else
             --var
         fi 
     else
-        python analyze_attr_scores.py --files_dir $FILES_DIR \
+        python analyze_attr_scores.py \
+        --files_dir $FILES_DIR \
         --method $METHOD \
         --top_n $TOP_N \
         --enhancer $ENHANCER \

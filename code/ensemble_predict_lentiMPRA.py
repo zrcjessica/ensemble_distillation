@@ -30,12 +30,8 @@ def parse_args():
                         help='if set, generate scatterplots comparing predictions with ground truth (only used in eval mode)')
     parser.add_argument("--distill", action='store_true',
                         help='if set, writes average predictions on train set (X_train) to file (ensemble_avg_y_train.npy)')
-    # parser.add_argument("--std", action='store_true',
-    #                     help='if set, also evaluate performance on std predictions')
     parser.add_argument("--aleatoric", action='store_true',
                         help='if set, predict aleatoric uncertainty')
-    # parser.add_argument("--epistemic", action='store_true',
-    #                     help='if set, predict epistemic uncertainty')
     parser.add_argument("--downsample", type=float,
                         help='if set, downsample training data (only used if in distill mode)')
     # parser.add_argument("--set", default='test',
@@ -81,17 +77,23 @@ def main(args):
             assert(args.config is not None)
             import evoaug_tf
             from evoaug_tf import evoaug, augment
+            # augment_list = [
+            #     augment.RandomInsertionBatch(insert_min=0, insert_max=20),
+            #     augment.RandomDeletion(delete_min=0, delete_max=30),
+            #     augment.RandomTranslocationBatch(shift_min=0, shift_max=20)
+            # ]   
             augment_list = [
-                augment.RandomInsertionBatch(insert_min=0, insert_max=20),
-                augment.RandomDeletion(delete_min=0, delete_max=30),
-                augment.RandomTranslocationBatch(shift_min=0, shift_max=20)
-            ]   
-            model = utils.load_model_from_weights(weights=join(args.model_dir, str(i+1) + "_lentiMPRA_finetune.h5"), 
-                                                  input_shape=X_train[0].shape, 
-                                                  augment_list=augment_list, 
-                                                  config_file=args.config, 
-                                                  predict_aleatoric=args.aleatoric,
-                                                  predict_epistemic=args.epistemic)
+            augment.RandomDeletion(delete_min=0, delete_max=20),
+            augment.RandomTranslocationBatch(shift_min=0, shift_max=20),
+            augment.RandomNoise(noise_mean=0, noise_std=0.2),
+            augment.RandomMutation(mutate_frac=0.05)
+            ]
+            model = utils.load_lentiMPRA_from_weights(weights=join(args.model_dir, str(i+1) + "_lentiMPRA_finetune.h5"), 
+                                                      input_shape=X_train[0].shape, 
+                                                      augment_list=augment_list, 
+                                                      config_file=args.config, 
+                                                      aleatoric=args.aleatoric,
+                                                      epistemic=False)
         else:
             model = load_model(join(args.model_dir, f"{i+1}_lentiMPRA.h5"))
         train_preds, test_preds = 0, 0
@@ -125,7 +127,7 @@ def main(args):
                                                                 y_test, 
                                                                 args.celltype, 
                                                                 aleatoric=args.aleatoric,
-                                                                epistemic=args.epistemic)
+                                                                epistemic=False)
         performance.to_csv(join(outdir, "ensemble_performance_avg.csv"), index=False)
         if args.plot:
             # plot average predictions against true values 

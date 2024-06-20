@@ -10,7 +10,7 @@ DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 ) # used if downsample set to true
 
 ### boolean flags
 # train downsampled models
-downsample=false
+downsample=true
 # train w/ evoaug
 evoaug=false
 if [ "$evoaug" = true ]; then
@@ -18,7 +18,7 @@ if [ "$evoaug" = true ]; then
 fi
 
 ### define cell type
-CELLTYPE='K562' # HepG2 or K562
+CELLTYPE='HepG2' # HepG2 or K562
 OUTDIR=${OUTDIR}/${CELLTYPE}
 DATA=${DATA_DIR}/${CELLTYPE}_data.h5
 
@@ -33,14 +33,14 @@ if [ "$downsample" = true ]; then
         echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
         OUTDIR_DOWNSAMPLE=${OUTDIR}/downsample_${DOWNSAMPLE_ARR[$p]}
         mkdir -p $OUTDIR_DOWNSAMPLE
-        for i in $(seq 11 $ENSEMBLE_SIZE)
+        for i in $(seq 1 $ENSEMBLE_SIZE)
         do 
             if [ "$evoaug" = true ]; then
                 echo "echo 'model_ix=$i' && python train_MPRAnn.py --ix $i --out $OUTDIR_DOWNSAMPLE --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug --celltype $CELLTYPE"
             else
                 echo "echo 'model_ix=$i' && python train_MPRAnn.py --ix $i --out $OUTDIR_DOWNSAMPLE --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE"
             fi
-        done | simple_gpu_scheduler --gpus 0,3,4,5
+        done | simple_gpu_scheduler --gpus 0,1,2,3,4
     done 
 else
     for i in $(seq 1 $ENSEMBLE_SIZE)
@@ -50,7 +50,7 @@ else
         else
             echo "python train_MPRAnn.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE"
         fi
-    done | simple_gpu_scheduler --gpus 0,3,4,5
+    done | simple_gpu_scheduler --gpus 0,1,2,3,4
 fi
 
 

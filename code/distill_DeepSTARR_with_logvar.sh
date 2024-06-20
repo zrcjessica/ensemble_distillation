@@ -1,7 +1,9 @@
-# trains a single distilled DeepSTARR model that predicts uncertainty (stdev) and mean
+# trains a single distilled DeepSTARR model that predicts uncertainty (logvar) and ensemble mean
 
-OUTDIR=../results/DeepSTARR_lr-decay/distilled_with_logvar
-DATA_DIR=../data/DeepSTARR
+# OUTDIR=../results/DeepSTARR_lr-decay/distilled_with_logvar
+OUTDIR=../results/DeepSTARR_ensemble_NEW/distilled_with_logvar
+# DATA_DIR=../data/DeepSTARR
+DATA_DIR=../data/DeepSTARR_ensemble_NEW
 DATA=${DATA_DIR}/all_data_with_ensemble_metrics_hierarchical.h5
 CONFIG=../config/DeepSTARR.yaml
 PROJECT_NAME=DeepSTARR_distilled_with_logvar
@@ -26,7 +28,7 @@ do
 	else
 		echo "python train_stdev_DeepSTARR.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --logvar"
 	fi
-done | simple_gpu_scheduler --gpus 1,2,3,4,5,6,7
+done | simple_gpu_scheduler --gpus 1,6
 
 # message the user on slack if possible
 exit_code="$?"

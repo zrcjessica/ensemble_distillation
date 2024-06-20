@@ -219,8 +219,8 @@ def get_attribution_files(dir, method, enhancer='Dev', top_n=500, avg_file=None)
     '''
     if avg_file is None:
         # avg_file = join(dir, f"average*{method}.npy")
-        avg_file = join(dir, f"avg_top{top_n}_{enhancer}_{method}.npy")
-    attr_files = glob.glob(join(dir, f"*_top{top_n}_{enhancer}_{method}.npy"))
+        avg_file = join(dir, f"avg_top{top_n}_{enhancer}-mean_{method}.npy")
+    attr_files = glob.glob(join(dir, f"*_top{top_n}_{enhancer}-mean_{method}.npy"))
     # check if avg file is here
     if avg_file in attr_files:
         attr_files = list(set(attr_files) - set([avg_file]))
@@ -473,20 +473,16 @@ def load_model_from_weights(weights, input_shape, augment_list, config_file, pre
     model.load_weights(weights)
     return model
 
-def load_lentiMPRA_from_weights(weights, input_shape, augment_list, config_file, predict_aleatoric=False, predict_epistemic=False, with_evoaug=True):
+def load_lentiMPRA_from_weights(weights, input_shape, augment_list, config_file, aleatoric=False, epistemic=False, with_evoaug=True):
+    '''
+    load lentiMPRA model from weights
+    '''
     config = yaml.safe_load(open(config_file, 'r'))
     model = None
     if with_evoaug:
-        model = evoaug.RobustModel(lentiMPRA, 
-                                   input_shape=input_shape, 
-                                   augment_list=augment_list, 
-                                   max_augs_per_seq=1, 
-                                   hard_aug=True, 
-                                   config=config,
-                                   aleatoric=predict_aleatoric,
-                                   epistemic=predict_epistemic)
+        model = evoaug.RobustModel(lentiMPRA, input_shape=input_shape, augment_list=augment_list, max_augs_per_seq=1, hard_aug=True, config=config, aleatoric=aleatoric, epistemic=epistemic)
     else:
-        model = lentiMPRA(input_shape, config, aleatoric=predict_aleatoric, epistemic=predict_epistemic)
+        model = lentiMPRA(input_shape, config, aleatoric=aleatoric, epistemic=epistemic)
     model.compile(optimizer=Adam(learning_rate=config['optim_lr']),
                   loss=config['loss_fxn'])
     model.load_weights(weights)

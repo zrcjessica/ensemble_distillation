@@ -10,11 +10,11 @@ N_MODS=10
 DATA_DIR=../data/lentiMPRA
 
 ### boolean flags
-EVOAUG=false # toggle true/false 
+EVOAUG=true # toggle true/false 
 DOWNSAMPLED=false # toggle true/false
 
 if [ "$EVOAUG" = true ]; then
-    MODEL_DIR=${MODEL_DIR}/evoaug
+    MODELS_DIR=${MODELS_DIR}_evoaug
 fi 
 
 ### define cell type
@@ -30,11 +30,19 @@ if [ "$DOWNSAMPLED" = true ]; then
 	for p in "${!DOWNSAMPLE_ARR[@]}"
 	do
 		echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
-		# cannot use simple_gpu_scheduler bc running this script in parallel will result in errors due to multiple jobs reading from the same h5 file
-		CUDA_VISIBLE_DEVICES=5 python ensemble_predict_lentiMPRA.py --model_dir ${MODELS_DIR}/downsample_${DOWNSAMPLE_ARR[$p]} --n_mods $N_MODS --data $DATA --distill --eval --downsample ${DOWNSAMPLE_ARR[$p]} --celltype $CELLTYPE --aleatoric
+		if [ "$EVOAUG" = true ]; then
+			CUDA_VISIBLE_DEVICES=7 python ensemble_predict_lentiMPRA.py --model_dir ${MODELS_DIR}/downsample_${DOWNSAMPLE_ARR[$p]} --n_mods $N_MODS --data $DATA --distill --eval --downsample ${DOWNSAMPLE_ARR[$p]} --celltype $CELLTYPE --aleatoric --evoaug --config ${MODELS_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}/config.yaml
+		else 
+			# cannot use simple_gpu_scheduler bc running this script in parallel will result in errors due to multiple jobs reading from the same h5 file
+			CUDA_VISIBLE_DEVICES=7 python ensemble_predict_lentiMPRA.py --model_dir ${MODELS_DIR}/downsample_${DOWNSAMPLE_ARR[$p]} --n_mods $N_MODS --data $DATA --distill --eval --downsample ${DOWNSAMPLE_ARR[$p]} --celltype $CELLTYPE --aleatoric
+		fi
 	done 
 else
-	CUDA_VISIBLE_DEVICES=5 python ensemble_predict_lentiMPRA.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --distill --eval --celltype $CELLTYPE --aleatoric
+	if [ "$EVOAUG" = true ]; then
+		CUDA_VISIBLE_DEVICES=7 python ensemble_predict_lentiMPRA.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --distill --eval --celltype $CELLTYPE --aleatoric --evoaug --config $MODELS_DIR/config.yaml
+	else
+		CUDA_VISIBLE_DEVICES=7 python ensemble_predict_lentiMPRA.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --distill --eval --celltype $CELLTYPE --aleatoric
+	fi 
 fi 
 
 # message the user on slack if possible
@@ -42,15 +50,31 @@ exit_code="$?"
 if command -v 'slack' &>/dev/null; then
     if [ "$exit_code" -eq 0 ]; then
 		if [ "$DOWNSAMPLED" = true ]; then
-			slack "running ensemble_predict_lentiMPRA.py for lentiMPRA $CELLTYPE w/ aleatoric uncertainty prediction (downsampled) in distill and eval mode completed successfully" &>/dev/null
+			if [ "$EVOAUG" = true ]; then
+				slack "running ensemble_predict_lentiMPRA.py for lentiMPRA $CELLTYPE w/ aleatoric uncertainty prediction (downsampled, +evoaug) in distill and eval mode completed successfully" &>/dev/null
+			else 	
+				slack "running ensemble_predict_lentiMPRA.py for lentiMPRA $CELLTYPE w/ aleatoric uncertainty prediction (downsampled) in distill and eval mode completed successfully" &>/dev/null
+			fi
 		else
-			slack "running ensemble_predict_lentiMPRA.py for lentiMPRA $CELLTYPE w/ aleatoric uncertainty prediction (full) in distill and eval mode completed successfully" &>/dev/null
+			if [ "$EVOAUG" = true ]; then
+				slack "running ensemble_predict_lentiMPRA.py for lentiMPRA $CELLTYPE w/ aleatoric uncertainty prediction (full, +evoaug) in distill and eval mode completed successfully" &>/dev/null
+			else 
+				slack "running ensemble_predict_lentiMPRA.py for lentiMPRA $CELLTYPE w/ aleatoric uncertainty prediction (full) in distill and eval mode completed successfully" &>/dev/null
+			fi
 		fi
 	else
 		if [ "$DOWNSAMPLED" = true ]; then
-			slack "running ensemble_predict_lentiMPRA.py for lentiMPRA $CELLTYPE w/ aleatoric uncertainty prediction (downsampled) in distill and eval mode exited with error code $exit_code"
-		else
-			slack "running ensemble_predict_lentiMPRA.py for lentiMPRA $CELLTYPE w/ aleatoric uncertainty prediction (full) in distill and eval mode exited with error code $exit_code"
+			if [ "$EVOAUG" = true ]; then
+				slack "running ensemble_predict_lentiMPRA.py for lentiMPRA $CELLTYPE w/ aleatoric uncertainty prediction (downsampled, +evoaug) in distill and eval mode exited with error code $exit_code"
+			else 
+				slack "running ensemble_predict_lentiMPRA.py for lentiMPRA $CELLTYPE w/ aleatoric uncertainty prediction (downsampled) in distill and eval mode exited with error code $exit_code"
+			fi
+		else	
+			if [ "$EVOAUG" = true ]; then
+				slack "running ensemble_predict_lentiMPRA.py for lentiMPRA $CELLTYPE w/ aleatoric uncertainty prediction (full, +evoaug) in distill and eval mode exited with error code $exit_code"
+			else 
+				slack "running ensemble_predict_lentiMPRA.py for lentiMPRA $CELLTYPE w/ aleatoric uncertainty prediction (full, +evoaug) in distill and eval mode exited with error code $exit_code"
+			fi
 		fi
 	fi
 fi

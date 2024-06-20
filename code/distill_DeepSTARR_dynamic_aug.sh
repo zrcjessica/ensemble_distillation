@@ -2,14 +2,17 @@
 
 AUG='random' # evoaug/mutagenesis/random 
 APPEND=false 
-ENSEMBLE_DIR=../results/DeepSTARR_lr-decay/
-DATA_DIR=../data/DeepSTARR
+# ENSEMBLE_DIR=../results/DeepSTARR_lr-decay/
+ENSEMBLE_DIR=../results/DeepSTARR_ensemble_NEW/
+DATA_DIR=../data/DeepSTARR_ensemble_NEW
 DATA=${DATA_DIR}/all_data_with_ensemble_metrics_hierarchical.h5
 CONFIG=../config/DeepSTARR.yaml
 PROJECT_NAME=DeepSTARR_dynamic_aug
 NMODS=10 # nr. of replicates to train
 OUTDIR=../results/DeepSTARR_dynamic_aug/${AUG}
-
+if [ "$APPEND" = true ]; then
+	OUTDIR=${OUTDIR}/append
+fi 
 mkdir -p $OUTDIR 
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/

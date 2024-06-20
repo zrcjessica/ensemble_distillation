@@ -26,7 +26,7 @@ do
     for i in $(seq 1 $ENSEMBLE_SIZE)
     do 
         if [ "$evoaug" = true ]; then
-            echo "echo 'model_ix=$i' && python train_DeepSTARR.py --ix $i --out $OUTDIR --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug"
+            echo "python train_DeepSTARR.py --ix $i --out $OUTDIR --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug"
         else
             echo "python train_DeepSTARR.py --ix $i --out $OUTDIR --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay"
         fi
