@@ -60,11 +60,17 @@ def main(args):
         if args.evoaug:
             import evoaug_tf
             from evoaug_tf import evoaug, augment
+            # augment_list = [
+            #     augment.RandomInsertionBatch(insert_min=0, insert_max=20),
+            #     augment.RandomDeletion(delete_min=0, delete_max=30),
+            #     augment.RandomTranslocationBatch(shift_min=0, shift_max=20)
+            # ]   
             augment_list = [
-                augment.RandomInsertionBatch(insert_min=0, insert_max=20),
-                augment.RandomDeletion(delete_min=0, delete_max=30),
-                augment.RandomTranslocationBatch(shift_min=0, shift_max=20)
-            ]   
+                augment.RandomDeletion(delete_min=0, delete_max=20),
+                augment.RandomTranslocationBatch(shift_min=0, shift_max=20),
+                augment.RandomNoise(noise_mean=0, noise_std=0.2),
+                augment.RandomMutation(mutate_frac=0.05)
+            ]
             model = utils.load_model_from_weights(weights=join(args.model_dir, str(i+1) + "_DeepSTARR_finetune.h5"), 
                                                   input_shape=X_train[0].shape, 
                                                   augment_list=augment_list, 

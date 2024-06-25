@@ -1,23 +1,21 @@
-# trains a single distilled DeepSTARR model that predicts uncertainty (stdev) and mean
+# trains distilled DeepSTARR models that predict epistemic uncertainty (stdev) and mean
 
 OUTDIR=../results/DeepSTARR_ensemble_NEW
 # OUTDIR=../results/DeepSTARR_lr-decay
 # DATA_DIR=../data/DeepSTARR
 DATA_DIR=../data/DeepSTARR_ensemble_NEW
-DATA=${DATA_DIR}/all_data_with_ensemble_metrics_hierarchical.h5
 CONFIG=../config/DeepSTARR.yaml
 PROJECT_NAME=DeepSTARR_distilled_epistemic
 NMODS=10
 
 ### boolean vars (toggle true/false)
 # train w/ evoaug
-evoaug=false
+evoaug=true
 if [ "$evoaug" = true ]; then
-    OUTDIR=../results/DeepSTARR_evoaug/distilled_with_std
-	# OUTDIR=../results/DeepSTARR_evoaug
-	DATA=${DATA_DIR}/evoaug/all_data_with_ensemble_metrics_hierarchical.h5
+    OUTDIR=../results/DeepSTARR_evoaug_NEW
+	DATA_DIR=../data/DeepSTARR_evoaug 
 fi
-downsample=false 
+downsample=true 
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 
@@ -27,7 +25,7 @@ if [ "$downsample" = true ]; then
 	DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 )
 	for p in "${!DOWNSAMPLE_ARR[@]}"
 	do	
-		DOWNSAMPLE_OUTDIR=${OUTDIR}/downsample_${DOWNSAMPLE_ARR[$p]}
+		DOWNSAMPLE_OUTDIR=${OUTDIR}/downsample_${DOWNSAMPLE_ARR[$p]}/distilled_with_std
 		DOWNSAMPLE_DATA=${DATA_DIR}/downsample${DOWNSAMPLE_ARR[$p]}_all_data_with_ensemble_metrics_hierarchical.h5
 		mkdir -p $DOWNSAMPLE_OUTDIR
 		echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
@@ -38,10 +36,11 @@ if [ "$downsample" = true ]; then
 			else
 				echo "python train_stdev_DeepSTARR.py --ix $i --out $DOWNSAMPLE_OUTDIR --data $DOWNSAMPLE_DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --downsample ${DOWNSAMPLE_ARR[$p]}"
 			fi
-		done | simple_gpu_scheduler --gpus 2,4
+		done | simple_gpu_scheduler --gpus 0,1,3,5,6
 	done 
 else 
 	# train multiple replicates
+	DATA=${DATA_DIR}/all_data_with_ensemble_metrics_hierarchical.h5
 	OUTDIR=$OUTDIR/distilled_with_std 
 	mkdir -p $OUTDIR
 	for i in $(seq 1 $NMODS)
@@ -51,7 +50,7 @@ else
 		else
 			echo "python train_stdev_DeepSTARR.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay"
 		fi
-	done | simple_gpu_scheduler --gpus 2,4
+	done | simple_gpu_scheduler --gpus 0,1,3,5,6
 fi
 
 # message the user on slack if possible

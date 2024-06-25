@@ -60,7 +60,7 @@ def load_lentiMPRA_data(file, epistemic=False):
     y_val = np.array(data['Val']['y'])
 
     if epistemic:
-        # file w/ data for epistemic models has std for aleatoric prediction in last col
+        # file w/ data for epistemic models has std for aleatoric prediction in last col; do not return
         y_train = y_train[:,:-1]
         y_test = y_test[:,:-1]
         y_val = y_val[:,:-1]

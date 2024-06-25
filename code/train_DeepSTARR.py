@@ -174,7 +174,7 @@ def main(args):
         finetune_epochs = 30
         wandb.config['finetune_epochs'] = finetune_epochs
         wandb.config['finetune_lr'] = 0.0001
-        finetune_optimizer = keras.optimizers.Adam(learning_rate=0.0001)
+        finetune_optimizer = Adam(learning_rate=0.0001)
         model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, 
                                    augment_list=augment_list, max_augs_per_seq=2, 
                                    hard_aug=True, 

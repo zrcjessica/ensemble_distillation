@@ -45,7 +45,7 @@ def parse_args():
     parser.add_argument("--celltype", type=str,
                         help='define celltype (K562/HepG2)')
     parser.add_argument("--logvar", action='store_true',
-                        help='if set, predict epistemic uncertainty as logvar instead of std')
+                        help='if set, predict uncertainties as logvar instead of std')
     args = parser.parse_args()
     return args
 
@@ -53,7 +53,7 @@ def eval_performance(model, X_test, y_test, outfh, celltype, logvar=False):
     y_pred = model.predict(X_test)
     if logvar:
         # convert logvar back to std for evaluation
-        y_pred[:,-1] = np.sqrt(np.exp(y_pred[:,-1]))
+        y_pred[:,1:] = np.sqrt(np.exp(y_pred[:,1:]))
     results = None
     assert(y_pred.shape[-1]==3)
     if y_pred.shape != y_test.shape:
@@ -78,8 +78,10 @@ def main(args):
     assert(y_test.shape[-1]==3)
     assert(y_val.shape[-1]==3)
     
-    # # downsample training data
+    # downsample training data
     if args.downsample != wandb.config['downsample']:
+        # if args.downsample is True, we assumed user has passed .h5 corresponding to downsampled data
+        # no further downsampling applied
         wandb.config.update({'downsample':args.downsample}, allow_val_change=True)
     #     if args.downsample<1:
     #         rng = np.random.default_rng(1234)
@@ -88,9 +90,8 @@ def main(args):
     # use logvar instead of std as training targets for epistemic head (last column)
     if args.logvar:
         wandb.config.update({'std':False, 'logvar':True}, allow_val_change=True)
-        y_train[:,-1] = np.log(np.square(y_train[:,-1]))
-        y_val[:,-1] = np.log(np.square(y_val[:,-1]))
-
+        y_train[:,-1] = np.log(np.square(y_train[:,1:]))
+        y_val[:,-1] = np.log(np.square(y_val[:,1:]))
 
     # create model
     model = None
@@ -99,14 +100,17 @@ def main(args):
         # for training w/ evoaug
         import evoaug_tf
         from evoaug_tf import evoaug, augment
+        # augment_list = [
+        #     augment.RandomInsertionBatch(insert_min=0, insert_max=20),
+        #     augment.RandomDeletion(delete_min=0, delete_max=30),
+        #     augment.RandomTranslocationBatch(shift_min=0, shift_max=20)
+        # ]   
         augment_list = [
-            # augment.RandomRC(rc_prob=0.5),
-            augment.RandomInsertionBatch(insert_min=0, insert_max=20),
-            augment.RandomDeletion(delete_min=0, delete_max=30),
-            augment.RandomTranslocationBatch(shift_min=0, shift_max=20)
-            # augment.RandomNoise(noise_mean=0, noise_std=0.3),
-            # augment.RandomMutation(mutate_frac=0.05)
-        ]   
+            augment.RandomDeletion(delete_min=0, delete_max=20),
+            augment.RandomTranslocationBatch(shift_min=0, shift_max=20),
+            augment.RandomNoise(noise_mean=0, noise_std=0.2),
+            augment.RandomMutation(mutate_frac=0.05)
+            ]
         wandb.config.update({'evoaug':True}, allow_val_change=True)
         wandb.config['finetune'] = False
         model = evoaug.RobustModel(lentiMPRA, 
@@ -169,12 +173,13 @@ def main(args):
         wandb.config.update({'finetune':True}, allow_val_change=True)
         finetune_epochs = 10
         wandb.config['finetune_epochs']=finetune_epochs
+        wandb.config['finetune_lr'] = 0.0001
         model = evoaug.RobustModel(lentiMPRA, input_shape=X_train[0].shape, 
                                    augment_list=augment_list, 
                                    max_augs_per_seq=2, hard_aug=True, 
                                    config=wandb.config, 
                                    aleatoric=True, epistemic=True)
-        model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])
+        model.compile(optimizer=Adam(learning_rate=wandb.config['finetune_lr']), loss=wandb.config['loss_fxn'])
         model.load_weights(save_path)
         model.finetune_mode()
         # train

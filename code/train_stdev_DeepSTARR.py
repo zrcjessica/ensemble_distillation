@@ -70,7 +70,7 @@ def main(args):
 
     # set up wandb for logging
     wandb.login()
-    wandb.init(project=args.project, config=args.config)
+    run = wandb.init(project=args.project, config=args.config, reinit=True)
     wandb.config['model_ix'] = args.ix
     wandb.config.update({'distill':True, 'std':True}, allow_val_change=True) # update config
 
@@ -110,14 +110,17 @@ def main(args):
         # for training w/ evoaug
         import evoaug_tf
         from evoaug_tf import evoaug, augment
+        # augment_list = [
+        #     augment.RandomInsertionBatch(insert_min=0, insert_max=20),
+        #     augment.RandomDeletion(delete_min=0, delete_max=30),
+        #     augment.RandomTranslocationBatch(shift_min=0, shift_max=20)
+        # ] 
         augment_list = [
-            # augment.RandomRC(rc_prob=0.5),
-            augment.RandomInsertionBatch(insert_min=0, insert_max=20),
-            augment.RandomDeletion(delete_min=0, delete_max=30),
-            augment.RandomTranslocationBatch(shift_min=0, shift_max=20)
-            # augment.RandomNoise(noise_mean=0, noise_std=0.3),
-            # augment.RandomMutation(mutate_frac=0.05)
-        ]   
+                augment.RandomDeletion(delete_min=0, delete_max=20),
+                augment.RandomTranslocationBatch(shift_min=0, shift_max=20),
+                augment.RandomNoise(noise_mean=0, noise_std=0.2),
+                augment.RandomMutation(mutate_frac=0.05)
+        ]  
         wandb.config.update({'evoaug':True}, allow_val_change=True)
         wandb.config['finetune'] = False
         model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, augment_list=augment_list, max_augs_per_seq=1, hard_aug=True, config=wandb.config, predict_std=True)
@@ -147,7 +150,10 @@ def main(args):
                                               mode='min',
                                               verbose=1)
         callbacks_list.append(lr_decay_callback)
-        wandb.config.update({'lr_decay': True, 'lr_decay_patience': 3, 'lr_decay_factor': 0.2}, allow_val_change=True)
+        wandb.config.update({'lr_decay': True, 
+                             'lr_decay_patience': 3, 
+                             'lr_decay_factor': 0.2}, 
+                             allow_val_change=True)
 
     # train model
     history = model.fit(X_train, y_train, 
@@ -155,10 +161,14 @@ def main(args):
                         epochs=wandb.config['epochs'],
                         validation_data=(X_val, y_val),
                         callbacks=callbacks_list) 
+
     if args.evoaug:
+        run.finish()
+
         # save weights
         save_path = join(args.out, f"{args.ix}_DeepSTARR_aug_weights.h5")
         model.save_weights(save_path)
+
         # save history
         with open(join(args.out, str(args.ix) + "_historyDict_aug"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
@@ -167,19 +177,32 @@ def main(args):
         eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_performance_aug.csv'), args.logvar)
 
         ### fine tune model (w/o augmentations)
-        wandb.config.update({'finetune':True}, allow_val_change=True)
+        run = wandb.init(project=args.project, config=args.config, reinit=True)
+        wandb.config['model_ix'] = args.ix
+        wandb.config['finetune'] = True
+        wandb.config.update({'distill':True, 'std':True}, allow_val_change=True) # update config
+        if args.lr_decay:
+            wandb.config.update({'lr_decay': True, 
+                                'lr_decay_patience': 3, 
+                                'lr_decay_factor': 0.2}, 
+                                allow_val_change=True)
+        # wandb.config.update({'finetune':True}, allow_val_change=True)
         finetune_epochs = 10
-        wandb.config['finetune_epochs']=finetune_epochs
+        wandb.config['finetune_epochs'] = finetune_epochs
+        wandb.config['finetune_lr'] = 0.0001
+        finetune_optimizer = Adam(learning_rate=0.0001)
         model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, augment_list=augment_list, max_augs_per_seq=2, hard_aug=True, config=wandb.config, predict_std=True)
-        model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])
+        model.compile(optimizer=finetune_optimizer, loss=wandb.config['loss_fxn'])
         model.load_weights(save_path)
         model.finetune_mode()
+
         # train
         history = model.fit(X_train, y_train, 
                         batch_size=wandb.config['batch_size'], 
                         epochs=finetune_epochs,
                         validation_data=(X_val, y_val),
                         callbacks=callbacks_list) 
+        
         # save model and history
         model.save_weights(join(args.out, f"{args.ix}_DeepSTARR_finetune.h5"))
         with open(join(args.out, f"{args.ix}_historyDict_finetune"), 'wb') as pickle_fh:
@@ -202,6 +225,9 @@ def main(args):
     # save updated config as yaml
     with open(join(args.out, "config.yaml"), 'w') as f:
         yaml.dump(dict(wandb.config), f, allow_unicode=True, default_flow_style=False)
+    
+    run.finish()
+    wandb.finish()
 
 if __name__ == "__main__":
     args = parse_args()

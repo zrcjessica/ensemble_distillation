@@ -7,13 +7,13 @@ DATA=../data/DeepSTARR/Sequences_activity_all.h5
 OUTDIR=../data/DeepSTARR_ensemble_NEW
 
 # boolean vars (toggle true/false)
-EVOAUG=false
-DOWNSAMPLE=false 
+EVOAUG=true
+DOWNSAMPLE=true 
 
 # flag dependent changes
 if [ "$EVOAUG" = true ]; then
 	MODELS_DIR=../results/DeepSTARR_evoaug_NEW
-	OUTDIR=../data/DeepSTARR/evoaug_NEW
+	OUTDIR=../data/DeepSTARR_evoaug
 fi
 
 mkdir -p $OUTDIR 
