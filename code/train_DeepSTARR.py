@@ -116,13 +116,18 @@ def main(args):
             ]
         wandb.config.update({'evoaug':True}, allow_val_change=True)
         wandb.config['finetune'] = False
+        # model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, 
+        #                            augment_list=augment_list, 
+        #                            max_augs_per_seq=1, hard_aug=True, 
+        #                            config=wandb.config, predict_std=args.predict_std) 
         model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, 
                                    augment_list=augment_list, 
                                    max_augs_per_seq=1, hard_aug=True, 
-                                   config=wandb.config, predict_std=args.predict_std) 
+                                   config=wandb.config, epistemic=args.predict_std) 
     else:
         # training w/o evoaug
-        model = DeepSTARR(X_train[0].shape, wandb.config, args.predict_std)
+        # model = DeepSTARR(X_train[0].shape, wandb.config, args.predict_std)
+        model = DeepSTARR(X_train[0].shape, config=wandb.config, epistemic=args.predict_std)
 
     # update lr in config if different value provided to input
     # if args.lr != wandb.config['optim_lr']:
@@ -175,10 +180,14 @@ def main(args):
         wandb.config['finetune_epochs'] = finetune_epochs
         wandb.config['finetune_lr'] = 0.0001
         finetune_optimizer = Adam(learning_rate=0.0001)
+        # model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, 
+        #                            augment_list=augment_list, max_augs_per_seq=2, 
+        #                            hard_aug=True, 
+        #                            config=wandb.config, predict_std=args.predict_std)
         model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, 
                                    augment_list=augment_list, max_augs_per_seq=2, 
                                    hard_aug=True, 
-                                   config=wandb.config, predict_std=args.predict_std)
+                                   config=wandb.config, epistemic=args.predict_std)
         if args.evidential:
             model.compile(optimizer=finetune_optimizer, loss=utils.EvidentialRegression)
         else:

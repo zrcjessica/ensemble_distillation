@@ -94,11 +94,16 @@ def main(args):
                 augment.RandomDeletion(delete_min=0, delete_max=30),
                 augment.RandomTranslocationBatch(shift_min=0, shift_max=20)
             ]   
+            # model = utils.load_model_from_weights(weights=join(args.model_dir, str(i+1) + "_DeepSTARR_finetune.h5"), 
+            #                                       input_shape=X_train[0].shape, 
+            #                                       augment_list=augment_list, 
+            #                                       config_file=args.config, 
+            #                                       predict_std=args.std)
             model = utils.load_model_from_weights(weights=join(args.model_dir, str(i+1) + "_DeepSTARR_finetune.h5"), 
                                                   input_shape=X_train[0].shape, 
                                                   augment_list=augment_list, 
                                                   config_file=args.config, 
-                                                  predict_std=args.std)
+                                                  epistemic=args.std)
         else:
             model = load_model(join(args.model_dir, str(i+1) + "_DeepSTARR.h5"))
         

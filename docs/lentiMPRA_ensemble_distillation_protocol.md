@@ -12,6 +12,10 @@
   - [Scripts](#scripts-5)
 - [7. Distill replicates of lentiMPRA models (mean+aleatoric+epistemic)](#7-distill-replicates-of-lentimpra-models-meanaleatoricepistemic)
   - [Scripts](#scripts-6)
+- [Other](#other)
+  - [Training with dynamic augmentations](#training-with-dynamic-augmentations)
+    - [Scripts](#scripts-7)
+  - [Training models w/ evidential regression](#training-models-w-evidential-regression)
 
 
 # 1. Train lentiMPRA models (mean)
@@ -67,3 +71,16 @@ Finally, train distilled models using ensemble trained in [step 5](#5-train-ense
   - ensemble std. was calculated for both activity and aleatoric outputs; last column is omitted when training distilled models, as epistemic output head describes epistemic uncertainty about activity prediction
 - `train_distilled_lentiMPRA_with_epistemic.py`: replaces `train_lentiMPRA.py`, assumes `--aleatoric` and `--epistemic` are `True` and that h5 file provided to `--data` contains only data for distillation to bypass need for `--distill` flag and explicitly providing ensemble level metrics. 
 - `distill_lentiMPRA_epistemic.sh`: runs above script
+
+# Other
+
+## Training with dynamic augmentations
+Train distilled models with dynamic augmentations. On each mini-batch, dynamically generate augmented sequences and either append or replace original training data. Target labels for augmented sequences are generated using an ensemble of models. Augmentation options: `random`, `mutagenesis`, `evoaug`
+
+### Scripts
+- `dynamic_aug.py`: class definition for `DynamicAugModel()`
+- `train_dynamic_aug_lentiMPRA.py`: train distilled lentiMPRA models with activity, aleatoric and epistemic uncertainty predictions using ensemble of DeepSTARR models with activity and aleatoric uncertainty outputs. 
+- `distill_lentiMPRA_dynamic_aug.sh`: run `train_dynamic_aug_lentiMPRA.py`
+- 
+## Training models w/ evidential regression
+This is done as part of the interval coverage probability analysis. An additional `--evidential` flag has been added to `train_lentiMPRA.py` and is run using `train_evidential_lentiMPRA.sh`

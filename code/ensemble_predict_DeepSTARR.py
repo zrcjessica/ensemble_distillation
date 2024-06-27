@@ -85,11 +85,16 @@ def main(args):
                 augment.RandomNoise(noise_mean=0, noise_std=0.2),
                 augment.RandomMutation(mutate_frac=0.05)
             ]
+            # model = utils.load_model_from_weights(weights=join(args.model_dir, str(i+1) + "_DeepSTARR_finetune.h5"), 
+            #                                       input_shape=X_train[0].shape, 
+            #                                       augment_list=augment_list, 
+            #                                       config_file=args.config, 
+            #                                       predict_std=args.std)
             model = utils.load_model_from_weights(weights=join(args.model_dir, str(i+1) + "_DeepSTARR_finetune.h5"), 
                                                   input_shape=X_train[0].shape, 
                                                   augment_list=augment_list, 
                                                   config_file=args.config, 
-                                                  predict_std=args.std)
+                                                  epistemic=args.std)
         else:
             model = load_model(join(args.model_dir, str(i+1) + "_DeepSTARR.h5"))
         train_preds, test_preds = 0, 0

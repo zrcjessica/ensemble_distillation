@@ -1,7 +1,7 @@
 import keras.layers as kl
 from keras.models import Model
 
-def DeepSTARR(input_shape, config, predict_std=False):
+def DeepSTARR(input_shape, config, epistemic=False):
     '''
     DeepSTARR model, using same params as in published model
     '''
@@ -29,7 +29,7 @@ def DeepSTARR(input_shape, config, predict_std=False):
         x = kl.Activation(config['activation'])(x)
         x = kl.Dropout(0.4)(x)
 
-    if predict_std:
+    if epistemic:
         # outputs: [Dev-mean, Hk-mean, Dev-std, Hk-std]
         outputs = kl.Dense(4, activation='linear')(x)
     elif config['loss_fxn']=='evidential':

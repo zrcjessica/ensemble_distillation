@@ -27,6 +27,12 @@
   - [Outputs](#outputs-4)
 - [10. Train distilled model with stdev. prediction](#10-train-distilled-model-with-stdev-prediction)
   - [Scripts](#scripts-9)
+- [Other](#other)
+  - [Training with dynamic augmentations](#training-with-dynamic-augmentations)
+    - [Scripts](#scripts-10)
+  - [Interval coverage probability analysis](#interval-coverage-probability-analysis)
+  - [Training models w/ evidential regression](#training-models-w-evidential-regression)
+  - [Consistency analysis for attribution scores](#consistency-analysis-for-attribution-scores)
 
 Note: all bash scripts use a Slack bot to message user upon completion. To use this feature, refer to the Slack docs: [Sending messages using incoming webhooks](https://api.slack.com/messaging/webhooks)
 
@@ -80,7 +86,7 @@ Make predictions with the replicate models on the training dataset. If using a m
 ## Scripts
 - `ensemble_predict_DeepSTARR.py` with `--eval` flag 
 - `evaluate_ensemble_predictions.sh`
-- `eval_and_distill_ensemble.sh`: runs `ensemble_predict_DeepSTARR.py` with both `--eval` and `--distill` flags set (prototype script, not used yet)
+- `eval_and_distill_DeepSTARR.sh`: runs `ensemble_predict_DeepSTARR.py` with both `--eval` and `--distill` flags set (prototype script, not used yet)
 - `run_ensemble_predict_DeepSTARR_evoaug.sh`: runs `ensemble_predict_DeepSTARR.py` with both `--eval` and `--distill` flags set for DeepSTARR ensembles trained w/ EvoAug
 ## Outputs
 - `ensemble_performance_avg.csv`
@@ -116,7 +122,7 @@ With saliency and SHAP.
 ## Scripts
 - `DeepSTARR_ensemble_attr_analysis.py`
 - `run_DeepSTARR_ensemble_attr_analysis.sh`: runs attribution analysis on DeepSTARR models trained with full dataset
-  - `run_DeepSTARR_ensemble_attr_analsysis_downsampled.sh`: runs attribution analysis on DeepSTARR models trained w/ downsampled training dataset
+  - `run_DeepSTARR_ensemble_attr_analsysis_downsampled.sh`: runs attribution analysis on DeepSTARR models trained w/ downsampled training dataset. Focuses on Dev enhancer activity output head.
   - `run_evoaug_DeepSTARR_ensemble_attr_analysis.sh`: runs attribution analysis on DeepSTARR models trained w/ evoaug on full dataset; has been modified to include boolean flags for downsampled and distilled models
 
 # 7. Analyze attribution scores
@@ -148,11 +154,38 @@ This will be used to train distilled models with uncertainty estimation.
 Currently using file `all_data_with_ensemble_metrics_hierarchical.h5`.
 
 # 10. Train distilled model with stdev. prediction
+We replace the original target labels with the average and standard deviation of the ensemble's predictions on the training sequences. For the validation and test sets, we keep the original enhancer activity values but append the standard deviation of the ensemble's predictions on those sequences. 
 
 ## Scripts
 - `train_stdev_DeepSTARR.py`: python script for training distilled model w/ stdev. prediction (modified from `train_DeepSTARR.py`)
 - `distill_DeepSTARR_with_std.sh`: run `train_stdev_DeepSTARR.py` 
   - can toggle `evoaug` and `downsample` boolean variables accordingly
 - `distill_evoaug_DeepSTARR_with_std.sh`: run `train_stdev_DeepSTARR.py` with `--evoaug` flag (has now been wrapped into above script)
-- `distil_DeepSTARR_with_logvar.sh`: runs `train_stdev_DeepSTARR.py` w/ `--logvar` flag (currently exploratory, in .gitignore)
-  
+- `distill_DeepSTARR_with_logvar.sh`: runs `train_stdev_DeepSTARR.py` w/ `--logvar` flag (currently exploratory, in .gitignore)
+
+
+<!-- # 11. Attribution analysis for DeepSTARR models with mean + std (epistemic) predictions 
+
+## Scripts
+- `attr_analysis_distilled_with_std.sh`: run DeepSTARR 
+- `binned_attr_analysis_distilled_with_std.sh`: used to perform attribution analysis on 100 seqs randomly selected from 4 quantile bins based on ground truth Dev enhancer activity; runs `DeepSTARR_attr_analysis_for_binned_seqs.py` -->
+
+# Other
+
+## Training with dynamic augmentations
+Train distilled models with dynamic augmentations. On each mini-batch, dynamically generate augmented sequences and either append or replace original training data. Target labels for augmented sequences are generated using an ensemble of models. Augmentation options: `random`, `mutagenesis`, `evoaug`
+
+### Scripts
+- `dynamic_aug.py`: class definition for `DynamicAugModel()`
+- `train_dynamic_aug_DeepSTARR.py`: train distilled DeepSTARR models with activity and epistemic uncertainty predictions using ensemble of DeepSTARR models. 
+- `distill_DeepSTARR_dynamic_aug.sh`: run `train_dynamic_aug_DeepSTARR.py`
+
+## Interval coverage probability analysis
+`prediction_interval_analysis.ipynb`
+
+## Training models w/ evidential regression
+This is done as part of the interval coverage probability analysis. An additional `--evidential` flag has been added to `train_DeepSTARR.py` and is run using `train_evidential_DeepSTARR.sh`
+
+## Consistency analysis for attribution scores
+`consistency_analysis_attribution_scores.ipynb`
+

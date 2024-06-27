@@ -23,7 +23,7 @@ if [ "$logvar" = true ]; then
 fi 
 
 ### define cell type
-CELLTYPE='K562' # HepG2 or K562
+CELLTYPE='HepG2' # HepG2 or K562
 MODELS_DIR=${MODELS_DIR}/${CELLTYPE}
 DATA=${DATA_DIR}/${CELLTYPE}_distillation_data_with_epistemic.h5
 

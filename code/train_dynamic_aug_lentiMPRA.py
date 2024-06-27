@@ -6,7 +6,7 @@ from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 import utils
 import h5py
-from model_zoo import DeepSTARR
+from model_zoo import lentiMPRA
 import plotting
 import pandas as pd
 import wandb
@@ -17,7 +17,7 @@ import dynamic_aug
 from keras.models import load_model
 
 '''
-train distilled DeepSTARR models w/ mean+stdev prediction with dynamic augmentations 
+train distilled lentiMPRA models w/ mean+aleatoric+epistemic prediction with dynamic augmentations 
 --append determines whether augmentations are added to or replace original training data 
 --aug determines what kind of augmentation: evoaug, random, mutagenesis 
 '''
@@ -42,6 +42,10 @@ def parse_args():
                         help='project name for wandb')
     parser.add_argument("--config", type=str,
                         help='path to wandb config (yaml)')
+    # parser.add_argument("--distill", type=str, default=None,
+    #                     help='if provided, trains a model using distilled training data')
+    # parser.add_argument("--predict_std", action='store_true',
+    #                     help='if set, predict ensemble stdev in addition to mean; distill flag must be set as well')
     parser.add_argument('--aug', type=str, default='evoaug',
                         help='define what type of augmentations to apply')
     parser.add_argument('--append', action='store_true',
@@ -61,7 +65,7 @@ def eval_performance(model, X_test, y_test, outfh, logvar=False):
         # convert logvar back to std for evaluation
         y_pred[:,2] = np.sqrt(np.exp(y_pred[:,2]))
         y_pred[:,3] = np.sqrt(np.exp(y_pred[:,3]))
-    results = utils.summarise_DeepSTARR_performance(y_pred, y_test, std=True)
+    results = utils.summarise_lentiMPRA_performance(y_pred, y_test, std=True)
     results.to_csv(outfh, index=False)
 
 def main(args):
@@ -76,8 +80,8 @@ def main(args):
     wandb.config.update({'distill':True, 'std':True}, allow_val_change=True) # update config
 
     # load data from h5 (ensemble avg and std returned for y_train)
-    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data,  
-                                                                               std=True)
+    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_lentiMPRA_data(args.data,  
+                                                                               epistemic=True)
     
     assert((X_train.shape[-1]==4) & (X_test.shape[-1]==4) & (X_val.shape[-1]==4))
 
@@ -97,22 +101,16 @@ def main(args):
     #     y_val[:,3] = np.log(np.square(y_val[:,3]))
 
     # load ensemble of models
-    ensemble = [load_model(join(args.ensemble_dir, f'{i}_DeepSTARR.h5')) for i in range(1,args.ensemble_size+1)]
+    ensemble = [load_model(join(args.ensemble_dir, f'{i}_lentiMPRA.h5')) for i in range(1,args.ensemble_size+1)]
 
     # create model
-    # model = dynamic_aug.DynamicAugModel(DeepSTARR,
-    #                                     input_shape=X_train[0].shape,
-    #                                     aug=args.aug,
-    #                                     append=args.append,
-    #                                     ensemble=ensemble,
-    #                                     config=wandb.config, 
-    #                                     predict_std=True)
-    model = dynamic_aug.DynamicAugModel(DeepSTARR,
+    model = dynamic_aug.DynamicAugModel(lentiMPRA,
                                         input_shape=X_train[0].shape,
                                         aug=args.aug,
                                         append=args.append,
                                         ensemble=ensemble,
                                         config=wandb.config, 
+                                        aleatoric=True,
                                         epistemic=True)
 
     # update lr in config if different value provided to input
@@ -156,7 +154,7 @@ def main(args):
 
     # save model weights
     if args.append:
-        save_path = join(args.out, f"{args.ix}_DeepSTARR_{args.aug}_append_aug.h5")
+        save_path = join(args.out, f"{args.ix}_lentiMPRA_{args.aug}_append_aug.h5")
         model.save_weights(save_path)
         # save history
         with open(join(args.out, f"{args.ix}_{args.aug}_append_historyDict_aug"), 'wb') as pickle_fh:
@@ -169,7 +167,7 @@ def main(args):
             plotting.plot_loss(history, join(args.out, f"{args.ix}_{args.aug}_append_loss_curves_aug.png"))
     else:
         # save model weights
-        save_path = join(args.out, f"{args.ix}_DeepSTARR_{args.aug}_aug.h5")
+        save_path = join(args.out, f"{args.ix}_lentiMPRA_{args.aug}_aug.h5")
         model.save_weights(save_path)
         # save history
         with open(join(args.out, f"{args.ix}_{args.aug}_historyDict_aug"), 'wb') as pickle_fh:
@@ -196,17 +194,12 @@ def main(args):
     wandb.config['finetune_epochs'] = finetune_epochs
     wandb.config['finetune_lr'] = 0.001
     finetune_optimizer = keras.optimizers.Adam(learning_rate=wandb.config['finetune_lr'])
-    # model = dynamic_aug.DynamicAugModel(DeepSTARR,
-    #                                     input_shape=X_train[0].shape,
-    #                                     aug=None,
-    #                                     append=False,
-    #                                     config=wandb.config, 
-    #                                     predict_std=True)
-    model = dynamic_aug.DynamicAugModel(DeepSTARR,
+    model = dynamic_aug.DynamicAugModel(lentiMPRA,
                                         input_shape=X_train[0].shape,
                                         aug=None,
                                         append=False,
                                         config=wandb.config, 
+                                        aleatoric=True,
                                         epistemic=True)
     model.compile(optimizer=finetune_optimizer, loss=wandb.config['loss_fxn'])
     model.load_weights(save_path)
@@ -218,10 +211,9 @@ def main(args):
                         validation_data=(X_val, y_val),
                         callbacks=callbacks_list) 
     
-
     # save model weights
     if args.append:
-        save_path = join(args.out, f"{args.ix}_DeepSTARR_{args.aug}_append_finetune.h5")
+        save_path = join(args.out, f"{args.ix}_lentiMPRA_{args.aug}_append_finetune.h5")
         model.save_weights(save_path)
         # save history
         with open(join(args.out, f"{args.ix}_{args.aug}_append_historyDict_finetune"), 'wb') as pickle_fh:
@@ -234,7 +226,7 @@ def main(args):
             plotting.plot_loss(history, join(args.out, f"{args.ix}_{args.aug}_append_loss_curves_finetune.png"))
     else:
         # save model weights
-        save_path = join(args.out, f"{args.ix}_DeepSTARR_{args.aug}_finetune.h5")
+        save_path = join(args.out, f"{args.ix}_lentiMPRA_{args.aug}_finetune.h5")
         model.save_weights(save_path)
         # save history
         with open(join(args.out, f"{args.ix}_{args.aug}_historyDict_finetune"), 'wb') as pickle_fh:
