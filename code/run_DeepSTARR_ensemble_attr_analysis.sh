@@ -28,10 +28,13 @@ fi
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 
 if [ "$DISTILLED" = true ]; then
+	# attr analysis for distilled models
 	if [ "$EPISTEMIC" = true ]; then
+		# for distilled models w/ epistemic uncertainty
 		CUDA_VISIBLE_DEVICES=7 python DeepSTARR_ensemble_attr_analysis.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --method $METHOD --top_n $TOP_N --std --enhancer $ENHANCER --head $HEAD
 	else 
-		CUDA_VISIBLE_DEVICES=7 python DeepSTARR_ensemble_attr_analysis.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --method $METHOD --top_n $TOP_N 
+		# for distilled models w/ activity only; HEAD=mean
+		CUDA_VISIBLE_DEVICES=7 python DeepSTARR_ensemble_attr_analysis.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --method $METHOD --top_n $TOP_N --enhancer $ENHANCER
 	fi
 else
 	# typically only calculate average if looking at the ensemble, not the distilled models

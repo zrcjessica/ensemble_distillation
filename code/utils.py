@@ -226,6 +226,22 @@ def get_attribution_files(dir, method, enhancer='Dev', top_n=500, avg_file=None)
         attr_files = list(set(attr_files) - set([avg_file]))
     return attr_files, avg_file 
 
+def get_lentiMPRA_attribution_files(dir, method, celltype, top_n=1000, avg_file=None):
+    '''
+    returns a list of all files containing attribution analysis results for an ensemble
+    if average is None (no average attribution map provided), assumes it is in the same directory
+    must supply method (shap/saliency) 
+    gets attr. scores for top 500 (Dev enhancers) DeepSTARR test seqs 
+    '''
+    if avg_file is None:
+        # avg_file = join(dir, f"average*{method}.npy")
+        avg_file = join(dir, f"avg_top{top_n}_{celltype}-mean_{method}.npy")
+    attr_files = glob.glob(join(dir, f"*_top{top_n}_{celltype}-mean_{method}.npy"))
+    # check if avg file is here
+    if avg_file in attr_files:
+        attr_files = list(set(attr_files) - set([avg_file]))
+    return attr_files, avg_file 
+
 # def get_binned_attribution_files(dir, quantile, method, nseqs=100, avg_file=None):
 #     '''
 #     returns a list of all files containing attribution analysis results for an ensemble
@@ -437,31 +453,57 @@ def attribution_analysis(model, seqs, method, enhancer='Dev', head='mean', ref_s
                 return explainer_dev.shap_values(seqs)[1 if head=='mean' else 3]
             # return explainer_dev.shap_values(seqs)[0 if enhancer=='Dev' else 1]
 
-# def summarise_ensemble_performance(files, downsample=1):
-#     '''
-#     summarises results of all individual models in an ensemble
-#     takes a list of the output files for performance of models in ensemble
-#     '''
-    
-#     results_list = []
-
-#     for f in files:
-#         df = pd.read_csv(f)
-#         model_ix = int(basename(f).split('_')[0])
-#         df['model_ix'] = model_ix
-#         if 'metric' not in df.columns:
-#             df['metric'] = ['MSE', 'Pearson', 'Spearman']
-#         results_list.append(df)
-
-#     # combine as one df
-#     all_results = pd.concat(results_list)
-#     all_results['model_ix'] = all_results['model_ix'].astype('int32')
-#     all_results.sort_values(by = 'model_ix', inplace=True)
-#     all_results.reset_index(drop=True, inplace=True)
-#     all_results['downsample'] = downsample
-#     return all_results
+def lentiMPRA_attribution_analysis(model, seqs, method, head='mean', ref_size=100, background=None, evoaug=False):
+    '''
+    returns attribution maps for DeepSTARR models and seqs based on method (saliency/shap)
+    if method=shap, will use provided background seqs or randomly generate dinucleotide shuffled sets per seq
+    by default, returns attribution scores for Dev enhancers, can also specify Hk
+    '''
+    print(f'calculating attribution maps with {method}')
+    if evoaug and model.insert_max != 0:
+        seqs = _pad_end(seqs)
+    if method == 'saliency':
+        # saliency analysis
+        seqs = Variable(seqs, dtype='float32')
+        with GradientTape() as tape:
+            preds = model(seqs, training=False)
+            if head=='mean':
+                loss = preds[:,0]
+            elif head=='aleatoric':
+                loss = preds[:,1]
+            elif head=='epistemic':
+                loss = preds[:,2]
+        mean_saliency = tape.gradient(loss, seqs)
+        return mean_saliency
+    else:
+        # DeepExplainer 
+        shap.explainers._deep.deep_tf.op_handlers["AddV2"] = shap.explainers._deep.deep_tf.passthrough # this is required due to conflict between versions (https://github.com/slundberg/shap/issues/1110)
+        if background is None:
+            # use dinuc shuffled bg seqs
+            print('using dinucleotide shuffled sequences as shap reference')
+            rng = np.random.default_rng(1)
+            shap_values_arr = np.zeros(seqs.shape)
+            for i in range(seqs.shape[0]):
+                print(f'running DeepExplainer on sequence {i+1}/{seqs.shape[0]}')
+                # clear history
+                keras.backend.clear_session()
+                gc.collect()
+                seq = seqs[i]
+                bg = dinuc_shuffle(seq, num_shufs=ref_size, rng=rng) # can we remove this feature if random selection works fine?
+                explainer_dev = shap.DeepExplainer((model.input, model.output), data=bg)
+                shap_values_arr[i] = np.squeeze(explainer_dev.shap_values(np.expand_dims(seq, axis=0))[0 if head=='mean' else 1 if head=='aleatoric' else 2], axis=0)
+            return shap_values_arr
+        else:
+            # use provided background seqs
+            print('performing shap analysis without provided background seqs')
+            explainer_dev = shap.DeepExplainer((model.input, model.output), data=background)
+            return explainer_dev.shap_values(seqs)[0 if head=='mean' else 1 if head=='aleatoric' else 2]
+        
 
 def load_model_from_weights(weights, input_shape, augment_list, config_file, predict_std, with_evoaug=True):
+    '''
+    load DeepSTARR model from weights
+    '''
     config = yaml.safe_load(open(config_file, 'r'))
     model = None
     if with_evoaug:

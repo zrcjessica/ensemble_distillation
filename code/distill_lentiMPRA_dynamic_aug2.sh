@@ -2,7 +2,7 @@
 
 AUG=random # evoaug/mutagenesis/random 
 APPEND=true
-CELLTYPE='HepG2'
+CELLTYPE='K562'
 ENSEMBLE_DIR=../results/lentiMPRA_aleatoric/${CELLTYPE}
 DATA_DIR=../data/lentiMPRA
 DATA=${DATA_DIR}/${CELLTYPE}_distillation_data_with_epistemic.h5
@@ -43,7 +43,7 @@ do
 				--celltype $CELLTYPE \
 				--ensemble_dir $ENSEMBLE_DIR"
 	fi
-done | simple_gpu_scheduler --gpus 0,1,2,3,4
+done | simple_gpu_scheduler --gpus 2,3
 
 
 # message the user on slack if possible

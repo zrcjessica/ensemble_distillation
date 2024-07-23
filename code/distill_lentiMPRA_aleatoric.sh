@@ -17,7 +17,7 @@ if [ "$evoaug" = true ]; then
 fi
 
 ### define cell type
-CELLTYPE='K562' # HepG2 or K562
+CELLTYPE='HepG2' # HepG2 or K562
 ENSEMBLE_DIR=${ENSEMBLE_DIR}/${CELLTYPE}
 DATA=${DATA_DIR}/${CELLTYPE}_data_with_aleatoric.h5
 
@@ -38,7 +38,7 @@ if [ "$downsample" = true ]; then
             else
                 echo "python train_lentiMPRA.py --ix $i --out $OUTDIR_DOWNSAMPLE --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE --aleatoric --distill ${ENSEMBLE_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}/ensemble_avg_y_train.npy"
             fi
-        done | simple_gpu_scheduler --gpus 5,6
+        done | simple_gpu_scheduler --gpus 0,1,2,3,4
     done 
 else
     OUTDIR=${ENSEMBLE_DIR}/ensemble_distilled
@@ -50,7 +50,7 @@ else
         else
             echo "python train_lentiMPRA.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE --aleatoric --distill ${ENSEMBLE_DIR}/ensemble_avg_y_train.npy"
         fi
-    done | simple_gpu_scheduler --gpus 5,6
+    done | simple_gpu_scheduler --gpus 0,1,2,3,4
 fi
 
 

@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns 
 import pandas as pd 
 import numpy as np
+import logomaker
+from matplotlib.backends.backend_pdf import PdfPages
 
 def plot_loss(history, out_fh, loss_fxn=None):
     '''
@@ -44,3 +46,19 @@ def prediction_scatterplot(pred, true, colnames, outfh):
         facet_kws={'sharey': False, 'sharex': False}
     )
     fig.savefig(outfh, dpi=600)
+
+def plot_logos(scores, fh, n_seqs=10):
+    '''
+    for a given model, plot attribution scores for top n seqs
+    '''
+    with PdfPages(fh) as pdf:
+        fig, axs = plt.subplots(n_seqs,1)
+        for seq_ix in range(n_seqs):
+             # iterate through seqs 
+            grad = scores[seq_ix,:,:]
+            saliency_df = pd.DataFrame(grad)
+            saliency_df.rename(columns={0:'A', 1:'C', 2:'G', 3:'T'}, inplace=True)
+            logomaker.Logo(saliency_df, ax=axs[seq_ix])
+        fig.set_size_inches(7, 10)
+        fig.tight_layout()
+        pdf.savefig()

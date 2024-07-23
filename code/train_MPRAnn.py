@@ -124,7 +124,6 @@ def main(args):
                                    augment_list=augment_list, 
                                    max_augs_per_seq=1, 
                                    hard_aug=True, 
-                                #    config=wandb.config, 
                                    aleatoric=args.aleatoric,
                                    epistemic=False)
     else:
@@ -187,7 +186,6 @@ def main(args):
         model = evoaug.RobustModel(MPRAnn, input_shape=X_train[0].shape, 
                                    augment_list=augment_list, 
                                    max_augs_per_seq=2, hard_aug=True, 
-                                #    config=wandb.config, 
                                    aleatoric=args.aleatoric, epistemic=False)
         if args.evidential:
             model.compile(optimizer=Adam(learning_rate=0.0001), loss=utils.EvidentialRegression)

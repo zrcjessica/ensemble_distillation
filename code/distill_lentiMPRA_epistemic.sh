@@ -13,7 +13,7 @@ downsample=true
 # train w/ evoaug
 evoaug=true
 if [ "$evoaug" = true ]; then
-    MODELS_DIR=${MODELS_DIR}_evoaug_NEW
+    MODELS_DIR=${MODELS_DIR}_evoaug
     DATA_DIR=${DATA_DIR}/evoaug
 fi
 # use logvar instead of std for epistemic uncertainty 
@@ -31,7 +31,8 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 
 if [ "$downsample" = true ]; then
     echo 'training on downsampled data'
-    DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 ) # used if downsample set to true
+    # DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 ) # used if downsample set to true
+    DOWNSAMPLE_ARR=( 0.5 )
     for p in "${!DOWNSAMPLE_ARR[@]}"
     do
         echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
@@ -53,7 +54,7 @@ if [ "$downsample" = true ]; then
                     echo "python train_distilled_lentiMPRA_with_epistemic.py --ix $i --out $OUTDIR --data $DOWNSAMPLE_DATA --downsample ${DOWNSAMPLE_ARR[$p]} --plot  --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE"
                 fi
             fi
-        done | simple_gpu_scheduler --gpus 0,1,3,5,6
+        done | simple_gpu_scheduler --gpus 6
     done 
 else
     OUTDIR=${MODELS_DIR}
@@ -73,7 +74,7 @@ else
                 echo "python train_distilled_lentiMPRA_with_epistemic.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE"
             fi
         fi
-    done | simple_gpu_scheduler --gpus 0,1,3,5,6
+    done | simple_gpu_scheduler --gpus 6
 fi
 
 

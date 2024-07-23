@@ -1,5 +1,5 @@
 import argparse
-from os.path import join
+from os.path import join, isfile
 import pickle
 import keras
 from keras.optimizers import Adam
@@ -54,18 +54,20 @@ def parse_args():
                         help='path to dir where ensemble of models are stored; used to generate targets for augmented seqs')
     parser.add_argument('--ensemble_size', default=10,
                         help='number of models in ensemble to use for generating target labels')
+    parser.add_argument("--celltype", type=str,
+                        help='which cell type (K562/HepG2)')
     # parser.add_argument("--logvar", action='store_true',
     #                     help='if set, use logvar as target values instead of std (default)')
     args = parser.parse_args()
     return args
 
-def eval_performance(model, X_test, y_test, outfh, logvar=False):
+def eval_performance(model, X_test, y_test, outfh, celltype, aleatoric=False, epistemic=False, logvar=False):
     y_pred = model.predict(X_test)
     if logvar:
         # convert logvar back to std for evaluation
         y_pred[:,2] = np.sqrt(np.exp(y_pred[:,2]))
         y_pred[:,3] = np.sqrt(np.exp(y_pred[:,3]))
-    results = utils.summarise_lentiMPRA_performance(y_pred, y_test, std=True)
+    results = utils.summarise_lentiMPRA_performance(y_pred, y_test, celltype=celltype, aleatoric=True, epistemic=True)
     results.to_csv(outfh, index=False)
 
 def main(args):
@@ -77,6 +79,7 @@ def main(args):
     wandb.config['aug'] = args.aug
     wandb.config['append'] = args.append 
     wandb.config['finetune'] = False
+    wandb.config['celltype'] = args.celltype
     wandb.config.update({'distill':True, 'std':True}, allow_val_change=True) # update config
 
     # load data from h5 (ensemble avg and std returned for y_train)
@@ -99,27 +102,7 @@ def main(args):
     #     y_train[:,3] = np.log(np.square(y_train[:,3]))
     #     y_val[:,2] = np.log(np.square(y_val[:,2]))
     #     y_val[:,3] = np.log(np.square(y_val[:,3]))
-
-    # load ensemble of models
-    ensemble = [load_model(join(args.ensemble_dir, f'{i}_lentiMPRA.h5')) for i in range(1,args.ensemble_size+1)]
-
-    # create model
-    model = dynamic_aug.DynamicAugModel(lentiMPRA,
-                                        input_shape=X_train[0].shape,
-                                        aug=args.aug,
-                                        append=args.append,
-                                        ensemble=ensemble,
-                                        config=wandb.config, 
-                                        aleatoric=True,
-                                        epistemic=True)
-
-    # update lr in config if different value provided to input
-    if args.lr != wandb.config['optim_lr']:
-        wandb.config.update({'optim_lr':args.lr}, allow_val_change=True)
-
-    # compile model
-    model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])
-
+    
     # define callbacks
     callbacks_list = [WandbMetricsLogger()]
     if wandb.config['early_stopping']:
@@ -132,52 +115,104 @@ def main(args):
     if args.lr_decay:
         # train w/ LR decay
         lr_decay_callback = ReduceLROnPlateau(monitor='val_loss',
-                                              factor=0.2,
-                                              patience=5,
-                                              min_lr=1e-7,
-                                              mode='min',
-                                              verbose=1)
+                                            factor=0.2,
+                                            patience=5,
+                                            min_lr=1e-7,
+                                            mode='min',
+                                            verbose=1)
         callbacks_list.append(lr_decay_callback)
         wandb.config.update({'lr_decay': True, 
-                             'lr_decay_patience': 3, 
-                             'lr_decay_factor': 0.2}, allow_val_change=True)
-
-    # train model with augmentations 
-    history = model.fit(X_train, y_train, 
-                        batch_size=wandb.config['batch_size'], 
-                        epochs=wandb.config['epochs'],
-                        validation_data=(X_val, y_val),
-                        callbacks=callbacks_list) 
-    
-    run.finish()
-
-
-    # save model weights
+                            'lr_decay_patience': 3, 
+                            'lr_decay_factor': 0.2}, allow_val_change=True)
+            
+    # get filename for aug model
     if args.append:
-        save_path = join(args.out, f"{args.ix}_lentiMPRA_{args.aug}_append_aug.h5")
-        model.save_weights(save_path)
-        # save history
-        with open(join(args.out, f"{args.ix}_{args.aug}_append_historyDict_aug"), 'wb') as pickle_fh:
-            pickle.dump(history.history, pickle_fh)
-        # evaluate best model (and save)
-        eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_{args.aug}_append_performance_aug.csv'))
-
-        # plot loss curves and spearman correlation over training epochs and save 
-        if args.plot:
-            plotting.plot_loss(history, join(args.out, f"{args.ix}_{args.aug}_append_loss_curves_aug.png"))
+        aug_savepath = join(args.out, f"{args.ix}_lentiMPRA_{args.aug}_append_aug.h5")
     else:
-        # save model weights
-        save_path = join(args.out, f"{args.ix}_lentiMPRA_{args.aug}_aug.h5")
-        model.save_weights(save_path)
-        # save history
-        with open(join(args.out, f"{args.ix}_{args.aug}_historyDict_aug"), 'wb') as pickle_fh:
-            pickle.dump(history.history, pickle_fh)
-        # evaluate best model (and save)
-        eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_{args.aug}_performance_aug.csv'))
+        aug_savepath = join(args.out, f"{args.ix}_lentiMPRA_{args.aug}_aug.h5")
+    if not isfile(aug_savepath):
+        # load ensemble of models
+        ensemble = [load_model(join(args.ensemble_dir, f'{i}_lentiMPRA.h5')) for i in range(1,args.ensemble_size+1)]
 
-        # plot loss curves and spearman correlation over training epochs and save 
-        if args.plot:
-            plotting.plot_loss(history, join(args.out, f"{args.ix}_{args.aug}_loss_curves_aug.png"))
+        # create model
+        model = dynamic_aug.DynamicAugModel(lentiMPRA,
+                                            input_shape=X_train[0].shape,
+                                            aug=args.aug,
+                                            append=args.append,
+                                            ensemble=ensemble,
+                                            config=wandb.config, 
+                                            aleatoric=True,
+                                            epistemic=True)
+
+        # update lr in config if different value provided to input
+        if args.lr != wandb.config['optim_lr']:
+            wandb.config.update({'optim_lr':args.lr}, allow_val_change=True)
+
+        # compile model
+        model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])
+
+        # # define callbacks
+        # callbacks_list = [WandbMetricsLogger()]
+        # if wandb.config['early_stopping']:
+        #     es_callback = EarlyStopping(patience=wandb.config['es_patience'], 
+        #                                 verbose=1, 
+        #                                 mode='min', 
+        #                                 restore_best_weights=True)
+        #     callbacks_list.append(es_callback)
+
+        # if args.lr_decay:
+        #     # train w/ LR decay
+        #     lr_decay_callback = ReduceLROnPlateau(monitor='val_loss',
+        #                                         factor=0.2,
+        #                                         patience=5,
+        #                                         min_lr=1e-7,
+        #                                         mode='min',
+        #                                         verbose=1)
+        #     callbacks_list.append(lr_decay_callback)
+        #     wandb.config.update({'lr_decay': True, 
+        #                         'lr_decay_patience': 3, 
+        #                         'lr_decay_factor': 0.2}, allow_val_change=True)
+
+        # train model with augmentations 
+        history = model.fit(X_train, y_train, 
+                            batch_size=wandb.config['batch_size'], 
+                            epochs=wandb.config['epochs'],
+                            validation_data=(X_val, y_val),
+                            callbacks=callbacks_list) 
+        
+        run.finish()
+
+
+        # save model weights
+        if args.append:
+            # save_path = join(args.out, f"{args.ix}_lentiMPRA_{args.aug}_append_aug.h5")
+            # model.save_weights(save_path)
+            model.save_weights(aug_savepath)
+            # save history
+            with open(join(args.out, f"{args.ix}_{args.aug}_append_historyDict_aug"), 'wb') as pickle_fh:
+                pickle.dump(history.history, pickle_fh)
+            # evaluate best model (and save)
+            eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_{args.aug}_append_performance_aug.csv'), 
+                            args.celltype, aleatoric=True, epistemic=True)
+
+            # plot loss curves and spearman correlation over training epochs and save 
+            if args.plot:
+                plotting.plot_loss(history, join(args.out, f"{args.ix}_{args.aug}_append_loss_curves_aug.png"))
+        else:
+            # save model weights
+            # save_path = join(args.out, f"{args.ix}_lentiMPRA_{args.aug}_aug.h5")
+            # model.save_weights(save_path)
+            model.save_weights(aug_savepath)
+            # save history
+            with open(join(args.out, f"{args.ix}_{args.aug}_historyDict_aug"), 'wb') as pickle_fh:
+                pickle.dump(history.history, pickle_fh)
+            # evaluate best model (and save)
+            eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_{args.aug}_performance_aug.csv'),
+                            args.celltype, aleatoric=True, epistemic=True)
+
+            # plot loss curves and spearman correlation over training epochs and save 
+            if args.plot:
+                plotting.plot_loss(history, join(args.out, f"{args.ix}_{args.aug}_loss_curves_aug.png"))
     
     # train finetune (no augs) 
     run = wandb.init(project=args.project, config=args.config, reinit=True)
@@ -185,6 +220,7 @@ def main(args):
     wandb.config['aug'] = args.aug
     wandb.config['append'] = args.append 
     wandb.config['finetune'] = True
+    wandb.config['celltype'] = args.celltype
     wandb.config.update({'distill':True, 'std':True}, allow_val_change=True) # update config
     wandb.config.update({'lr_decay': True, 
                          'lr_decay_patience': 3, 
@@ -202,7 +238,8 @@ def main(args):
                                         aleatoric=True,
                                         epistemic=True)
     model.compile(optimizer=finetune_optimizer, loss=wandb.config['loss_fxn'])
-    model.load_weights(save_path)
+    # model.load_weights(save_path)
+    model.load_weights(aug_savepath)
     # model.finetune_mode()
 
     history = model.fit(X_train, y_train, 
@@ -219,7 +256,8 @@ def main(args):
         with open(join(args.out, f"{args.ix}_{args.aug}_append_historyDict_finetune"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
         # evaluate best model (and save)
-        eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_{args.aug}_append_performance_finetune.csv'))
+        eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_{args.aug}_append_performance_finetune.csv'),
+                         args.celltype, aleatoric=True, epistemic=True)
 
         # plot loss curves and spearman correlation over training epochs and save 
         if args.plot:
@@ -232,7 +270,8 @@ def main(args):
         with open(join(args.out, f"{args.ix}_{args.aug}_historyDict_finetune"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
         # evaluate best model (and save)
-        eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_{args.aug}_performance_finetune.csv'))
+        eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_{args.aug}_performance_finetune.csv'),
+                         args.celltype, aleatoric=True, epistemic=True)
 
         # plot loss curves and spearman correlation over training epochs and save 
         if args.plot:

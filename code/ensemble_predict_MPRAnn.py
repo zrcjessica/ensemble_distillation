@@ -2,16 +2,16 @@ import argparse
 import utils
 import plotting
 import keras
-from keras.models import load_model
+from keras.models import load_model, Model
 from os.path import join
 import numpy as np
 import gc
 
 '''
-get the average of the predictions from all lentiMPRA models in an ensemble
+get the average of the predictions from all MPRAnn models in an ensemble
 applies trained ensemble models to test set
-if --eval flag set, evaluates ensemble avg prediction performance on test set
-if --distill flag set, averages predictions on train set from all lentiMPRA models in ensemble
+if --eval flag set, evaluates prediction performance on test set
+if --distill flag set, averages predictions on train set from all MPRAnn models in ensemble
 '''
 
 def parse_args():
@@ -44,6 +44,25 @@ def parse_args():
                     help='define celltype (K562/HepG2)')
     args = parser.parse_args()
     return args
+
+def load_model_from_weights(weights, input_shape, augment_list, config_file, aleatoric=False, epistemic=False, with_evoaug=True):
+    '''
+    load MPRAnn model from weights
+    '''
+    import yaml 
+    from model_zoo import MPRAnn
+    from keras.optimizers import Adam 
+    config = yaml.safe_load(open(config_file, 'r'))
+    model = None
+    if with_evoaug:
+        model = evoaug.RobustModel(MPRAnn, input_shape=input_shape, augment_list=augment_list, max_augs_per_seq=1, 
+                                   hard_aug=True, aleatoric=aleatoric, epistemic=epistemic)
+    else:
+        model = MPRAnn(input_shape, aleatoric=aleatoric, epistemic=epistemic)
+    model.compile(optimizer=Adam(learning_rate=config['optim_lr']),
+                  loss=config['loss_fxn'])
+    model.load_weights(weights)
+    return model
 
 def main(args):
 
@@ -88,14 +107,15 @@ def main(args):
             augment.RandomNoise(noise_mean=0, noise_std=0.2),
             augment.RandomMutation(mutate_frac=0.05)
             ]
-            model = utils.load_lentiMPRA_from_weights(weights=join(args.model_dir, str(i+1) + "_lentiMPRA_finetune.h5"), 
+
+            model = load_model_from_weights(weights=join(args.model_dir, str(i+1) + "_MPRAnn_finetune.h5"), 
                                                       input_shape=X_train[0].shape, 
                                                       augment_list=augment_list, 
                                                       config_file=args.config, 
                                                       aleatoric=args.aleatoric,
                                                       epistemic=False)
         else:
-            model = load_model(join(args.model_dir, f"{i+1}_lentiMPRA.h5"))
+            model = load_model(join(args.model_dir, f"{i+1}_MPRAnn.h5"))
         train_preds, test_preds = 0, 0
         if args.distill:
             # predict on train data to generate training data for distillation
@@ -121,7 +141,7 @@ def main(args):
                                                                 np.expand_dims(y_test, axis=-1), 
                                                                 args.celltype, 
                                                                 aleatoric=args.aleatoric,
-                                                                epistemic=args.aleatoric)
+                                                                epistemic=False)
         else:
             performance = utils.summarise_lentiMPRA_performance(avg_test_pred, 
                                                                 y_test, 

@@ -7,6 +7,10 @@ DATA_DIR=../data/lentiMPRA
 CONFIG=../config/MPRAnn.yaml
 PROJECT_NAME=MPRAnn_ensemble
 DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 ) # used if downsample set to true
+### define cell type
+CELLTYPE='HepG2' # HepG2 or K562
+OUTDIR=${OUTDIR}/${CELLTYPE}
+DATA=${DATA_DIR}/${CELLTYPE}_data.h5
 
 ### boolean flags
 # train downsampled models
@@ -16,11 +20,13 @@ evoaug=false
 if [ "$evoaug" = true ]; then
     OUTDIR=../results/MPRAnn_evoaug
 fi
-
-### define cell type
-CELLTYPE='HepG2' # HepG2 or K562
-OUTDIR=${OUTDIR}/${CELLTYPE}
-DATA=${DATA_DIR}/${CELLTYPE}_data.h5
+# train with aleatoric uncertainty estimate
+aleatoric=true
+if [ "$aleatoric" = true ]; then
+    OUTDIR=${OUTDIR}_aleatoric
+    DATA=${DATA_DIR}/${CELLTYPE}_data_with_aleatoric.h5
+    PROJECT_NAME=MPRAnn_aleatoric_ensemble
+fi
 
 mkdir -p $OUTDIR
 
@@ -36,9 +42,17 @@ if [ "$downsample" = true ]; then
         for i in $(seq 1 $ENSEMBLE_SIZE)
         do 
             if [ "$evoaug" = true ]; then
-                echo "echo 'model_ix=$i' && python train_MPRAnn.py --ix $i --out $OUTDIR_DOWNSAMPLE --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug --celltype $CELLTYPE"
+                if [ "$aleatoric" = true ]; then 
+                    echo "echo 'model_ix=$i' && python train_MPRAnn.py --ix $i --out $OUTDIR_DOWNSAMPLE --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug --celltype $CELLTYPE --aleatoric"
+                else 
+                    echo "echo 'model_ix=$i' && python train_MPRAnn.py --ix $i --out $OUTDIR_DOWNSAMPLE --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug --celltype $CELLTYPE"
+                fi 
             else
-                echo "echo 'model_ix=$i' && python train_MPRAnn.py --ix $i --out $OUTDIR_DOWNSAMPLE --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE"
+                if [ "$aleatoric" = true ]; then 
+                    echo "echo 'model_ix=$i' && python train_MPRAnn.py --ix $i --out $OUTDIR_DOWNSAMPLE --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE --aleatoric"
+                else 
+                    echo "echo 'model_ix=$i' && python train_MPRAnn.py --ix $i --out $OUTDIR_DOWNSAMPLE --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE"
+                fi
             fi
         done | simple_gpu_scheduler --gpus 0,1,2,3,4
     done 
@@ -46,9 +60,17 @@ else
     for i in $(seq 1 $ENSEMBLE_SIZE)
     do 
         if [ "$evoaug" = true ]; then
-            echo "python train_MPRAnn.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug --celltype $CELLTYPE"
+            if [ "$aleatoric" = true ]; then 
+                echo "python train_MPRAnn.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug --celltype $CELLTYPE --aleatoric"
+            else 
+                echo "python train_MPRAnn.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug --celltype $CELLTYPE"
+            fi
         else
-            echo "python train_MPRAnn.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE"
+            if [ "$aleatoric" = true ]; then 
+                echo "python train_MPRAnn.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE --aleatoric "
+            else 
+                echo "python train_MPRAnn.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE"
+            fi
         fi
     done | simple_gpu_scheduler --gpus 0,1,2,3,4
 fi
@@ -60,29 +82,61 @@ if command -v 'slack' &>/dev/null; then
     if [ "$exit_code" -eq 0 ]; then
         if [ "$evoaug" = true ]; then
             if [ "$downsample" = true ]; then
-                slack "training ensemble of downsampled $ENSEMBLE_SIZE MPRAnn models for $CELLTYPE w/ EvoAug completed successfully" &>/dev/null
+                if [ "$aleatoric" = true ]; then 
+                    slack "training ensemble of downsampled $ENSEMBLE_SIZE MPRAnn models with aleatoric uncertainty for $CELLTYPE w/ EvoAug completed successfully" &>/dev/null
+                else 
+                    slack "training ensemble of downsampled $ENSEMBLE_SIZE MPRAnn models for $CELLTYPE w/ EvoAug completed successfully" &>/dev/null
+                fi 
             else
-		        slack "training ensemble of $ENSEMBLE_SIZE MPRAnn models for $CELLTYPE w/ EvoAug completed successfully" &>/dev/null
+                if [ "$aleatoric" = true ]; then 
+		            slack "training ensemble of $ENSEMBLE_SIZE MPRAnn models with aleatoric uncertainty for $CELLTYPE w/ EvoAug completed successfully" &>/dev/null
+                else 
+                    slack "training ensemble of $ENSEMBLE_SIZE MPRAnn models for $CELLTYPE w/ EvoAug completed successfully" &>/dev/null
+                fi
             fi
         else
             if [ "$downsample" = true ]; then
-                slack "training ensemble of downsampled $ENSEMBLE_SIZE MPRAnn models for $CELLTYPE completed successfully" &>/dev/null
+                if [ "$aleatoric" = true ]; then 
+                    slack "training ensemble of downsampled $ENSEMBLE_SIZE MPRAnn models with aleatoric uncertainty for $CELLTYPE completed successfully" &>/dev/null
+                else 
+                    slack "training ensemble of downsampled $ENSEMBLE_SIZE MPRAnn models for $CELLTYPE completed successfully" &>/dev/null
+                fi 
             else
-                slack "training ensemble of $ENSEMBLE_SIZE MPRAnn models for $CELLTYPE completed successfully" &>/dev/null
+                if [ "$aleatoric" = true ]; then 
+                    slack "training ensemble of $ENSEMBLE_SIZE MPRAnn models with aleatoric uncertainty for $CELLTYPE completed successfully" &>/dev/null
+                else 
+                    slack "training ensemble of $ENSEMBLE_SIZE MPRAnn models for $CELLTYPE completed successfully" &>/dev/null
+                fi
             fi
         fi
 	else
         if [ "$evoaug" = true ]; then
             if [ "$downsample" = true ]; then
-                slack "training ensemble of downsampled $ENSEMBLE_SIZE MPRAnn models for $CELLTYPE w/ EvoAug exited with error code $exit_code"
+                if [ "$aleatoric" = true ]; then 
+                    slack "training ensemble of downsampled $ENSEMBLE_SIZE MPRAnn models with aleatoric uncertainty for $CELLTYPE w/ EvoAug exited with error code $exit_code"
+                else 
+                    slack "training ensemble of downsampled $ENSEMBLE_SIZE MPRAnn models with for $CELLTYPE w/ EvoAug exited with error code $exit_code"
+                fi 
             else
-		        slack "training ensemble of $ENSEMBLE_SIZE MPRAnn models for $CELLTYPE w/ EvoAug exited with error code $exit_code"
+                if [ "$aleatoric" = true ]; then 
+		            slack "training ensemble of $ENSEMBLE_SIZE MPRAnn models with aleatoric uncertainty for $CELLTYPE w/ EvoAug exited with error code $exit_code"
+                else 
+                    slack "training ensemble of $ENSEMBLE_SIZE MPRAnn models for $CELLTYPE w/ EvoAug exited with error code $exit_code"
+                fi 
             fi
         else
             if [ "$downsample" = true ]; then
-                slack "training ensemble of downsampled $ENSEMBLE_SIZE MPRAnn models for $CELLTYPE exited with error code $exit_code"
+                if [ "$aleatoric" = true ]; then 
+                    slack "training ensemble of downsampled $ENSEMBLE_SIZE MPRAnn models with aleatoric uncertainty for $CELLTYPE exited with error code $exit_code"
+                else 
+                    slack "training ensemble of downsampled $ENSEMBLE_SIZE MPRAnn models for $CELLTYPE exited with error code $exit_code"
+                fi
             else
-                slack "training ensemble of $ENSEMBLE_SIZE MPRAnn models for $CELLTYPE exited with error code $exit_code"
+                if [ "$aleatoric" = true ]; then
+                    slack "training ensemble of $ENSEMBLE_SIZE MPRAnn models with aleatoric uncertainty for $CELLTYPE exited with error code $exit_code"
+                else 
+                    slack "training ensemble of $ENSEMBLE_SIZE MPRAnn models for $CELLTYPE exited with error code $exit_code"
+                fi
             fi
         fi
 	fi

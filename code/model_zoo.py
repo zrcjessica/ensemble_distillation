@@ -43,9 +43,46 @@ def DeepSTARR(input_shape, config, epistemic=False):
     model = Model(inputs=inputs, outputs=outputs)
     return model 
 
+def DeepSTARR_heteroscedastic(input_shape, config):
+    '''
+    DeepSTARR model, using same params as in published model
+    trained with heteroscedastic regression
+    '''
+    # input node to model
+    inputs = kl.Input(shape=input_shape)
+
+    x = 0
+    # add convolutional blocks
+    for i in range(1, (config['n_conv']+1)):
+        if (i == 1):
+            x = kl.Conv1D(round(config['n_kernels'+str(i)]*config['k']), kernel_size=config['kernel_size'+str(i)], padding='same')(inputs)
+        else:
+            x = kl.Conv1D(round(config['n_kernels'+str(i)]*config['k']), kernel_size=config['kernel_size'+str(i)], padding='same')(x)
+        x = kl.BatchNormalization()(x)
+        x = kl.Activation(config['first_activation'])(x)
+        x = kl.MaxPool1D(2)(x)
+
+    # flatten
+    x = kl.Flatten()(x)
+
+    # add fully connected layers
+    for i in range(1, (config['n_dense']+1)):
+        x = kl.Dense(round(config['dense_kernels'+str(i)]*config['k']))(x)
+        x = kl.BatchNormalization()(x)
+        x = kl.Activation(config['activation'])(x)
+        x = kl.Dropout(0.4)(x)
+
+    # output 
+    mu = kl.Dense(2, activation='linear', name='mu')(x)
+    std = kl.Dense(2, activation='softplus', name='std')(x)
+    outputs = kl.Concatenate()([mu, std]) # [Dev-mu, Hk-mu, Dev-std, Hk-std]
+
+    model = Model(inputs=inputs, outputs=outputs)
+    return model 
+
 def lentiMPRA(input_shape, config, aleatoric=False, epistemic=False):
     '''
-    CNN for predicting lentiMPRA data
+    ResidualBind model for predicting lentiMPRA data
     if aleatoric=True, predict aleatoric uncertainty
     if epistemic=True, predict epistemic uncertainty 
     '''
@@ -138,7 +175,7 @@ def lentiMPRA(input_shape, config, aleatoric=False, epistemic=False):
 
 def lentiMPRA_v2(input_shape, config, aleatoric=False, epistemic=False):
     '''
-    CNN for predicting lentiMPRA data
+    ResidualBind model for predicting lentiMPRA data
     if aleatoric=True, predict aleatoric uncertainty
     if epistemic=True, predict epistemic uncertainty 
     uses separate non-linear output heads instead of a simple Dense layer 
@@ -236,7 +273,8 @@ def lentiMPRA_v2(input_shape, config, aleatoric=False, epistemic=False):
     return model 
 
 
-def MPRAnn(input_shape,output_shape=1,**kwargs):
+# def MPRAnn(input_shape,output_shape=1,**kwargs):
+def MPRAnn(input_shape, aleatoric=False, epistemic=False):
     inputs = kl.Input(shape=(input_shape[0], input_shape[1]), name="input")
     layer = kl.Conv1D(250, kernel_size=7, strides=1, activation='relu', name="conv1")(inputs)  # 250 7 relu
     layer = kl.BatchNormalization()(layer)
@@ -254,6 +292,43 @@ def MPRAnn(input_shape,output_shape=1,**kwargs):
     layer = kl.Dense(300, activation='sigmoid')(layer)  # 300
     layer = kl.Dropout(0.3)(layer)
     layer = kl.Dense(200, activation='sigmoid')(layer)  # 300
-    predictions = kl.Dense(output_shape, activation='linear')(layer)
+    if epistemic and aleatoric:
+        predictions = kl.Dense(3, activation='linear')(layer)
+    elif epistemic or aleatoric:
+        predictions = kl.Dense(2, activation='linear')(layer)
+    else:
+        predictions = kl.Dense(1, activation='linear')(layer)
     model = Model(inputs=inputs, outputs=predictions)
+    return model
+
+
+def MPRAnn_heteroscedastic(input_shape):
+    '''
+    MPRAnn with heteroscedastic regression
+    '''
+    inputs = kl.Input(shape=(input_shape[0], input_shape[1]), name="input")
+    layer = kl.Conv1D(250, kernel_size=7, strides=1, activation='relu', name="conv1")(inputs)  # 250 7 relu
+    layer = kl.BatchNormalization()(layer)
+    layer = kl.Conv1D(250, 8, strides=1, activation='softmax', name="conv2")(layer)  # 250 8 softmax
+    layer = kl.BatchNormalization()(layer)
+    layer = kl.MaxPooling1D(pool_size=2, strides=None, name="maxpool1")(layer)
+    layer = kl.Dropout(0.1)(layer)
+    layer = kl.Conv1D(250, 3, strides=1, activation='softmax', name="conv3")(layer)  # 250 3 softmax
+    layer = kl.BatchNormalization()(layer)
+    layer = kl.Conv1D(100, 2, strides=1, activation='softmax', name="conv4")(layer)  # 100 3 softmax
+    layer = kl.BatchNormalization()(layer)
+    layer = kl.MaxPooling1D(pool_size=1, strides=None, name="maxpool2")(layer)
+    layer = kl.Dropout(0.1)(layer)
+    layer = kl.Flatten()(layer)
+    layer = kl.Dense(300, activation='sigmoid')(layer)  # 300
+    layer = kl.Dropout(0.3)(layer)
+    layer = kl.Dense(200, activation='sigmoid')(layer)  # 300
+
+    # output 
+    mu = kl.Dense(1, activation='linear', name='mu')(layer)
+    std = kl.Dense(1, activation='softplus', name='std')(layer)
+    # var = kl.Dense(1, activation='softplus', name='var')(layer)
+    outputs = kl.Concatenate()([mu, std]) # [mu, std]
+    # outputs = kl.Concatenate()([mu, var]) # [mu, var]
+    model = Model(inputs=inputs, outputs=outputs)
     return model

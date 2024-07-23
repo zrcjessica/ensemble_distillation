@@ -5,7 +5,7 @@ import keras
 from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 import utils
-from model_zoo import lentiMPRA
+from model_zoo import MPRAnn
 import plotting
 import pandas as pd
 import wandb
@@ -14,15 +14,10 @@ import yaml
 import numpy as np
 
 '''
-train an ensemble of lentiMPRA models
---downsample flag allows models to be trained with a subset of training data
---distill flag determines if a distilled model is trained (using ensemble average of training data)
+train distilled MPRAnn models w/ mean+aleatoric+epistemic predictions 
+assumes that h5 file provided contains ensemble avg + std data
+for training downsampled models, make sure that h5 file provided to --data corresponds to downsample proportion
 --evoaug flag determines whether model will be trained w/ evoaug augmentations
---aleatoric flag set if training model to predict aleatoric uncertainty (model does not need to be distilled)
---epistemic flag set if training model to predict epistemic uncertainty (data comes from ensemble avg; part of distilled model)
-
-This script is used to train lentiMPRA models w/ predictions for activity and aleatoric. 
-Another script will be used to distill lentiMPRA models w/ mean+aleatoric+epistemic predictions.
 '''
 
 def parse_args():
@@ -39,43 +34,32 @@ def parse_args():
                         help="if set, save training plots")
     parser.add_argument("--downsample", default=1, type=float,
                         help="if set, downsample training data to this amount ([0,1])")
-    parser.add_argument("--first_activation", default='relu',
-                        help='if provided, defines the first layer activation function')
     parser.add_argument("--lr_decay", action="store_true",
                         help="if set, train with LR decay")
     parser.add_argument("--project", type=str,
                         help='project name for wandb')
     parser.add_argument("--config", type=str,
                         help='path to wandb config (yaml)')
-    parser.add_argument("--distill", type=str, default=None,
-                        help='if provided, trains a model using distilled training data')
-    parser.add_argument("--k", type=int, default=1,
-                        help='factor for adjusting number of parameters in hidden layers')
-    parser.add_argument("--aleatoric", action='store_true',
-                        help='if set, predict aleatoric uncertainty')
-    parser.add_argument("--epistemic", action='store_true',
-                        help='if set, predict epistemic uncertainty')
     parser.add_argument("--evoaug", action='store_true',
                         help='if set, train models with evoaug')
     parser.add_argument("--celltype", type=str,
                         help='define celltype (K562/HepG2)')
     parser.add_argument("--logvar", action='store_true',
-                    help='if set, use logvar for uncertainty instead of std (default)')
+                        help='if set, predict uncertainties as logvar instead of std')
     args = parser.parse_args()
     return args
 
-def eval_performance(model, X_test, y_test, outfh, celltype, aleatoric=False, epistemic=False, logvar=False):
+def eval_performance(model, X_test, y_test, outfh, celltype, logvar=False):
     y_pred = model.predict(X_test)
-    if aleatoric or epistemic:
-        if logvar:
-            # convert logvar back to std for evaluation
-            for i in range(1,(y_pred.shape[-1])):
-                y_pred[:,i] = np.sqrt(np.exp(y_pred[:,i]))
+    if logvar:
+        # convert logvar back to std for evaluation
+        y_pred[:,1:] = np.sqrt(np.exp(y_pred[:,1:]))
     results = None
+    assert(y_pred.shape[-1]==3)
     if y_pred.shape != y_test.shape:
-        results = utils.summarise_lentiMPRA_performance(y_pred, np.expand_dims(y_test, axis=-1), celltype, aleatoric=aleatoric, epistemic=epistemic)
+        results = utils.summarise_lentiMPRA_performance(y_pred, np.expand_dims(y_test, axis=-1), celltype, aleatoric=True, epistemic=True)
     else:
-        results = utils.summarise_lentiMPRA_performance(y_pred, y_test, celltype, aleatoric=aleatoric, epistemic=epistemic)
+        results = utils.summarise_lentiMPRA_performance(y_pred, y_test, celltype, aleatoric=True, epistemic=True)
     results.to_csv(outfh, index=False)
 
 def main(args):
@@ -85,57 +69,26 @@ def main(args):
     wandb.init(project=args.project, config=args.config)
     wandb.config['model_ix'] = args.ix
     wandb.config['celltype'] = args.celltype
-        
+    wandb.config.update({'distill':True, 'aleatoric':True, 'epistemic':True}, allow_val_change=True)
+
     # load data from h5
-    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_lentiMPRA_data(file=args.data)
+    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_lentiMPRA_data(file=args.data, epistemic=True)
 
-    if args.aleatoric and args.epistemic:
-        print('predicting aleatoric and epistemic uncertainty')
-        assert(y_train.shape[-1]==3 & y_test.shape[-1]==3 & y_val.shape[-1]==3)
-        wandb.config.update({'aleatoric':args.aleatoric, 'epistemic':args.epistemic}, allow_val_change=True)
-        if args.logvar:
-            wandb.config.update({'logvar':True}, allow_val_change=True)
-            y_train[:,1] = np.log(np.square(np.maximum(y_train[:,1], 1e-8)))
-            y_train[:,2] = np.log(np.square(np.maximum(y_train[:,2], 1e-8)))
-            y_val[:,1] = np.log(np.square(np.maximum(y_val[:,1], 1e-8)))
-            y_val[:,2] = np.log(np.square(np.maximum(y_val[:,2], 1e-8)))
-    elif args.aleatoric:
-        print('predicting aleatoric uncertainty')
-        assert(y_train.shape[-1]==2 & y_test.shape[-1]==2 & y_val.shape[-1]==2)
-        wandb.config.update({'aleatoric':args.aleatoric}, allow_val_change=True)
-        if args.logvar:
-            wandb.config.update({'logvar':True}, allow_val_change=True)
-            y_train[:,1] = np.log(np.square(np.maximum(y_train[:,1], 1e-8)))
-            y_val[:,1] = np.log(np.square(np.maximum(y_val[:,1], 1e-8)))
-    # elif args.epistemic:
-    #     print('predicting epistemic uncertainty')
-    #     assert(y_train.shape[-1]==2 & y_test.shape[-1]==2 & y_val.shape[-1]==2)
-    #     assert(args.distill) # epistemic uncertainty only available for distilled models 
-    #     wandb.config.update({'epistemic':args.epistemic}, allow_val_change=True)
-    #     if args.logvar:
-    #         wandb.config.update({'logvar':True}, allow_val_change=True)
-    #         y_train[:,1] = np.log(np.square(np.maximum(y_train[:,1], 1e-8)))
-    #         y_val[:,1] = np.log(np.square(np.maximum(y_val[:,1], 1e-8)))
-
+    assert(y_train.shape[-1]==3)
+    assert(y_test.shape[-1]==3)
+    assert(y_val.shape[-1]==3)
+    
     # downsample training data
     if args.downsample != wandb.config['downsample']:
+        # if args.downsample is True, we assumed user has passed .h5 corresponding to downsampled data
+        # no further downsampling applied
         wandb.config.update({'downsample':args.downsample}, allow_val_change=True)
-        if args.downsample<1:
-            rng = np.random.default_rng(1234)
-            X_train, y_train = utils.downsample(X_train, y_train, rng, args.downsample)
-        
-    # for training an ensemble distilled model using ensemble avg (training data provided to --distill)
-    if args.distill is not None:
-        wandb.config.update({'distill':True}, allow_val_change=True)
-        y_train = np.load(args.distill)
-        assert(X_train.shape[0]==y_train.shape[0])
-        # if args.predict_std and args.predict_std != wandb.config['std']:
-        #     # predict std
-        #     wandb.config.update({'std':args.predict_std}, allow_val_change=True)
 
-    # adjust k in yaml 
-    if args.k != wandb.config['k']:
-        wandb.config.update({'k':args.k}, allow_val_change=True)
+    # use logvar instead of std as training targets for epistemic head (last column)
+    if args.logvar:
+        wandb.config.update({'std':False, 'logvar':True}, allow_val_change=True)
+        y_train[:,-1] = np.log(np.square(y_train[:,1:]))
+        y_val[:,-1] = np.log(np.square(y_val[:,1:]))
 
     # create model
     model = None
@@ -144,6 +97,11 @@ def main(args):
         # for training w/ evoaug
         import evoaug_tf
         from evoaug_tf import evoaug, augment
+        # augment_list = [
+        #     augment.RandomInsertionBatch(insert_min=0, insert_max=20),
+        #     augment.RandomDeletion(delete_min=0, delete_max=30),
+        #     augment.RandomTranslocationBatch(shift_min=0, shift_max=20)
+        # ]   
         augment_list = [
             augment.RandomDeletion(delete_min=0, delete_max=20),
             augment.RandomTranslocationBatch(shift_min=0, shift_max=20),
@@ -152,17 +110,16 @@ def main(args):
             ]
         wandb.config.update({'evoaug':True}, allow_val_change=True)
         wandb.config['finetune'] = False
-        model = evoaug.RobustModel(lentiMPRA, 
+        model = evoaug.RobustModel(MPRAnn, 
                                    input_shape=X_train[0].shape, 
                                    augment_list=augment_list, 
                                    max_augs_per_seq=1, 
                                    hard_aug=True, 
-                                   config=wandb.config, 
-                                   aleatoric=args.aleatoric,
-                                   epistemic=args.epistemic)
+                                   aleatoric=True,
+                                   epistemic=True)
     else:
         # training w/o evoaug
-        model = lentiMPRA(X_train[0].shape, wandb.config, aleatoric=args.aleatoric, epistemic=args.epistemic)
+        model = MPRAnn(X_train[0].shape, aleatoric=True, epistemic=True)
 
     # update lr in config if different value provided to input
     if args.lr != wandb.config['optim_lr']:
@@ -180,14 +137,13 @@ def main(args):
     if args.lr_decay:
         # train w/ LR decay
         lr_decay_callback = ReduceLROnPlateau(monitor='val_loss',
-                                            #   factor=0.2,
-                                            factor=0.1,
+                                              factor=0.2,
                                               patience=5,
                                               min_lr=1e-7,
                                               mode='min',
                                               verbose=1)
         callbacks_list.append(lr_decay_callback)
-        wandb.config.update({'lr_decay': True, 'lr_decay_patience': 3, 'lr_decay_factor': 0.1}, allow_val_change=True)
+        wandb.config.update({'lr_decay': True, 'lr_decay_patience': 3, 'lr_decay_factor': 0.2}, allow_val_change=True)
 
     # train model
     history = model.fit(X_train, y_train, 
@@ -197,27 +153,28 @@ def main(args):
                         callbacks=callbacks_list) 
     if args.evoaug:
         # save weights
-        save_path = join(args.out, f"{args.ix}_lentiMPRA_aug_weights.h5")
+        save_path = join(args.out, f"{args.ix}_MPRAnn_aug_weights.h5")
         model.save_weights(save_path)
         # save history
         with open(join(args.out, str(args.ix) + "_historyDict_aug"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
         
         # evaluate best model (and save)
-        eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_performance_aug.csv'), 
-                         args.celltype, aleatoric=args.aleatoric, epistemic=args.epistemic, logvar=args.logvar)
+        eval_performance(model, X_test, y_test, 
+                         join(args.out, f'{args.ix}_performance_aug.csv'), 
+                         args.celltype, 
+                         logvar=args.logvar)
 
         ### fine tune model (w/o augmentations)
         wandb.config.update({'finetune':True}, allow_val_change=True)
-        finetune_epochs = 30
-        wandb.config['finetune_epochs'] = finetune_epochs
+        finetune_epochs = 10
+        wandb.config['finetune_epochs']=finetune_epochs
         wandb.config['finetune_lr'] = 0.0001
-        model = evoaug.RobustModel(lentiMPRA, input_shape=X_train[0].shape, 
+        model = evoaug.RobustModel(MPRAnn, input_shape=X_train[0].shape, 
                                    augment_list=augment_list, 
                                    max_augs_per_seq=2, hard_aug=True, 
-                                   config=wandb.config, 
-                                   aleatoric=args.aleatoric, epistemic=args.epistemic)
-        model.compile(optimizer=Adam(learning_rate=0.0001), loss=wandb.config['loss_fxn'])
+                                   aleatoric=True, epistemic=True)
+        model.compile(optimizer=Adam(learning_rate=wandb.config['finetune_lr']), loss=wandb.config['loss_fxn'])
         model.load_weights(save_path)
         model.finetune_mode()
         # train
@@ -227,25 +184,26 @@ def main(args):
                         validation_data=(X_val, y_val),
                         callbacks=callbacks_list) 
         # save model and history
-        model.save_weights(join(args.out, f"{args.ix}_lentiMPRA_finetune.h5"))
+        model.save_weights(join(args.out, f"{args.ix}_MPRAnn_finetune.h5"))
         with open(join(args.out, f"{args.ix}_historyDict_finetune"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
         # evaluate model performance
         eval_performance(model, X_test, y_test, 
                          join(args.out, f'{args.ix}_performance_finetune.csv'), 
-                         args.celltype, aleatoric=args.aleatoric, epistemic=args.epistemic, logvar=args.logvar)
+                         args.celltype, logvar=args.logvar)
     else:
         # evaluate model performance
         eval_performance(model, X_test, y_test, 
                          join(args.out, f"{args.ix}_performance.csv"), 
-                         args.celltype, aleatoric=args.aleatoric, epistemic=args.epistemic, logvar=args.logvar)
+                         args.celltype, 
+                         logvar=args.logvar)
     
         # plot loss curves and spearman correlation over training epochs and save 
         if args.plot:
-            plotting.plot_loss(history, join(args.out, str(args.ix) + "_loss_curves.png"))
+            plotting.plot_loss(history, join(args.out, f"{args.ix}_loss_curves.png"))
 
         # save model and history
-        model.save(join(args.out, f"{args.ix}_lentiMPRA.h5"))
+        model.save(join(args.out, f"{args.ix}_MPRAnn.h5"))
         with open(join(args.out, f"{args.ix}_historyDict"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
 

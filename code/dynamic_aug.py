@@ -196,7 +196,7 @@ class DynamicAugModel(keras.Model):
         # use ensemble to generate labels for batch 
         batch_labels = self._ensemble_predict(batch_seqs)
         batch_labels = tf.cast(tf.convert_to_tensor(batch_labels), tf.float32)
-
+        
         assert(batch_seqs.shape[0]==batch_labels.shape[0])
 
         return batch_seqs, batch_labels
@@ -260,7 +260,12 @@ class DynamicAugModel(keras.Model):
         # if self.kwargs['predict_std']:
         #     return tf.concat([tf.math.reduce_mean(all_preds, axis=0), tf.math.reduce_std(all_preds, axis=0)], axis=1)
         if self.kwargs['epistemic']:
-            return tf.concat([tf.math.reduce_mean(all_preds, axis=0), tf.math.reduce_std(all_preds[:,0], axis=0)], axis=1)
+            # return tf.concat([tf.math.reduce_mean(all_preds, axis=0), tf.expand_dims(tf.math.reduce_std(all_preds[:, 0], axis=0), axis=0)], axis=1)
+            new_labels = tf.concat([tf.math.reduce_mean(all_preds, axis=0), tf.math.reduce_std(all_preds, axis=0)], axis=1)[:,:(all_preds.shape[-1]+1)]
+            print('shape of new_labels:')
+            print(new_labels.shape)
+            print(f'new_labels has {new_labels.shape[0]} entries and {new_labels.shape[1]} entries')
+            return new_labels
         else: 
             return tf.math.reduce_mean(all_preds,axis=0)
     

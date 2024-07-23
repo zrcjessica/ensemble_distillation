@@ -6,17 +6,20 @@ OUTDIR=../results/lentiMPRA_aleatoric
 DATA_DIR=../data/lentiMPRA
 CONFIG=../config/lentiMPRA.yaml
 PROJECT_NAME=lentiMPRA_ensemble_aleatoric
-# DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 ) # used if downsample set to true
-DOWNSAMPLE_ARR=( 0.1 ) # used if downsample set to true
+DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 ) # used if downsample set to true
 ### boolean flags
 # train downsampled models
-downsample=true
+downsample=false
 aleatoric=true
-epistemic=false
+# epistemic=false
+logvar=true
 # train w/ evoaug
-evoaug=true
+evoaug=false
 if [ "$evoaug" = true ]; then
-    OUTDIR=../results/lentiMPRA_aleatoric_evoaug
+    OUTDIR=${OUTDIR}_evoaug
+fi
+if [ "$logvar" = true ]; then
+    OUTDIR=${OUTDIR}_logvar
 fi
 
 ### define cell type
@@ -39,9 +42,17 @@ if [ "$downsample" = true ]; then
         # for i in "${!REDO_ARR[@]}"
         do 
             if [ "$evoaug" = true ]; then
-                echo "echo 'model_ix=$i' && python train_lentiMPRA.py --ix $i --out $OUTDIR_DOWNSAMPLE --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug --celltype $CELLTYPE --aleatoric"
+                if [ "$logvar" = true ]; then
+                    echo "echo 'model_ix=$i' && python train_lentiMPRA.py --ix $i --out $OUTDIR_DOWNSAMPLE --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug --celltype $CELLTYPE --aleatoric --logvar" 
+                else 
+                    echo "echo 'model_ix=$i' && python train_lentiMPRA.py --ix $i --out $OUTDIR_DOWNSAMPLE --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug --celltype $CELLTYPE --aleatoric" 
+                fi
             else
-                echo "python train_lentiMPRA.py --ix $i --out $OUTDIR_DOWNSAMPLE --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE --aleatoric"
+                if [ "$logvar" = true ]; then
+                    echo "python train_lentiMPRA.py --ix $i --out $OUTDIR_DOWNSAMPLE --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE --aleatoric --logvar"
+                else 
+                    echo "python train_lentiMPRA.py --ix $i --out $OUTDIR_DOWNSAMPLE --data $DATA --plot --downsample ${DOWNSAMPLE_ARR[$p]} --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE --aleatoric"
+                fi 
             fi
         done | simple_gpu_scheduler --gpus 0,1,2,3,4
     done 
@@ -49,9 +60,17 @@ else
     for i in $(seq 1 $ENSEMBLE_SIZE)
     do 
         if [ "$evoaug" = true ]; then
-            echo "python train_lentiMPRA.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug --celltype $CELLTYPE --aleatoric"
+            if [ "$logvar" = true ]; then
+                echo "python train_lentiMPRA.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug --celltype $CELLTYPE --aleatoric --logvar"
+            else 
+                echo "python train_lentiMPRA.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug --celltype $CELLTYPE --aleatoric"
+            fi
         else
-            echo "python train_lentiMPRA.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE --aleatoric"
+            if [ "$logvar" = true ]; then 
+                echo "python train_lentiMPRA.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE --aleatoric --logvar"
+            else 
+                echo "python train_lentiMPRA.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE --aleatoric"
+            fi
         fi
     done | simple_gpu_scheduler --gpus 0,1,2,3,4
 fi
@@ -63,15 +82,31 @@ if command -v 'slack' &>/dev/null; then
     if [ "$exit_code" -eq 0 ]; then
         if [ "$evoaug" = true ]; then
             if [ "$downsample" = true ]; then
-                slack "training ensemble of downsampled $ENSEMBLE_SIZE lentiMPRA models w/ aleatoric uncertainty prediction for $CELLTYPE w/ EvoAug completed successfully" &>/dev/null
+                if [ "$logvar" = true ]; then
+                    slack "training ensemble of downsampled $ENSEMBLE_SIZE lentiMPRA models w/ aleatoric uncertainty prediction (logvar) for $CELLTYPE w/ EvoAug completed successfully" &>/dev/null
+                else 
+                    slack "training ensemble of downsampled $ENSEMBLE_SIZE lentiMPRA models w/ aleatoric uncertainty prediction for $CELLTYPE w/ EvoAug completed successfully" &>/dev/null
+                fi
             else
-		        slack "training ensemble of $ENSEMBLE_SIZE lentiMPRA models w/ aleatoric uncertainty prediction for $CELLTYPE w/ EvoAug completed successfully" &>/dev/null
+                if [ "$logvar" = true ]; then 
+		            slack "training ensemble of $ENSEMBLE_SIZE lentiMPRA models w/ aleatoric uncertainty prediction (logvar) for $CELLTYPE w/ EvoAug completed successfully" &>/dev/null
+                else 
+                    slack "training ensemble of $ENSEMBLE_SIZE lentiMPRA models w/ aleatoric uncertainty prediction for $CELLTYPE w/ EvoAug completed successfully" &>/dev/null
+                fi
             fi
         else
             if [ "$downsample" = true ]; then
-                slack "training ensemble of downsampled $ENSEMBLE_SIZE lentiMPRA models w/ aleatoric uncertainty prediction for $CELLTYPE completed successfully" &>/dev/null
+                if [ "$logvar" = true ]; then 
+                    slack "training ensemble of downsampled $ENSEMBLE_SIZE lentiMPRA models w/ aleatoric uncertainty prediction (logvar) for $CELLTYPE completed successfully" &>/dev/null
+                else 
+                    slack "training ensemble of downsampled $ENSEMBLE_SIZE lentiMPRA models w/ aleatoric uncertainty prediction for $CELLTYPE completed successfully" &>/dev/null
+                fi
             else
-                slack "training ensemble of $ENSEMBLE_SIZE lentiMPRA models w/ aleatoric uncertainty prediction for $CELLTYPE completed successfully" &>/dev/null
+                if [ "$logvar" = true ]; then 
+                    slack "training ensemble of $ENSEMBLE_SIZE lentiMPRA models w/ aleatoric uncertainty prediction (logvar) for $CELLTYPE completed successfully" &>/dev/null
+                else 
+                    slack "training ensemble of $ENSEMBLE_SIZE lentiMPRA models w/ aleatoric uncertainty prediction for $CELLTYPE completed successfully" &>/dev/null
+                fi
             fi
         fi
 	else
