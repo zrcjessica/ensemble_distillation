@@ -155,7 +155,7 @@ def main(args):
                                               mode='min',
                                               verbose=1)
         callbacks_list.append(lr_decay_callback)
-        wandb.config.update({'lr_decay': True, 'lr_decay_patience': 3, 'lr_decay_factor': 0.2}, allow_val_change=True)
+        wandb.config.update({'lr_decay': True, 'lr_decay_patience': 5, 'lr_decay_factor': 0.1}, allow_val_change=True)
 
     # train model
     history = model.fit(X_train, y_train, 

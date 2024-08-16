@@ -82,6 +82,13 @@ def DeepSTARR_heteroscedastic(input_shape, config):
 
 def lentiMPRA(input_shape, config, aleatoric=False, epistemic=False):
     '''
+    alias for calling ResidualBind function 
+    compatible with earlier scripts that used lentiMPRA function name 
+    '''
+    return ResidualBind(input_shape, config, aleatoric, epistemic)
+
+def ResidualBind(input_shape, config, aleatoric=False, epistemic=False):
+    '''
     ResidualBind model for predicting lentiMPRA data
     if aleatoric=True, predict aleatoric uncertainty
     if epistemic=True, predict epistemic uncertainty 
@@ -172,6 +179,81 @@ def lentiMPRA(input_shape, config, aleatoric=False, epistemic=False):
     model = Model(inputs=inputs, outputs=outputs)
     return model 
 
+def ResidualBind_heteroscedastic(input_shape, config):
+    '''
+    ResidualBind model for predicting lentiMPRA data
+    trained with heteroscedastic regression
+    '''
+
+    def residual_block(input_layer, filter_size, activation='relu', dilated=5):
+        '''
+        define residual block for CNN
+        '''
+        factor = []
+        base = 2
+        for i in range(dilated):
+            factor.append(base**i)
+        num_filters = input_layer.shape.as_list()[-1]
+
+        nn = kl.Conv1D(filters=num_filters,
+                                        kernel_size=filter_size,
+                                        activation=None,
+                                        use_bias=False,
+                                        padding='same',
+                                        # dilation_rate=1, #commenting out bc default
+                                        )(input_layer)
+        nn = kl.BatchNormalization()(nn)
+        for f in factor:
+            nn = kl.Activation('relu')(nn)
+            nn = kl.Dropout(0.1)(nn)
+            nn = kl.Conv1D(filters=num_filters,
+                                            kernel_size=filter_size,
+                                            # strides=1, # commenting out bc default
+                                            activation=None,
+                                            use_bias=False,
+                                            padding='same',
+                                            dilation_rate=f,
+                                            )(nn)
+            nn = kl.BatchNormalization()(nn)
+        nn = kl.add([input_layer, nn])
+        return kl.Activation(activation)(nn)
+
+    inputs = kl.Input(shape=input_shape)
+    x = kl.Conv1D(196, kernel_size=19, padding='same')(inputs)
+    x = kl.BatchNormalization()(x)
+    x = kl.Activation('silu')(x)
+    x = kl.Dropout(0.2)(x)
+    x = residual_block(x, 3, activation=config['dilation_activation'], dilated=config['n_dilations'])
+    x = kl.Dropout(0.2)(x)
+    x = kl.MaxPooling1D(5)(x) # 55
+
+    x = kl.Conv1D(256, kernel_size=7, padding='same')(x)
+    x = kl.BatchNormalization()(x)
+    x = kl.Activation('silu')(x)
+    x = kl.Dropout(0.2)(x)
+    x = kl.MaxPooling1D(5)(x) # 10
+
+    x = kl.Dense(256)(x)
+    x = kl.BatchNormalization()(x)
+    x = kl.Activation('silu')(x)
+    x = kl.Dropout(0.5)(x)
+
+    x = kl.GlobalAveragePooling1D()(x)
+    x = kl.Flatten()(x)
+
+    x = kl.Dense(256)(x)
+    x = kl.BatchNormalization()(x)
+    x = kl.Activation('silu')(x)
+    x = kl.Dropout(0.5)(x)
+    
+    # output 
+    # mu = kl.Dense(1, activation='linear', name='mu')(x)
+    # std = kl.Dense(1, activation='softplus', name='std')(x)
+    # outputs = kl.Concatenate()([mu, std]) # [mu, std]
+    outputs = kl.Dense(2, activation='linear')(x) # [mu, logvar]
+
+    model = Model(inputs=inputs, outputs=outputs)
+    return model 
 
 def lentiMPRA_v2(input_shape, config, aleatoric=False, epistemic=False):
     '''

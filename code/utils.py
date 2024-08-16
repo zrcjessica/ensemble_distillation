@@ -543,3 +543,15 @@ def EvidentialRegression(y_true, evidential_output):
     mu, logvar = tf.split(evidential_output, 2, axis=-1)
     loss_nll = Gaussian_NLL_logvar(y_true, mu, logvar)
     return loss_nll
+
+def heteroscedastic_loss(y_true, y_pred):
+    '''
+    heteroscedastic loss function 
+    '''
+    n_outputs = y_true.shape[1]
+    mu = y_pred[:, :n_outputs]
+    std = y_pred[:, n_outputs:]
+    
+    return tf.reduce_mean(
+        0.5 * (((y_true - mu)**2) / (std**2) + tf.math.log(2*np.pi*std**2))
+    )

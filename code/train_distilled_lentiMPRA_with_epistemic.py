@@ -9,12 +9,12 @@ from model_zoo import lentiMPRA
 import plotting
 import pandas as pd
 import wandb
-from wandb.keras import WandbMetricsLogger
+from wandb.integration.keras import WandbMetricsLogger
 import yaml
 import numpy as np
 
 '''
-train distilled lentiMPRA models w/ mean+aleatoric+epistemic predictions 
+train distilled ResidualBind models w/ mean+aleatoric+epistemic predictions 
 assumes that h5 file provided contains ensemble avg/std data (that would otherwise be provided to --distill arugment of train_lentiMPRA.py)
 for training downsampled models, make sure that h5 file provided to --data corresponds to downsample proportion
 --evoaug flag determines whether model will be trained w/ evoaug augmentations
@@ -83,9 +83,6 @@ def main(args):
         # if args.downsample is True, we assumed user has passed .h5 corresponding to downsampled data
         # no further downsampling applied
         wandb.config.update({'downsample':args.downsample}, allow_val_change=True)
-    #     if args.downsample<1:
-    #         rng = np.random.default_rng(1234)
-    #         X_train, y_train = utils.downsample(X_train, y_train, rng, args.downsample)
 
     # use logvar instead of std as training targets for epistemic head (last column)
     if args.logvar:
@@ -100,11 +97,6 @@ def main(args):
         # for training w/ evoaug
         import evoaug_tf
         from evoaug_tf import evoaug, augment
-        # augment_list = [
-        #     augment.RandomInsertionBatch(insert_min=0, insert_max=20),
-        #     augment.RandomDeletion(delete_min=0, delete_max=30),
-        #     augment.RandomTranslocationBatch(shift_min=0, shift_max=20)
-        # ]   
         augment_list = [
             augment.RandomDeletion(delete_min=0, delete_max=20),
             augment.RandomTranslocationBatch(shift_min=0, shift_max=20),
@@ -157,7 +149,8 @@ def main(args):
                         callbacks=callbacks_list) 
     if args.evoaug:
         # save weights
-        save_path = join(args.out, f"{args.ix}_lentiMPRA_aug_weights.h5")
+        # save_path = join(args.out, f"{args.ix}_lentiMPRA_aug_weights.h5")
+        save_path = join(args.out, f"{args.ix}_ResidualBind_aug_weights.h5")
         model.save_weights(save_path)
         # save history
         with open(join(args.out, str(args.ix) + "_historyDict_aug"), 'wb') as pickle_fh:
@@ -189,7 +182,8 @@ def main(args):
                         validation_data=(X_val, y_val),
                         callbacks=callbacks_list) 
         # save model and history
-        model.save_weights(join(args.out, f"{args.ix}_lentiMPRA_finetune.h5"))
+        # model.save_weights(join(args.out, f"{args.ix}_lentiMPRA_finetune.h5"))
+        model.save_weights(join(args.out, f"{args.ix}_ResidualBind_finetune.h5"))
         with open(join(args.out, f"{args.ix}_historyDict_finetune"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
         # evaluate model performance
@@ -208,7 +202,8 @@ def main(args):
             plotting.plot_loss(history, join(args.out, f"{args.ix}_loss_curves.png"))
 
         # save model and history
-        model.save(join(args.out, f"{args.ix}_lentiMPRA.h5"))
+        # model.save(join(args.out, f"{args.ix}_lentiMPRA.h5"))
+        model.save_weights(f'{args.out}/{args.ix}_ResidualBind.h5') # save weights
         with open(join(args.out, f"{args.ix}_historyDict"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
 

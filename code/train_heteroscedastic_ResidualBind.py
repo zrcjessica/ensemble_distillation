@@ -5,19 +5,21 @@ import keras
 from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 import utils
-from model_zoo import MPRAnn
+from model_zoo import ResidualBind_heteroscedastic
 import plotting
 import pandas as pd
 import wandb
 from wandb.integration.keras import WandbMetricsLogger
+import tensorflow as tf
 import yaml
 import numpy as np
 
 '''
-train distilled MPRAnn models w/ mean+aleatoric+epistemic predictions 
-assumes that h5 file provided contains ensemble avg + std data
-for training downsampled models, make sure that h5 file provided to --data corresponds to downsample proportion
+train an ensemble of ResidualBind models on lentiMPRA data using heteroscedastic regression
+--downsample flag allows models to be trained with a subset of training data
 --evoaug flag determines whether model will be trained w/ evoaug augmentations
+
+This script is used to train ResidualBind models w/ predictions for activity and aleatoric (derived from heteroscedastic regression). 
 '''
 
 def parse_args():
@@ -28,7 +30,7 @@ def parse_args():
                         help="output directory to save model and plots")
     parser.add_argument("--data", type=str,
                         help='h5 file containing train/val/test data')
-    parser.add_argument("--lr", default=0.001,
+    parser.add_argument("--lr", default=0.001, type=float,
                         help="fixed learning rate")
     parser.add_argument("--plot", action='store_true',
                         help="if set, save training plots")
@@ -40,27 +42,52 @@ def parse_args():
                         help='project name for wandb')
     parser.add_argument("--config", type=str,
                         help='path to wandb config (yaml)')
+    parser.add_argument("--distill", type=str, default=None,
+                        help='if provided, trains a model using distilled training data')
+    parser.add_argument("--k", type=int, default=1,
+                        help='factor for adjusting number of parameters in hidden layers')
     parser.add_argument("--evoaug", action='store_true',
                         help='if set, train models with evoaug')
     parser.add_argument("--celltype", type=str,
                         help='define celltype (K562/HepG2)')
-    parser.add_argument("--logvar", action='store_true',
-                        help='if set, predict uncertainties as logvar instead of std')
     args = parser.parse_args()
     return args
 
-def eval_performance(model, X_test, y_test, outfh, celltype, logvar=False):
+def eval_performance(model, X_test, y_test, outfh, celltype):
     y_pred = model.predict(X_test)
-    if logvar:
-        # convert logvar back to std for evaluation
-        y_pred[:,1:] = np.sqrt(np.exp(y_pred[:,1:]))
-    results = None
-    assert(y_pred.shape[-1]==3)
-    if y_pred.shape != y_test.shape:
-        results = utils.summarise_lentiMPRA_performance(y_pred, np.expand_dims(y_test, axis=-1), celltype, aleatoric=True, epistemic=True)
-    else:
-        results = utils.summarise_lentiMPRA_performance(y_pred, y_test, celltype, aleatoric=True, epistemic=True)
+    results = utils.summarise_lentiMPRA_performance(y_pred, y_test, celltype, aleatoric=True, epistemic=False)
     results.to_csv(outfh, index=False)
+
+# def heteroscedastic_loss(y_true, y_pred):
+#     '''
+#     heteroscedastic loss function 
+#     '''
+#     n_outputs = y_true.shape[1]
+#     mu = y_pred[:, :n_outputs]
+#     std = y_pred[:, n_outputs:]
+    
+#     return tf.reduce_mean(
+#         0.5 * (((y_true - mu)**2) / (std**2) + tf.math.log(2*np.pi*std**2))
+#     )
+
+def heteroscedastic_loss(y_true, y_pred):
+    '''
+    heteroscedastic loss function 
+    '''
+    n_outputs = y_true.shape[1]
+    mu = y_pred[:, :n_outputs]
+    logvar = y_pred[:, n_outputs:]
+    
+    # return tf.reduce_mean(
+    #     0.5 * (((y_true - mu)**2) / (std**2) + tf.math.log(2*np.pi*std**2))
+    # )
+    mse = keras.losses.mean_squared_error(y_true, mu)
+    variance = tf.exp(logvar)
+    nll = 0.5 * (tf.math.log(2 * np.pi * variance) + mse / variance)
+
+    # Return the average NLL across the batch
+    return tf.reduce_mean(nll)
+
 
 def main(args):
 
@@ -69,26 +96,17 @@ def main(args):
     wandb.init(project=args.project, config=args.config)
     wandb.config['model_ix'] = args.ix
     wandb.config['celltype'] = args.celltype
-    wandb.config.update({'distill':True, 'aleatoric':True, 'epistemic':True}, allow_val_change=True)
-
+    wandb.config.update({'loss_fxn':'heteroscedastic'}, allow_val_change=True)
+        
     # load data from h5
-    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_lentiMPRA_data(file=args.data, epistemic=True)
+    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_lentiMPRA_data(file=args.data)
 
-    assert(y_train.shape[-1]==3)
-    assert(y_test.shape[-1]==3)
-    assert(y_val.shape[-1]==3)
-    
     # downsample training data
     if args.downsample != wandb.config['downsample']:
-        # if args.downsample is True, we assumed user has passed .h5 corresponding to downsampled data
-        # no further downsampling applied
         wandb.config.update({'downsample':args.downsample}, allow_val_change=True)
-
-    # use logvar instead of std as training targets for epistemic head (last column)
-    if args.logvar:
-        wandb.config.update({'std':False, 'logvar':True}, allow_val_change=True)
-        y_train[:,-1] = np.log(np.square(y_train[:,1:]))
-        y_val[:,-1] = np.log(np.square(y_val[:,1:]))
+        if args.downsample<1:
+            rng = np.random.default_rng(1234)
+            X_train, y_train = utils.downsample(X_train, y_train, rng, args.downsample)
 
     # create model
     model = None
@@ -105,23 +123,24 @@ def main(args):
             ]
         wandb.config.update({'evoaug':True}, allow_val_change=True)
         wandb.config['finetune'] = False
-        model = evoaug.RobustModel(MPRAnn, 
+        model = evoaug.RobustModel(ResidualBind_heteroscedastic, 
                                    input_shape=X_train[0].shape, 
                                    augment_list=augment_list, 
                                    max_augs_per_seq=1, 
-                                   hard_aug=True, 
-                                   aleatoric=True,
-                                   epistemic=True)
+                                   hard_aug=True,
+                                   config=wandb.config)
     else:
         # training w/o evoaug
-        model = MPRAnn(X_train[0].shape, aleatoric=True, epistemic=True)
+        model = ResidualBind_heteroscedastic(X_train[0].shape, config=wandb.config)
 
     # update lr in config if different value provided to input
+    print(f'lr = {args.lr}')
+    print(type(args.lr))
     if args.lr != wandb.config['optim_lr']:
         wandb.config.update({'optim_lr':args.lr}, allow_val_change=True)
 
     # compile model
-    model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])
+    model.compile(optimizer=Adam(learning_rate=args.lr), loss=heteroscedastic_loss)
 
     # define callbacks
     callbacks_list = [WandbMetricsLogger()]
@@ -132,7 +151,8 @@ def main(args):
     if args.lr_decay:
         # train w/ LR decay
         lr_decay_callback = ReduceLROnPlateau(monitor='val_loss',
-                                              factor=0.2,
+                                            #   factor=0.2,
+                                            factor=0.1,
                                               patience=5,
                                               min_lr=1e-7,
                                               mode='min',
@@ -141,64 +161,63 @@ def main(args):
         wandb.config.update({'lr_decay': True, 'lr_decay_patience': 3, 'lr_decay_factor': 0.2}, allow_val_change=True)
 
     # train model
-    history = model.fit(X_train, y_train, 
+    history = model.fit(X_train, y_train[:,0], 
                         batch_size=wandb.config['batch_size'], 
                         epochs=wandb.config['epochs'],
-                        validation_data=(X_val, y_val),
+                        validation_data=(X_val, y_val[:,0]),
                         callbacks=callbacks_list) 
     if args.evoaug:
         # save weights
-        save_path = join(args.out, f"{args.ix}_MPRAnn_aug_weights.h5")
+        save_path = join(args.out, f"{args.ix}_ResidualBind_heteroscedastic_aug_weights.h5")
         model.save_weights(save_path)
         # save history
         with open(join(args.out, str(args.ix) + "_historyDict_aug"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
         
         # evaluate best model (and save)
-        eval_performance(model, X_test, y_test, 
-                         join(args.out, f'{args.ix}_performance_aug.csv'), 
-                         args.celltype, 
-                         logvar=args.logvar)
+        eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_performance_aug.csv'), 
+                         args.celltype, aleatoric=args.aleatoric, epistemic=False)
 
         ### fine tune model (w/o augmentations)
         wandb.config.update({'finetune':True}, allow_val_change=True)
-        finetune_epochs = 10
-        wandb.config['finetune_epochs']=finetune_epochs
+        finetune_epochs = 30
+        wandb.config['finetune_epochs'] = finetune_epochs
         wandb.config['finetune_lr'] = 0.0001
-        model = evoaug.RobustModel(MPRAnn, input_shape=X_train[0].shape, 
+        model = evoaug.RobustModel(ResidualBind_heteroscedastic, 
+                                   input_shape=X_train[0].shape, 
                                    augment_list=augment_list, 
-                                   max_augs_per_seq=2, hard_aug=True, 
-                                   aleatoric=True, epistemic=True)
-        model.compile(optimizer=Adam(learning_rate=wandb.config['finetune_lr']), loss=wandb.config['loss_fxn'])
+                                   max_augs_per_seq=2,
+                                   hard_aug=True,
+                                   config=wandb.config)
+        model.compile(optimizer=Adam(learning_rate=wandb.config['finetune_lr']), loss=heteroscedastic_loss)
         model.load_weights(save_path)
         model.finetune_mode()
         # train
-        history = model.fit(X_train, y_train, 
+        history = model.fit(X_train, y_train[:,0], 
                         batch_size=wandb.config['batch_size'], 
                         epochs=finetune_epochs,
-                        validation_data=(X_val, y_val),
+                        validation_data=(X_val, y_val[:,0]),
                         callbacks=callbacks_list) 
         # save model and history
-        model.save_weights(join(args.out, f"{args.ix}_MPRAnn_finetune.h5"))
+        model.save_weights(join(args.out, f"{args.ix}_ResidualBind_heteroscedastic_finetune.h5"))
         with open(join(args.out, f"{args.ix}_historyDict_finetune"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
         # evaluate model performance
         eval_performance(model, X_test, y_test, 
                          join(args.out, f'{args.ix}_performance_finetune.csv'), 
-                         args.celltype, logvar=args.logvar)
+                         args.celltype)
     else:
         # evaluate model performance
         eval_performance(model, X_test, y_test, 
                          join(args.out, f"{args.ix}_performance.csv"), 
-                         args.celltype, 
-                         logvar=args.logvar)
+                         args.celltype)
     
-        # plot loss curves and spearman correlation over training epochs and save 
+        # plot loss curves and pearson correlation over training epochs and save 
         if args.plot:
-            plotting.plot_loss(history, join(args.out, f"{args.ix}_loss_curves.png"))
+            plotting.plot_loss(history, join(args.out, str(args.ix) + "_loss_curves.png"))
 
-        # save model and history
-        model.save_weights(join(args.out, f"{args.ix}_MPRAnn.h5"))
+        # save model weights and history
+        model.save_weights(join(args.out, f"{args.ix}_ResidualBind_heteroscedastic.h5"))
         with open(join(args.out, f"{args.ix}_historyDict"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
 

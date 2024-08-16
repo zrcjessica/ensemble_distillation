@@ -1,11 +1,11 @@
-# run ensemble_predict_heteroscedastic_MPRAnn.py with both --distill and --eval flags set
+# run ensemble_predict_heteroscedastic_ResidualBind.py with both --distill and --eval flags set
 
-# runs ensemble_predict_heteroscedastic_MPRAnn.py in distill mode
-# for ensemble of MPRAnn models trained with heteroscedastic regression
+# runs ensemble_predict_heteroscedastic_ResidualBind.py in distill mode
+# for ensemble of ResidualBind models trained with heteroscedastic regression
 # toggle DOWNSAMPLED to control whether distilled training data is obtained for downsampled models
 
 
-MODELS_DIR=../results/MPRAnn_heteroscedastic
+MODELS_DIR=../results/ResidualBind_heteroscedastic
 N_MODS=10
 DATA_DIR=../data/lentiMPRA
 ### boolean flags
@@ -40,12 +40,12 @@ if [ "$DOWNSAMPLED" = true ]; then
 	do
 		echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
 		mkdir -p ${MODELS_DIR}/downsample_${DOWNSAMPLE_ARR[$p]}
-		CUDA_VISIBLE_DEVICES=1 python ensemble_predict_heteroscedastic_MPRAnn.py --model_dir ${MODELS_DIR}/downsample_${DOWNSAMPLE_ARR[$p]} \
+		CUDA_VISIBLE_DEVICES=0 python ensemble_predict_heteroscedastic_ResidualBind.py --model_dir ${MODELS_DIR}/downsample_${DOWNSAMPLE_ARR[$p]} \
 		--n_mods $N_MODS --data $DATA --distill --eval --downsample ${DOWNSAMPLE_ARR[$p]} --celltype $CELLTYPE \
 		--out ${MODELS_DIR}/downsample_${DOWNSAMPLE_ARR[$p]} --plot --config $CONFIG
 	done 
 else
-	CUDA_VISIBLE_DEVICES=1 python ensemble_predict_heteroscedastic_MPRAnn.py --model_dir $MODELS_DIR \
+	CUDA_VISIBLE_DEVICES=0 python ensemble_predict_heteroscedastic_ResidualBind.py --model_dir $MODELS_DIR \
 	--n_mods $N_MODS --data $DATA --distill --eval --celltype $CELLTYPE --plot --config $CONFIG
 fi 
 
@@ -54,15 +54,15 @@ exit_code="$?"
 if command -v 'slack' &>/dev/null; then
     if [ "$exit_code" -eq 0 ]; then
 		if [ "$DOWNSAMPLED" = true ]; then
-			slack "running ensemble_predict_heteroscedastic_MPRAnn.py for MPRAnn (downsampled) in distill and eval mode completed successfully" &>/dev/null
+			slack "running ensemble_predict_heteroscedastic_ResidualBind.py for ResidualBind $CELLTYPE (downsampled) in distill and eval mode completed successfully" &>/dev/null
 		else
-			slack "running ensemble_predict_heteroscedastic_MPRAnn.py for MPRAnn (full) with aleatoric uncertainty in distill and eval mode completed successfully" &>/dev/null
+			slack "running ensemble_predict_heteroscedastic_ResidualBind.py for ResidualBind $CELLTYPE (full) with aleatoric uncertainty in distill and eval mode completed successfully" &>/dev/null
 		fi
 	else
 		if [ "$DOWNSAMPLED" = true ]; then
-			slack "running ensemble_predict_heteroscedastic_MPRAnn.py for MPRAnn (downsampled) with aleatoric uncertainty in distill and eval mode exited with error code $exit_code"
+			slack "running ensemble_predict_heteroscedastic_ResidualBind.py for ResidualBind $CELLTYPE (downsampled) with aleatoric uncertainty in distill and eval mode exited with error code $exit_code"
 		else
-			slack "running ensemble_predict_heteroscedastic_MPRAnn.py for MPRAnn (full) in distill and eval mode exited with error code $exit_code"
+			slack "running ensemble_predict_heteroscedastic_ResidualBind.py for ResidualBind $CELLTYPE (full) in distill and eval mode exited with error code $exit_code"
 		fi
 	fi
 fi

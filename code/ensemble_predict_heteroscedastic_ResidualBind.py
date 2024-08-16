@@ -8,13 +8,13 @@ from os.path import join
 import numpy as np
 import gc
 import yaml 
-from model_zoo import MPRAnn_heteroscedastic
+from model_zoo import ResidualBind_heteroscedastic
 
 '''
-get the average of the predictions from all MPRAnn models trained with heteroscedastic in an ensemble
+get the average of the predictions from all ResidualBind models trained with heteroscedastic in an ensemble
 applies trained ensemble models to test set
 if --eval flag set, evaluates prediction performance on test set
-if --distill flag set, averages predictions on train set from all MPRAnn models in ensemble
+if --distill flag set, averages predictions on train set from all ResidualBind models in ensemble
 '''
 
 def parse_args():
@@ -33,8 +33,6 @@ def parse_args():
                         help='if set, generate scatterplots comparing predictions with ground truth (only used in eval mode)')
     parser.add_argument("--distill", action='store_true',
                         help='if set, writes average predictions on train set (X_train) to file (ensemble_avg_y_train.npy)')
-    # parser.add_argument("--aleatoric", action='store_true',
-    #                     help='if set, predict aleatoric uncertainty')
     parser.add_argument("--downsample", type=float,
                         help='if set, downsample training data (only used if in distill mode)')
     parser.add_argument("--evoaug", action='store_true',
@@ -46,21 +44,9 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-# def heteroscedastic_loss(y_true, y_pred):
-#     '''
-#     heteroscedastic loss function 
-#     '''
-#     n_outputs = y_true.shape[1]
-#     mu = y_pred[:, :n_outputs]
-#     std = y_pred[:, n_outputs:]
-    
-#     return tf.reduce_mean(
-#         0.5 * (((y_true - mu)**2) / (std**2) + tf.math.log(2*np.pi*std**2))
-#     )
-
 def load_model_from_weights(weights, input_shape, config_file, with_evoaug=False):
     '''
-    load MPRAnn model trained with heteroscedastic regression from weights
+    load ResidualBind model trained with heteroscedastic regression from weights
     '''
     config = yaml.safe_load(open(config_file, 'r'))
     model = None
@@ -73,16 +59,17 @@ def load_model_from_weights(weights, input_shape, config_file, with_evoaug=False
             augment.RandomNoise(noise_mean=0, noise_std=0.2),
             augment.RandomMutation(mutate_frac=0.05)
             ]
-        model = evoaug.RobustModel(MPRAnn_heteroscedastic, input_shape=input_shape, augment_list=augment_list, max_augs_per_seq=1, hard_aug=True)
+        model = evoaug.RobustModel(ResidualBind_heteroscedastic, 
+                                   input_shape=input_shape, augment_list=augment_list, max_augs_per_seq=1, hard_aug=True, config=config)
     else:
-        model = MPRAnn_heteroscedastic(input_shape)
+        model = ResidualBind_heteroscedastic(input_shape, config=config)
     model.load_weights(weights)
     return model
 
 def main(args):
 
     # load data from h5
-    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_lentiMPRA_data(args.data)
+    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_lentiMPRA_data(args.data) # expects file with activity and technical variation (std)
 
     if args.distill and args.downsample:
         # downsample training data
@@ -106,12 +93,12 @@ def main(args):
         # load model and predict 
         model = None
         if args.evoaug:
-            model = load_model_from_weights(weights=join(args.model_dir, str(i+1) + "_MPRAnn_heteroscedastic_finetune.h5"), 
+            model = load_model_from_weights(weights=join(args.model_dir, str(i+1) + "_ResidualBind_heteroscedastic_finetune.h5"), 
                                                       input_shape=X_train[0].shape, 
                                                       config_file=args.config, 
                                                       with_evoaug=True)
         else:
-            model = load_model_from_weights(weights=join(args.model_dir, f"{i+1}_MPRAnn_heteroscedastic.h5"),
+            model = load_model_from_weights(weights=join(args.model_dir, f"{i+1}_ResidualBind_heteroscedastic.h5"),
                                             input_shape=X_train[0].shape,
                                             config_file=args.config)
         train_preds, test_preds = 0, 0

@@ -8,7 +8,7 @@ CONFIG=../config/MPRAnn.yaml
 PROJECT_NAME=MPRAnn_heteroscedastic
 DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 ) # used if downsample set to true
 ### define cell type
-CELLTYPE='K562' # HepG2 or K562
+CELLTYPE='HepG2' # HepG2 or K562
 OUTDIR=${OUTDIR}/${CELLTYPE}
 # DATA=${DATA_DIR}/${CELLTYPE}_data.h5
 DATA=${DATA_DIR}/${CELLTYPE}_data_with_aleatoric.h5

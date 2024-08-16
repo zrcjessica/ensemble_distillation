@@ -21,6 +21,13 @@ logvar=false
 if [ "$logvar" = true ]; then  
     MODELS_DIR=${MODELS_DIR}/logvar
 fi 
+# train on data distilled from models trained with heteroscedastic regression 
+heteroscedastic=true
+if [ "$heteroscedastic" = true ]; then 
+    DATA_DIR=../data/MPRAnn_heteroscedastic
+    MODELS_DIR=../results/distilled_MPRAnn_heteroscedastic
+    PROJECT_NAME=MPRAnn_heteroscedastic_distilled
+fi 
 
 ### define cell type
 CELLTYPE='HepG2' # HepG2 or K562
@@ -53,12 +60,13 @@ if [ "$downsample" = true ]; then
                     echo "python train_distilled_MPRAnn_with_epistemic.py --ix $i --out $OUTDIR --data $DOWNSAMPLE_DATA --downsample ${DOWNSAMPLE_ARR[$p]} --plot  --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE"
                 fi
             fi
-        done | simple_gpu_scheduler --gpus 0,1,2,3,4
+        done | simple_gpu_scheduler --gpus 0,1,2,3
     done 
 else
     OUTDIR=${MODELS_DIR}
     mkdir -p $OUTDIR
-    for i in $(seq 1 $N_MODS)
+    # for i in $(seq 1 $N_MODS)
+    for i in $(seq 1 9)
     do 
         if [ "$evoaug" = true ]; then
             if [ "$logvar" = true ]; then
@@ -73,7 +81,7 @@ else
                 echo "python train_distilled_MPRAnn_with_epistemic.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --celltype $CELLTYPE"
             fi
         fi
-    done | simple_gpu_scheduler --gpus 0,1,2,3,4
+    done | simple_gpu_scheduler --gpus 0,1,2,3
 fi
 
 

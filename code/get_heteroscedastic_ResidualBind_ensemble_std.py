@@ -7,11 +7,11 @@ from os.path import join
 import numpy as np
 import gc
 import yaml 
-from model_zoo import MPRAnn_heteroscedastic
+from model_zoo import ResidualBind_heteroscedastic
 
 '''
 calculate standard deviation of ensemble predictions for train/test/val data
-for MPRAnn models trained with heteroscedastic regression
+for ResidualBind models trained with heteroscedastic regression
 '''
 
 def parse_args():
@@ -37,7 +37,7 @@ def parse_args():
 
 def load_model_from_weights(weights, input_shape, config_file, with_evoaug=False):
     '''
-    load MPRAnn model trained with heteroscedastic regression from weights
+    load ResidualBind model trained with heteroscedastic regression from weights
     '''
     config = yaml.safe_load(open(config_file, 'r'))
     model = None
@@ -50,9 +50,10 @@ def load_model_from_weights(weights, input_shape, config_file, with_evoaug=False
             augment.RandomNoise(noise_mean=0, noise_std=0.2),
             augment.RandomMutation(mutate_frac=0.05)
             ]
-        model = evoaug.RobustModel(MPRAnn_heteroscedastic, input_shape=input_shape, augment_list=augment_list, max_augs_per_seq=1, hard_aug=True)
+        model = evoaug.RobustModel(ResidualBind_heteroscedastic, 
+                                   input_shape=input_shape, augment_list=augment_list, max_augs_per_seq=1, hard_aug=True, config=config)
     else:
-        model = MPRAnn_heteroscedastic(input_shape)
+        model = ResidualBind_heteroscedastic(input_shape, config=config)
     model.load_weights(weights)
     return model
 
@@ -85,12 +86,12 @@ def main(args):
 
         # load model 
         if args.evoaug:
-            model = load_model_from_weights(weights=join(args.model_dir, str(i+1) + "_MPRAnn_heteroscedastic_finetune.h5"), 
+            model = load_model_from_weights(weights=join(args.model_dir, str(i+1) + "_ResidualBind_heteroscedastic_finetune.h5"), 
                                                       input_shape=X_train[0].shape, 
                                                       config_file=args.config, 
                                                       with_evoaug=True)
         else:
-            model = load_model_from_weights(weights=join(args.model_dir, f"{i+1}_MPRAnn_heteroscedastic.h5"),
+            model = load_model_from_weights(weights=join(args.model_dir, f"{i+1}_ResidualBind_heteroscedastic.h5"),
                                             input_shape=X_train[0].shape,
                                             config_file=args.config)
 

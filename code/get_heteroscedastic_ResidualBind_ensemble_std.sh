@@ -1,8 +1,8 @@
-# calculates stdev of MPRAnn model (activity+aleatoric) ensemble predictions on train/test/val sets
+# calculates stdev of ResidualBind model (activity+aleatoric) ensemble predictions on train/test/val sets
 
 CELLTYPE=HepG2
-MODELS_DIR=../results/MPRAnn_heteroscedastic/${CELLTYPE}
-OUTDIR=../data/MPRAnn_heteroscedastic
+MODELS_DIR=../results/ResidualBind_heteroscedastic/${CELLTYPE}
+OUTDIR=../data/ResidualBind_heteroscedastic
 N_MODS=10
 DATA=../data/lentiMPRA/${CELLTYPE}_data_with_aleatoric.h5
 CONFIG=${MODELS_DIR}/config.yaml
@@ -13,8 +13,8 @@ DOWNSAMPLE=false
 
 # flag dependent changes
 if [ "$EVOAUG" = true ]; then
-	MODELS_DIR=../results/MPRAnn_heteroscedastic_evoaug/${CELLTYPE}
-	OUTDIR=../data/MPRAnn_heteroscedastic/evoaug
+	MODELS_DIR=../results/ResidualBind_heteroscedastic_evoaug/${CELLTYPE}
+	OUTDIR=../data/ResidualBind_heteroscedastic/evoaug
 fi
 
 mkdir -p $OUTDIR 
@@ -26,16 +26,16 @@ if [ "$DOWNSAMPLE" = true ]; then
 	for p in "${!DOWNSAMPLE_ARR[@]}"
 	do	
 		if [ "$EVOAUG" = true ]; then
-			CUDA_VISIBLE_DEVICES=0 python get_heteroscedastic_MPRAnn_ensemble_std.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR --evoaug --config $CONFIG --downsample ${DOWNSAMPLE_ARR[$p]} --celltype $CELLTYPE 
+			CUDA_VISIBLE_DEVICES=3 python get_heteroscedastic_ResidualBind_ensemble_std.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR --evoaug --config $CONFIG --downsample ${DOWNSAMPLE_ARR[$p]} --celltype $CELLTYPE 
 		else
-			CUDA_VISIBLE_DEVICES=0 python get_heteroscedastic_MPRAnn_ensemble_std.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR --downsample ${DOWNSAMPLE_ARR[$p]} --celltype $CELLTYPE --config $CONFIG
+			CUDA_VISIBLE_DEVICES=3 python get_heteroscedastic_ResidualBind_ensemble_std.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR --downsample ${DOWNSAMPLE_ARR[$p]} --celltype $CELLTYPE --config $CONFIG
 		fi
 	done
 else
 	if [ "$EVOAUG" = true ]; then
-		CUDA_VISIBLE_DEVICES=0 python get_heteroscedastic_MPRAnn_ensemble_std.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR --evoaug --config $CONFIG --celltype $CELLTYPE 
+		CUDA_VISIBLE_DEVICES=3 python get_heteroscedastic_ResidualBind_ensemble_std.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR --evoaug --config $CONFIG --celltype $CELLTYPE 
 	else
-		CUDA_VISIBLE_DEVICES=0 python get_heteroscedastic_MPRAnn_ensemble_std.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR --celltype $CELLTYPE --config $CONFIG
+		CUDA_VISIBLE_DEVICES=3 python get_heteroscedastic_ResidualBind_ensemble_std.py --model_dir $MODELS_DIR --n_mods $N_MODS --data $DATA --out $OUTDIR --celltype $CELLTYPE --config $CONFIG
 	fi
 fi 
 
