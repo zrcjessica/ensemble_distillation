@@ -15,6 +15,18 @@ from evoaug_tf import evoaug, augment
 #                 augment.RandomNoise(noise_mean=0, noise_std=0.2),
 #                 augment.RandomMutation(mutate_frac=0.05)]
 
+class RandomShuffle(augment.AugmentBase):
+    def __init__(self):
+        pass
+
+    def __call__(self, x):
+        N = tf.shape(x)[0]
+        x_mut = tf.TensorArray(dtype=x.dtype, size=N, element_shape=x[0].shape)
+        body = lambda i, x_mut: (i + 1, x_mut.write(i, tf.random.shuffle(x[i])))
+        cond = lambda i, x_mut: i < N
+        _, x_mut = tf.while_loop(cond, body, [0, x_mut])
+        return x_mut.stack()
+
 class DynamicAugModel(keras.Model):
     '''
     Tensorflow keras.Model class with dynamic sequence augmentations 
@@ -60,9 +72,8 @@ class DynamicAugModel(keras.Model):
                             augment.RandomMutation(mutate_frac=0.05)]
         elif aug=='mutagenesis':
             augment_list = [augment.RandomMutation(mutate_frac=0.25)]
-        elif len(augment_list)!=0:
-            # random aug does not require augment list
-            augment_list = []
+        elif aug=='random':
+            augment_list = [RandomShuffle()]
         
         # params for evoaug/mutagenesis 
         self.augment_list = augment_list
@@ -174,11 +185,12 @@ class DynamicAugModel(keras.Model):
             print('appending augmented seqs')
             # make copy of seqs in batch - these will be augmented
             aug_seqs = tf.identity(seqs)
-            if self.aug == 'random':
-                aug_seqs = tf.random.shuffle(aug_seqs)
-            else:
-                # evoaug/mutagenesis
-                aug_seqs = self._apply_augment(aug_seqs)
+            aug_seqs = self._apply(augment(aug_seqs))
+            # if self.aug == 'random':
+            #     aug_seqs = tf.random.shuffle(aug_seqs)
+            # else:
+            #     # evoaug/mutagenesis
+            #     aug_seqs = self._apply_augment(aug_seqs)
             # pad original seqs in batch to match dims of aug_seqs
             if self.insert_max != 0:
                 seqs = self._pad_end(seqs)
@@ -187,10 +199,11 @@ class DynamicAugModel(keras.Model):
             batch_seqs = tf.concat([seqs, aug_seqs], axis=0)
         else:
             print('replacing original seqs w/ augmented seqs')
-            if self.aug=='random':
-                aug_seqs = tf.random.shuffle(seqs)
-            else:
-                aug_seqs = self._apply_augment(seqs)
+            # if self.aug=='random':
+            #     aug_seqs = tf.random.shuffle(seqs)
+            # else:
+            #     aug_seqs = self._apply_augment(seqs)
+            aug_seqs = self._apply_augment(seqs)
             batch_seqs = aug_seqs 
 
         # use ensemble to generate labels for batch 
@@ -198,7 +211,8 @@ class DynamicAugModel(keras.Model):
         batch_labels = tf.cast(tf.convert_to_tensor(batch_labels), tf.float32)
         
         assert(batch_seqs.shape[0]==batch_labels.shape[0])
-
+        print('batch labels shape')
+        print(batch_labels.shape)
         return batch_seqs, batch_labels
 
     @tf.function
@@ -260,12 +274,12 @@ class DynamicAugModel(keras.Model):
         # if self.kwargs['predict_std']:
         #     return tf.concat([tf.math.reduce_mean(all_preds, axis=0), tf.math.reduce_std(all_preds, axis=0)], axis=1)
         if self.kwargs['epistemic']:
-            # return tf.concat([tf.math.reduce_mean(all_preds, axis=0), tf.expand_dims(tf.math.reduce_std(all_preds[:, 0], axis=0), axis=0)], axis=1)
-            new_labels = tf.concat([tf.math.reduce_mean(all_preds, axis=0), tf.math.reduce_std(all_preds, axis=0)], axis=1)[:,:(all_preds.shape[-1]+1)]
-            print('shape of new_labels:')
-            print(new_labels.shape)
-            print(f'new_labels has {new_labels.shape[0]} entries and {new_labels.shape[1]} entries')
-            return new_labels
+            return tf.concat([tf.math.reduce_mean(all_preds, axis=0), tf.math.reduce_std(all_preds, axis=0)], axis=1)
+            # new_labels = tf.concat([tf.math.reduce_mean(all_preds, axis=0), tf.math.reduce_std(all_preds, axis=0)], axis=1)[:,:(all_preds.shape[-1]+1)]
+            # print('shape of new_labels:')
+            # print(new_labels.shape)
+            # print(f'new_labels has {new_labels.shape[0]} entries and {new_labels.shape[1]} entries')
+            # return new_labels
         else: 
             return tf.math.reduce_mean(all_preds,axis=0)
     

@@ -10,7 +10,7 @@ from model_zoo import DeepSTARR
 import plotting
 import pandas as pd
 import wandb
-from wandb.keras import WandbMetricsLogger
+from wandb.integration.keras import WandbMetricsLogger
 import yaml
 import numpy as np
 import dynamic_aug 
@@ -79,7 +79,9 @@ def main(args):
     X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data,  
                                                                                std=True)
     
-    assert((X_train.shape[-1]==4) & (X_test.shape[-1]==4) & (X_val.shape[-1]==4))
+    print('y_train.shape')
+    print(y_train.shape)
+    assert((y_train.shape[-1]==4) & (y_test.shape[-1]==4) & (y_val.shape[-1]==4))
 
     # # downsample training data
     # if args.downsample != wandb.config['downsample']:

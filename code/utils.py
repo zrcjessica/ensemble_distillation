@@ -65,6 +65,8 @@ def load_lentiMPRA_data(file, epistemic=False):
         y_test = y_test[:,:-1]
         y_val = y_val[:,:-1]
 
+    data.close()
+    
     return X_train, y_train, X_test, y_test, X_val, y_val
 
 def load_DeepSTARR_data(file, std=False, dict=False):
