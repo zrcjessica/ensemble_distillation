@@ -105,24 +105,24 @@ def ResidualBind(input_shape, config, aleatoric=False, epistemic=False):
         num_filters = input_layer.shape.as_list()[-1]
 
         nn = kl.Conv1D(filters=num_filters,
-                                        kernel_size=filter_size,
-                                        activation=None,
-                                        use_bias=False,
-                                        padding='same',
-                                        # dilation_rate=1, #commenting out bc default
-                                        )(input_layer)
+                       kernel_size=filter_size,
+                       activation=None,
+                       use_bias=False,
+                       padding='same',
+                       # dilation_rate=1, #commenting out bc default
+                       )(input_layer)
         nn = kl.BatchNormalization()(nn)
         for f in factor:
             nn = kl.Activation('relu')(nn)
             nn = kl.Dropout(0.1)(nn)
             nn = kl.Conv1D(filters=num_filters,
-                                            kernel_size=filter_size,
-                                            # strides=1, # commenting out bc default
-                                            activation=None,
-                                            use_bias=False,
-                                            padding='same',
-                                            dilation_rate=f,
-                                            )(nn)
+                           kernel_size=filter_size,
+                           # strides=1, # commenting out bc default
+                           activation=None,
+                           use_bias=False,
+                           padding='same',
+                           dilation_rate=f,
+                           )(nn)
             nn = kl.BatchNormalization()(nn)
         nn = kl.add([input_layer, nn])
         return kl.Activation(activation)(nn)

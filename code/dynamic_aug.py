@@ -185,7 +185,7 @@ class DynamicAugModel(keras.Model):
             print('appending augmented seqs')
             # make copy of seqs in batch - these will be augmented
             aug_seqs = tf.identity(seqs)
-            aug_seqs = self._apply(augment(aug_seqs))
+            aug_seqs = self._apply_augment(aug_seqs)
             # if self.aug == 'random':
             #     aug_seqs = tf.random.shuffle(aug_seqs)
             # else:
