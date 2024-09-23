@@ -1,22 +1,24 @@
 # train an ensemble of original DeepSTARR models 
 
-ENSEMBLE_SIZE=10
+# ENSEMBLE_SIZE=10
+ENSEMBLE_SIZE=25   
 # OUTDIR=../results/DeepSTARR_lr-decay
-OUTDIR=../results/DeepSTARR_NEW
+# OUTDIR=../results/DeepSTARR_ensemble_NEW
+OUTDIR=../results/DeepSTARR_ensemble_size
 DATA=../data/DeepSTARR/Sequences_activity_all.h5
 CONFIG=../config/DeepSTARR.yaml
-# PROJECT_NAME=DeepSTARR_ensemble
-PROJECT_NAME=DeepSTARR_ensemble_NEW
+PROJECT_NAME=DeepSTARR_ensemble_size
+# PROJECT_NAME=DeepSTARR_ensemble_NEW
 
 # train w/ evoaug
-evoaug=true
+evoaug=false
 if [ "$evoaug" = true ]; then
     OUTDIR=../results/DeepSTARR_evoaug_NEW
     # PROJECT_NAME=DeepSTARR_ensemble_with_evoaug
 fi
 
 # train downsampled models 
-downsample=true 
+downsample=false 
 
 mkdir -p $OUTDIR
 
@@ -40,14 +42,15 @@ if [ "$downsample" = true ]; then
         done | simple_gpu_scheduler --gpus 6
     done 
 else 
-    for i in $(seq 1 $ENSEMBLE_SIZE)
+    # for i in $(seq 1 $ENSEMBLE_SIZE)
+    for i in $(seq 11 $ENSEMBLE_SIZE)
     do 
         if [ "$evoaug" = true ]; then
             echo "python train_DeepSTARR.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug"
         else
             echo "python train_DeepSTARR.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay"
         fi
-    done | simple_gpu_scheduler --gpus 6
+    done | simple_gpu_scheduler --gpus 0,1,2,3,4,5
 fi
 
 # message the user on slack if possible

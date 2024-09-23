@@ -9,7 +9,7 @@ from model_zoo import DeepSTARR
 import plotting
 import pandas as pd
 import wandb
-from wandb.keras import WandbMetricsLogger
+from wandb.integration.keras import WandbMetricsLogger
 import yaml
 import numpy as np
 

@@ -71,7 +71,7 @@ class DynamicAugModel(keras.Model):
                             augment.RandomNoise(noise_mean=0, noise_std=0.2),
                             augment.RandomMutation(mutate_frac=0.05)]
         elif aug=='mutagenesis':
-            augment_list = [augment.RandomMutation(mutate_frac=0.25)]
+            augment_list = [augment.RandomMutation(mutate_frac=0.05)]
         elif aug=='random':
             augment_list = [RandomShuffle()]
         
@@ -185,7 +185,7 @@ class DynamicAugModel(keras.Model):
             print('appending augmented seqs')
             # make copy of seqs in batch - these will be augmented
             aug_seqs = tf.identity(seqs)
-            aug_seqs = self._apply(augment(aug_seqs))
+            aug_seqs = self._apply_augment(aug_seqs)
             # if self.aug == 'random':
             #     aug_seqs = tf.random.shuffle(aug_seqs)
             # else:

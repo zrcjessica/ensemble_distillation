@@ -2,7 +2,7 @@
 
 ### script params/variables
 N_MODS=10
-MODELS_DIR=../results/distilled_lentiMPRA_epistemic
+MODELS_DIR=../results/distilled_lentiMPRA_epistemic # output dir
 DATA_DIR=../data/lentiMPRA
 CONFIG=../config/lentiMPRA.yaml
 PROJECT_NAME=lentiMPRA_distilled_epistemic

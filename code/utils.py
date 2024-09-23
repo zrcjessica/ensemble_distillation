@@ -509,7 +509,7 @@ def load_model_from_weights(weights, input_shape, augment_list, config_file, pre
     config = yaml.safe_load(open(config_file, 'r'))
     model = None
     if with_evoaug:
-        model = evoaug.RobustModel(DeepSTARR, input_shape=input_shape, augment_list=augment_list, max_augs_per_seq=1, hard_aug=True, config=config, predict_std=predict_std)
+        model = evoaug.RobustModel(DeepSTARR, input_shape=input_shape, augment_list=augment_list, max_augs_per_seq=1, hard_aug=True, config=config, epistemic=predict_std)
     else:
         model = DeepSTARR(input_shape, config, predict_std)
     model.compile(optimizer=Adam(learning_rate=config['optim_lr']),
