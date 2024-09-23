@@ -1,6 +1,6 @@
 # train distilled DeepSTARR models w/ mean+std using dynamic augmentations
 
-AUG='evoaug' # evoaug/mutagenesis/random 
+AUG='random' # evoaug/mutagenesis/random 
 APPEND=false 
 # ENSEMBLE_DIR=../results/DeepSTARR_lr-decay/
 ENSEMBLE_DIR=../results/DeepSTARR_ensemble_NEW/
@@ -41,7 +41,7 @@ do
 				--aug $AUG \
 				--ensemble_dir $ENSEMBLE_DIR"
 	fi
-done | simple_gpu_scheduler --gpus 0,1,2,4,6
+done | simple_gpu_scheduler --gpus 0,3,4,5,6
 
 
 # message the user on slack if possible
