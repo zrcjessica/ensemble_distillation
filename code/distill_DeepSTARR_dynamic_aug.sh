@@ -10,7 +10,7 @@ CONFIG=../config/DeepSTARR.yaml
 PROJECT_NAME=DeepSTARR_dynamic_aug
 NMODS=10 # nr. of replicates to train
 OUTDIR=../results/DeepSTARR_dynamic_aug/${AUG}
-if [ "$APPEND" = true ]; then
+if [ "$APPEND" = true ]; thene
 	OUTDIR=${OUTDIR}/append
 fi 
 mkdir -p $OUTDIR 

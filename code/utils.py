@@ -198,6 +198,7 @@ def summarise_DeepSTARR_performance(y_pred, y_truth, std=False):
     '''
     calculate MSE, Spearman + Pearson corr on test data
     return summary for Dev + Hk as data frame
+    set std=True if output includes epistemic uncertainty
     '''
     performance_dict = {}
     # calculate metrics for Dev

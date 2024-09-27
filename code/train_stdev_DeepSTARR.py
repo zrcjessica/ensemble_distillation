@@ -9,7 +9,7 @@ from model_zoo import DeepSTARR
 import plotting
 import pandas as pd
 import wandb
-from wandb.keras import WandbMetricsLogger
+from wandb.integration.keras import WandbMetricsLogger
 import yaml
 import numpy as np
 
@@ -54,6 +54,8 @@ def parse_args():
                         help='if set, train models with evoaug')
     parser.add_argument("--logvar", action='store_true',
                         help='if set, use logvar as target values instead of std (default)')
+    parser.add_argument("--nmods", type=int, action='store', default=10, 
+                         help='size of teacher ensemble')
     args = parser.parse_args()
     return args
 
@@ -72,6 +74,8 @@ def main(args):
     wandb.login()
     run = wandb.init(project=args.project, config=args.config, reinit=True)
     wandb.config['model_ix'] = args.ix
+    wandb.config['n_teachers'] = args.nmods
+    print(f'training distilled model from teacher ensemble of size {args.nmods} models')
     wandb.config.update({'distill':True, 'std':True}, allow_val_change=True) # update config
 
     # load data from h5 (ensemble avg and std returned for y_train)
