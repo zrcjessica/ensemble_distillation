@@ -33,6 +33,7 @@
   - [Interval coverage probability analysis](#interval-coverage-probability-analysis)
   - [Training models w/ evidential regression](#training-models-w-evidential-regression)
   - [Consistency analysis for attribution scores](#consistency-analysis-for-attribution-scores)
+  - [Evaluating different ensemble sizes](#evaluating-different-ensemble-sizes)
 
 Note: all bash scripts use a Slack bot to message user upon completion. To use this feature, refer to the Slack docs: [Sending messages using incoming webhooks](https://api.slack.com/messaging/webhooks)
 
@@ -67,7 +68,7 @@ Make predictions with the replicate models on the training dataset. If using a m
 - `ensemble_predict_DeepSTARR.py` with `--distill` flag set 
 - `get_train_data_distilled.sh`
   - toggle `DOWNSAMPLED` true/false for models trained on entirety vs. subsets of training data 
-- `eval_and_distill_ensemble.sh`: runs `ensemble_predict_DeepSTARR.py` with both `--eval` and `--distill` flags set (prototype script, not used yet)
+- `eval_and_distill_DeepSTARR.sh`: runs `ensemble_predict_DeepSTARR.py` with both `--eval` and `--distill` flags set (prototype script, not used yet)
 - `run_ensemble_predict_DeepSTARR_evoaug.sh`: runs `ensemble_predict_DeepSTARR.py` with both `--eval` and `--distill` flags set for DeepSTARR ensembles trained w/ EvoAug
   
 ## Outputs
@@ -189,3 +190,8 @@ This is done as part of the interval coverage probability analysis. An additiona
 ## Consistency analysis for attribution scores
 `consistency_analysis_attribution_scores.ipynb`
 
+## Evaluating different ensemble sizes
+- `ensemble_predict_DeepSTARR_over_ensemble_size.py`: modified `ensemble_predict_DeepSTARR.py` and `stdev_ensemble_predictions.py` to combine their functions and make predictions over max ensemble size and get ensemble average and std. and performance metrics for various downsamples of max ensemble size (in our case, 5, 10, 15, 20, 25) 
+- `eval_and_distill_DeepSTARR_over_ensemble_size.sh`: runs above script 
+- `parse_DeepSTARR_distillation_data_over_ensemble_size.ipynb`: parse outputs of `ensemble_predict_DeepSTARR_over_ensemble_size.py` to generate .h5 files for training distilled models 
+- `distill_DeepSTARR_with_std_over_ensemble_size.sh`: run `train_stdev_DeepSTARR.py` looping over different teacher ensemble sizes and the respective distillation training data associated with them 
