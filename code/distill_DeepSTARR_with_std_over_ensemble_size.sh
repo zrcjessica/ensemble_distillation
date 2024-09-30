@@ -1,4 +1,4 @@
-# trains distilled DeepSTARR models that predict epistemic uncertainty (stdev) and mean
+# trains distilled DeepSTARR models that predict epistemic uncertainty (stdev) and mean	
 
 DATA_DIR=../data/DeepSTARR_ensemble_over_size
 CONFIG=../config/DeepSTARR.yaml
