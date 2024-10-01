@@ -4,7 +4,8 @@
 /mlcb_figures
 /data
 /results
-/data_preprocess/parse_data.ipynb
+/data_preprocessing/parse_data.ipynb
+/data_preprocessing/get_missing_cagi_alleles.ipynb
 /notebooks
 /code/test.sh
 /code/train_without_scheduler.sh
