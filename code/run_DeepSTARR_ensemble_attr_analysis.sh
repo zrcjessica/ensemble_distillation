@@ -1,9 +1,9 @@
-# run saliency analysis for top n Dev enhancers on an ensemble of DeepSTARR models
-# set DISTILLED to perform attribution analysis for distilled models (w/ mean output)
+# run DeepSTARR_ensemble_attr_analysis.py
+# set DISTILLED to perform attribution analysis for distilled models (on activity output heads)
 # set METHOD as saliency or shap to define method of attribution analysis
 
-DISTILLED=true # toggle flag
-EPISTEMIC=true # true/false; determines whether model w/ epistemic prediction is evaluated
+DISTILLED=true # analyzed distilled DeepSTARR Models 
+EPISTEMIC=true # true/false; determines whether distilled model w/ epistemic prediction is evaluated
 METHOD=saliency # set saliency or shap
 N_MODS=10
 TOP_N=1000
@@ -19,10 +19,10 @@ if [ "$DISTILLED" = true ]; then
 		DATA=../data/DeepSTARR/all_data_with_ensemble_metrics_hierarchical.h5
 		# MODELS_DIR=../results/DeepSTARR_lr-decay/distilled_with_${HEAD} # assume HEAD=std/logvar
 		MODELS_DIR=../results/DeepSTARR_ensemble_NEW/distilled_with_${EPISTEMIC_METRIC} # assume HEAD=std/logvar
-	else 
-		# MODELS_DIR=../results/DeepSTARR_lr-decay/ensemble_distilled
-		MODELS_DIR=../results/DeepSTARR_ensemble_NEW/ensemble_distilled
-	fi
+	# else 
+	# 	# MODELS_DIR=../results/DeepSTARR_lr-decay/ensemble_distilled
+	# 	MODELS_DIR=../results/DeepSTARR_ensemble_NEW/ensemble_distilled
+	# fi
 fi
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/

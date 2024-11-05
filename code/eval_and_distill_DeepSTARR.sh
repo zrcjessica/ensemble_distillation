@@ -1,24 +1,18 @@
 # run ensemble_predict_DeepSTARR.py with both --distill and --eval flags set
-
-# runs ensemble_predict_DeepSTARR.py in distill mode
-# for DeepSTARR ensemble trained on full training data
 # toggle DOWNSAMPLED to control whether distilled training data is obtained for downsampled models
 
 DOWNSAMPLED=true # toggle true/false
 # MODEL_DIR=../results/DeepSTARR_lr-decay/sanity_check
-MODEL_DIR=../results/DeepSTARR_ensemble_NEW
+MODEL_DIR=../results/DeepSTARR_ensemble_NEW # path to ensemble of teacher DeepSTARR models
 N_MODS=10
-DATA=../data/DeepSTARR/Sequences_activity_all.h5
+DATA=../data/DeepSTARR/Sequences_activity_all.h5 # path to STARR-seq data
 EVOAUG=true # toggle true/false 
 
 if [ "$EVOAUG" = true ]; then
-    # MODEL_DIR=${MODEL_DIR}/evoaug
 	MODEL_DIR=../results/DeepSTARR_evoaug_NEW
 fi 
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
-
-# CUDA_VISIBLE_DEVICES=4,5 python get_train_data_for_distillation.py --model_dir $MODEL_DIR --n_mods $N_MODS --data $DATA
 
 if [ "$DOWNSAMPLED" = true ]; then
 	DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 )

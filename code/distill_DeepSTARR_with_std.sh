@@ -1,12 +1,12 @@
 # trains distilled DeepSTARR models that predict epistemic uncertainty (stdev) and mean
 
-OUTDIR=../results/DeepSTARR_ensemble_NEW
+OUTDIR=../results/DeepSTARR_ensemble_NEW # path to output directory
 # OUTDIR=../results/DeepSTARR_lr-decay
 # DATA_DIR=../data/DeepSTARR
-DATA_DIR=../data/DeepSTARR_ensemble_NEW
-CONFIG=../config/DeepSTARR.yaml
-PROJECT_NAME=DeepSTARR_distilled_epistemic
-NMODS=10
+DATA_DIR=../data/DeepSTARR_ensemble_NEW # path to training data 
+CONFIG=../config/DeepSTARR.yaml # path to model config 
+PROJECT_NAME=DeepSTARR_distilled_epistemic # name for WandB project logging 
+NMODS=10 # number of models to train 
 
 ### boolean vars (toggle true/false)
 # train w/ evoaug
@@ -15,7 +15,7 @@ if [ "$evoaug" = true ]; then
     OUTDIR=../results/DeepSTARR_evoaug_NEW
 	DATA_DIR=../data/DeepSTARR_evoaug 
 fi
-downsample=true 
+downsample=true # train on subset of training data
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 

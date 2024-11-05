@@ -405,9 +405,32 @@ def _pad_end(x, insert_max=20):
     
 def attribution_analysis(model, seqs, method, enhancer='Dev', head='mean', ref_size=100, background=None, evoaug=False):
     '''
-    returns attribution maps for DeepSTARR models and seqs based on method (saliency/shap)
-    if method=shap, will use provided background seqs or randomly generate dinucleotide shuffled sets per seq
-    by default, returns attribution scores for Dev enhancers, can also specify Hk
+    Performs attribution analysis on DeepSTARR output heads 
+
+    Parameters
+    ----------
+    model : keras.engine.functional.Functional
+        model to perform attribution analysis on 
+    seqs : ndarray
+        one hot encoded sequences (shape=(N,249,4)) that attribution maps will be calculated w.r.t 
+    method : str 
+        'shap' or 'saliency'; determines whether DeepSHAP or saliency maps will be used to calculate attribution maps 
+    enhancer : str
+        'Dev' or 'Hk'; which DeepSTARR promoter class to evaluate
+    head : str
+        'mean', 'std', or 'logvar'; determines which model ouptut head to calculate attribution map for (logvar will be treated the same as std)
+    ref_size : int
+        Number of shuffles to perform for dinuc_shuffle to generate DeepSHAP background seqs; default=100
+    background : ndarray
+        (optional) one hot encoded background sequences for DeepSHAP, will be generated with dinuc_shuffle if not provided; default=None
+    evoaug : boolean
+        set true if model was trained with evoaug, pads input seqs accordingly; default=False
+    
+
+    Returns
+    -------
+    ndarray 
+        ndarray containing attribution maps for specified output head calculated with specified method (shape=(N,249,4))
     '''
     print(f'calculating attribution maps with {method}')
     if evoaug and model.insert_max != 0:
@@ -456,11 +479,33 @@ def attribution_analysis(model, seqs, method, enhancer='Dev', head='mean', ref_s
                 return explainer_dev.shap_values(seqs)[1 if head=='mean' else 3]
             # return explainer_dev.shap_values(seqs)[0 if enhancer=='Dev' else 1]
 
-def lentiMPRA_attribution_analysis(model, seqs, method, head='mean', ref_size=100, background=None, evoaug=False):
+def lentiMPRA_attribution_analysis(model, seqs, method, head='mean', ref_size=100, background=None, evoaug=False): 
     '''
-    returns attribution maps for DeepSTARR models and seqs based on method (saliency/shap)
-    if method=shap, will use provided background seqs or randomly generate dinucleotide shuffled sets per seq
-    by default, returns attribution scores for Dev enhancers, can also specify Hk
+    Performs attribution analysis on ResidualBind output heads 
+
+    Parameters
+    ----------
+    model : keras.engine.functional.Functional
+        model to perform attribution analysis on 
+    seqs : ndarray
+        one hot encoded sequences (shape=(N,249,4)) that attribution maps will be calculated w.r.t 
+    method : str 
+        'shap' or 'saliency'; determines whether DeepSHAP or saliency maps will be used to calculate attribution maps 
+        note: shap doesn't work
+    head : str
+        'mean', 'aleatoric', or 'epistemic'; determines which model ouptut head to calculate attribution map for
+    ref_size : int
+        Number of shuffles to perform for dinuc_shuffle to generate DeepSHAP background seqs; default=100
+    background : ndarray
+        (optional) one hot encoded background sequences for DeepSHAP, will be generated with dinuc_shuffle if not provided; default=None
+    evoaug : boolean
+        set true if model was trained with evoaug, pads input seqs accordingly; default=False
+    
+
+    Returns
+    -------
+    ndarray 
+        ndarray containing attribution maps for specified output head calculated with specified method (shape=(N,249,4))
     '''
     print(f'calculating attribution maps with {method}')
     if evoaug and model.insert_max != 0:
@@ -503,24 +548,66 @@ def lentiMPRA_attribution_analysis(model, seqs, method, head='mean', ref_size=10
             return explainer_dev.shap_values(seqs)[0 if head=='mean' else 1 if head=='aleatoric' else 2]
         
 
-def load_model_from_weights(weights, input_shape, augment_list, config_file, predict_std, with_evoaug=True):
+def load_model_from_weights(weights, input_shape, config_file, epistemic, with_evoaug=True, augment_list=None):
     '''
-    load DeepSTARR model from weights
+    load DeepSTARR model from weights 
+    
+    Parameters
+    ----------
+    weights : str
+        path to .h5 file containing model weigts
+    input_shape : tuple
+        provide shape of model input
+    config_file : str
+        path to model config file (yaml)        
+    epistemic : boolean
+        set true if model has epistemic uncertainty output head
+    with_evoaug : boolean
+        set true if model was trained with EvoAug
+    augment_list : list
+        optional, if model was trained with EvoAug, provide list of augmentations used for training; required if with_evoaug=True 
+    
+    Returns
+    -------
+    keras.engine.functional.Functional 
+        DeepSTARR model loaded from weights
     '''
     config = yaml.safe_load(open(config_file, 'r'))
     model = None
     if with_evoaug:
-        model = evoaug.RobustModel(DeepSTARR, input_shape=input_shape, augment_list=augment_list, max_augs_per_seq=1, hard_aug=True, config=config, epistemic=predict_std)
+        model = evoaug.RobustModel(DeepSTARR, input_shape=input_shape, augment_list=augment_list, max_augs_per_seq=1, hard_aug=True, config=config, epistemic=epistemic)
     else:
-        model = DeepSTARR(input_shape, config, predict_std)
+        model = DeepSTARR(input_shape, config, epistemic)
     model.compile(optimizer=Adam(learning_rate=config['optim_lr']),
                   loss=config['loss_fxn'])
     model.load_weights(weights)
     return model
 
-def load_lentiMPRA_from_weights(weights, input_shape, augment_list, config_file, aleatoric=False, epistemic=False, with_evoaug=True):
+def load_lentiMPRA_from_weights(weights, input_shape, config_file, aleatoric=False, epistemic=False, with_evoaug=True, augment_list=None):
     '''
-    load lentiMPRA model from weights
+    load ResidualBind model from weights 
+    
+    Parameters
+    ----------
+    weights : str
+        path to .h5 file containing model weigts
+    input_shape : tuple
+        provide shape of model input
+    config_file : str
+        path to model config file (yaml)  
+    aleatoric : boolean       
+        set true if model has aleatoric uncertainty output head 
+    epistemic : boolean
+        set true if model has epistemic uncertainty output head
+    with_evoaug : boolean
+        set true if model was trained with EvoAug
+    augment_list : list
+        optional, if model was trained with EvoAug, provide list of augmentations used for training; required if with_evoaug=True 
+    
+    Returns
+    -------
+    keras.engine.functional.Functional 
+        ResidualBind model loaded from weights
     '''
     config = yaml.safe_load(open(config_file, 'r'))
     model = None

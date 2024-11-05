@@ -16,8 +16,6 @@ import numpy as np
 '''
 train an ensemble of DeepSTARR models
 --downsample flag allows models to be trained with a subset of training data
---distill flag determines if a distilled model is trained (using ensemble average of training data)
---predict_std flag determines whether model will be trained to predict standard deviation as well as mean
 --evoaug flag determines whether model will be trained w/ evoaug augmentations
 '''
 
@@ -29,8 +27,8 @@ def parse_args():
                         help="output directory to save model and plots")
     parser.add_argument("--data", type=str,
                         help='h5 file containing train/val/test data')
-    # parser.add_argument("--lr", default=0.001,
-    #                     help="fixed learning rate")
+    parser.add_argument("--lr", default=0.001,
+                        help="fixed learning rate")
     parser.add_argument("--plot", action='store_true',
                         help="if set, save training plots")
     parser.add_argument("--downsample", default=1, type=float,
@@ -47,12 +45,8 @@ def parse_args():
                         help='path to wandb config (yaml)')
     parser.add_argument("--distill", type=str, default=None,
                         help='if provided, trains a model using provided distilled training data')
-    # parser.add_argument("--distill", action='store_true',
-    #                     help='if set, train distilled DeepSTARR models')
     parser.add_argument("--k", type=int, default=1,
                         help='factor for adjusting number of parameters in hidden layers')
-    parser.add_argument("--predict_std", action='store_true',
-                        help='if set, predict ensemble stdev in addition to mean; distill flag must be set as well')
     parser.add_argument("--evoaug", action='store_true',
                         help='if set, train models with evoaug')
     parser.add_argument("--evidential", action='store_true',
@@ -60,9 +54,22 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def eval_performance(model, X_test, y_test, args, outfh):
+def eval_performance(model, X_test, y_test, outfh):
+    """Evaluates model performance on test sequences and saves to .csv
+
+    Parameters
+    ----------
+    model : keras.engine.functional.Functional
+        Model to evaluate performance on 
+    X_test : np.array
+        Test sequences 
+    y_test : np.array
+        Labels for test sequences 
+    outfh : str
+        Output filehandle 
+    """
     y_pred = model.predict(X_test)
-    performance = utils.summarise_DeepSTARR_performance(y_pred, y_test, args.predict_std)
+    performance = utils.summarise_DeepSTARR_performance(y_pred, y_test)
     performance.to_csv(outfh, index=False)
 
 def main(args):
@@ -116,22 +123,17 @@ def main(args):
             ]
         wandb.config.update({'evoaug':True}, allow_val_change=True)
         wandb.config['finetune'] = False
-        # model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, 
-        #                            augment_list=augment_list, 
-        #                            max_augs_per_seq=1, hard_aug=True, 
-        #                            config=wandb.config, predict_std=args.predict_std) 
         model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, 
                                    augment_list=augment_list, 
                                    max_augs_per_seq=1, hard_aug=True, 
                                    config=wandb.config, epistemic=args.predict_std) 
     else:
         # training w/o evoaug
-        # model = DeepSTARR(X_train[0].shape, wandb.config, args.predict_std)
         model = DeepSTARR(X_train[0].shape, config=wandb.config, epistemic=args.predict_std)
 
     # update lr in config if different value provided to input
-    # if args.lr != wandb.config['optim_lr']:
-    #     wandb.config.update({'optim_lr':args.lr}, allow_val_change=True)
+    if args.lr != wandb.config['optim_lr']:
+        wandb.config.update({'optim_lr':args.lr}, allow_val_change=True)
 
     # compile model
     if args.evidential:
@@ -163,7 +165,7 @@ def main(args):
                         epochs=wandb.config['epochs'],
                         validation_data=(X_val, y_val),
                         callbacks=callbacks_list) 
-    if args.evoaug:
+    if args.evoaug: 
         # save weights
         save_path = join(args.out, f"{args.ix}_DeepSTARR_aug_weights.h5")
         model.save_weights(save_path)
@@ -180,10 +182,6 @@ def main(args):
         wandb.config['finetune_epochs'] = finetune_epochs
         wandb.config['finetune_lr'] = 0.0001
         finetune_optimizer = Adam(learning_rate=0.0001)
-        # model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, 
-        #                            augment_list=augment_list, max_augs_per_seq=2, 
-        #                            hard_aug=True, 
-        #                            config=wandb.config, predict_std=args.predict_std)
         model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, 
                                    augment_list=augment_list, max_augs_per_seq=2, 
                                    hard_aug=True, 

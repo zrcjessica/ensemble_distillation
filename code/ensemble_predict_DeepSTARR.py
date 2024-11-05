@@ -8,11 +8,9 @@ import numpy as np
 import gc
 
 '''
-get the average of the predictions from all DeepSTARR models in an ensemble
-applies trained ensemble models to test set
-if --eval flag set, evaluates prediction performance on test set
-if --distill flag set, averages predictions on train set from all DeepSTARR models in ensemble
-if --std flag set, evaluate prediction performance on ensemble mean and std
+Use ensemble of DeepSTARR models to make predictions on STARR-seq data and calculate ensemble average
+if --eval flag set, evaluates ensemble average prediction performance on test set
+if --distill flag set, predicts on train set and saves ensemble average to file
 '''
 
 def parse_args():
@@ -27,16 +25,12 @@ def parse_args():
                         help='h5 file containing train/val/test data')
     parser.add_argument("--eval", action='store_true',
                         help='if set, evaluates average predictions and saves to file (ensemble_performance_avg.csv)')
-    parser.add_argument("--plot", action='store_true',
-                        help='if set, generate scatterplots comparing predictions with ground truth (only used in eval mode)')
     parser.add_argument("--distill", action='store_true',
                         help='if set, writes average predictions on train set (X_train) to file (ensemble_avg_y_train.npy)')
-    parser.add_argument("--std", action='store_true',
-                        help='if set, also evaluate performance on std predictions')
+    # parser.add_argument("--std", action='store_true',
+    #                     help='if set, also evaluate performance on std predictions')
     parser.add_argument("--downsample", type=float,
                         help='if set, downsample training data (only used if in distill mode)')
-    # parser.add_argument("--set", default='test',
-    #                     help='one of train/test/val; determine which set of data to make predictions on')
     parser.add_argument("--evoaug", action='store_true',
                         help='set if working with models trained w/ EvoAug')
     parser.add_argument("--config", default=None,
@@ -47,7 +41,7 @@ def parse_args():
 def main(args):
 
     # load data from h5
-    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data, std=args.std)
+    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data)
     if args.distill and args.downsample:
         # downsample training data
         rng = np.random.default_rng(1234)
@@ -74,27 +68,17 @@ def main(args):
         if args.evoaug:
             import evoaug_tf
             from evoaug_tf import evoaug, augment
-            # augment_list = [
-            #     augment.RandomInsertionBatch(insert_min=0, insert_max=20),
-            #     augment.RandomDeletion(delete_min=0, delete_max=30),
-            #     augment.RandomTranslocationBatch(shift_min=0, shift_max=20)
-            # ]   
             augment_list = [
                 augment.RandomDeletion(delete_min=0, delete_max=20),
                 augment.RandomTranslocationBatch(shift_min=0, shift_max=20),
                 augment.RandomNoise(noise_mean=0, noise_std=0.2),
                 augment.RandomMutation(mutate_frac=0.05)
             ]
-            # model = utils.load_model_from_weights(weights=join(args.model_dir, str(i+1) + "_DeepSTARR_finetune.h5"), 
-            #                                       input_shape=X_train[0].shape, 
-            #                                       augment_list=augment_list, 
-            #                                       config_file=args.config, 
-            #                                       predict_std=args.std)
             model = utils.load_model_from_weights(weights=join(args.model_dir, str(i+1) + "_DeepSTARR_finetune.h5"), 
                                                   input_shape=X_train[0].shape, 
                                                   augment_list=augment_list, 
                                                   config_file=args.config, 
-                                                  epistemic=args.std)
+                                                  epistemic=False)
         else:
             model = load_model(join(args.model_dir, str(i+1) + "_DeepSTARR.h5"))
         train_preds, test_preds = 0, 0
@@ -104,11 +88,6 @@ def main(args):
             train_cumsum += train_preds
         if args.eval:
             test_preds = model.predict(X_test)
-            if args.plot:
-                # plot pred vs. true
-                plotting.prediction_scatterplot(test_preds, y_test,
-                                                colnames=['Hk','Dev','Hk-std','Dev-std'][:(test_preds.shape[-1])],
-                                                outfh=join(outdir, f'{i+1}_pred_scatterplot.png'))
             test_cumsum += test_preds
     
     # calculate average across ensemble predictions
@@ -117,13 +96,8 @@ def main(args):
 
     if args.eval:
         # evaluate performance + write to file
-        performance = utils.summarise_DeepSTARR_performance(avg_test_pred, y_test, args.std)
+        performance = utils.summarise_DeepSTARR_performance(avg_test_pred, y_test)
         performance.to_csv(join(outdir, "ensemble_performance_avg.csv"), index=False)
-        if args.plot:
-            # plot average predictions against true values 
-            plotting.prediction_scatterplot(avg_test_pred, y_test, 
-                                            colnames=['Hk','Dev', 'Hk-std', 'Dev-std'][:(avg_test_pred.shape[-1])], 
-                                            outfh=join(outdir, "avg_pred_scatterplot.png"))
 
     if args.distill:
         # save average predictions on X_train to file and use for training distilled model

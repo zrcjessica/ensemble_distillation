@@ -14,9 +14,9 @@ import yaml
 import numpy as np
 
 '''
-train distilled DeepSTARR models w/ mean+ prediction 
+train distilled DeepSTARR model w/ ensemble mean+std 
 --downsample flag allows models to be trained with a subset of training data
---evoaug flag determines whether model will be trained w/ evoaug augmentations
+--evoaug flag indicates model will be trained w/ evoaug augmentations
 --logvar flag trains w/ logvar targets but evaluates performance w/ std
 '''
 
@@ -44,12 +44,8 @@ def parse_args():
                         help='project name for wandb')
     parser.add_argument("--config", type=str,
                         help='path to wandb config (yaml)')
-    # parser.add_argument("--distill", type=str, default=None,
-    #                     help='if provided, trains a model using distilled training data')
     parser.add_argument("--k", type=int, default=1,
                         help='factor for adjusting number of parameters in hidden layers')
-    # parser.add_argument("--predict_std", action='store_true',
-    #                     help='if set, predict ensemble stdev in addition to mean; distill flag must be set as well')
     parser.add_argument("--evoaug", action='store_true',
                         help='if set, train models with evoaug')
     parser.add_argument("--logvar", action='store_true',
@@ -60,6 +56,19 @@ def parse_args():
     return args
 
 def eval_performance(model, X_test, y_test, outfh, logvar=False):
+    """Evaluates model performance on test sequences and saves to .csv
+
+    Parameters
+    ----------
+    model : keras.engine.functional.Functional
+        Model to evaluate performance on 
+    X_test : np.array
+        Test sequences 
+    y_test : np.array
+        Labels for test sequences 
+    outfh : str
+        Output filehandle 
+    """
     y_pred = model.predict(X_test)
     if logvar:
         # convert logvar back to std for evaluation
@@ -79,17 +88,13 @@ def main(args):
     wandb.config.update({'distill':True, 'std':True}, allow_val_change=True) # update config
 
     # load data from h5 (ensemble avg and std returned for y_train)
-    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data,  
-                                                                               std=True)
+    X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data, std=True)
     
     assert((X_train.shape[-1]==4) & (X_test.shape[-1]==4) & (X_val.shape[-1]==4))
 
     # downsample training data
     if args.downsample != wandb.config['downsample']:
         wandb.config.update({'downsample':args.downsample}, allow_val_change=True)
-    #     if args.downsample<1:
-    #         rng = np.random.default_rng(1234)
-    #         X_train, y_train = utils.downsample(X_train, y_train, rng=rng, p=args.downsample, return_ix=False)
     
     # use logvar instead of std as training targets 
     if args.logvar:
@@ -114,11 +119,6 @@ def main(args):
         # for training w/ evoaug
         import evoaug_tf
         from evoaug_tf import evoaug, augment
-        # augment_list = [
-        #     augment.RandomInsertionBatch(insert_min=0, insert_max=20),
-        #     augment.RandomDeletion(delete_min=0, delete_max=30),
-        #     augment.RandomTranslocationBatch(shift_min=0, shift_max=20)
-        # ] 
         augment_list = [
                 augment.RandomDeletion(delete_min=0, delete_max=20),
                 augment.RandomTranslocationBatch(shift_min=0, shift_max=20),
@@ -127,11 +127,14 @@ def main(args):
         ]  
         wandb.config.update({'evoaug':True}, allow_val_change=True)
         wandb.config['finetune'] = False
-        # model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, augment_list=augment_list, max_augs_per_seq=1, hard_aug=True, config=wandb.config, predict_std=True)
-        model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, augment_list=augment_list, max_augs_per_seq=1, hard_aug=True, config=wandb.config, epistemic=True)
+        model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, 
+                                   augment_list=augment_list, 
+                                   max_augs_per_seq=1, 
+                                   hard_aug=True, 
+                                   config=wandb.config, 
+                                   epistemic=True)
     else:
         # training w/o evoaug
-        # model = DeepSTARR(X_train[0].shape, config=wandb.config, predict_std=True)
         model = DeepSTARR(X_train[0].shape, config=wandb.config, epistemic=True)
 
     # update lr in config if different value provided to input
@@ -197,8 +200,12 @@ def main(args):
         wandb.config['finetune_epochs'] = finetune_epochs
         wandb.config['finetune_lr'] = 0.0001
         finetune_optimizer = Adam(learning_rate=0.0001)
-        # model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, augment_list=augment_list, max_augs_per_seq=2, hard_aug=True, config=wandb.config, predict_std=True)
-        model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, augment_list=augment_list, max_augs_per_seq=2, hard_aug=True, config=wandb.config, epistemic=True)
+        model = evoaug.RobustModel(DeepSTARR, input_shape=X_train[0].shape, 
+                                   augment_list=augment_list, 
+                                   max_augs_per_seq=2, 
+                                   hard_aug=True, 
+                                   config=wandb.config, 
+                                   epistemic=True)
         model.compile(optimizer=finetune_optimizer, loss=wandb.config['loss_fxn'])
         model.load_weights(save_path)
         model.finetune_mode()

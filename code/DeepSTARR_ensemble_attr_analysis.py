@@ -12,7 +12,7 @@ import pandas as pd
 from os.path import join
 
 '''
-run attribution analysis (saliency/shap) top n examples from test set (y_test) for an ensemble of DeepSTARR models
+run attribution analysis (saliency/DeepSHAP) top examples from test set (y_test) for DeepSTARR models 
 '''
 
 def parse_args():
@@ -20,7 +20,7 @@ def parse_args():
     parser.add_argument("--model_dir", type=str,
                         help='path directory storing trained ensemble of models')
     parser.add_argument("--n_mods", type=int, 
-                        help="number of models in ensemble")
+                        help="number of models to evaluate")
     parser.add_argument("--data", type=str,
                         help='h5 file containing train/val/test data')
     parser.add_argument("--out", type=str,
@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument("--config", default=None,
                         help='provide if --evoaug flag set; needed to load model from weights')
     parser.add_argument("--std", action='store_true',
-                        help='if true, model predicts standard deviation')
+                        help='if true, model predicts standard deviation (i.e. is a distilled model)')
 
     args = parser.parse_args()
     return args
@@ -94,11 +94,6 @@ def main(args):
                 augment.RandomDeletion(delete_min=0, delete_max=30),
                 augment.RandomTranslocationBatch(shift_min=0, shift_max=20)
             ]   
-            # model = utils.load_model_from_weights(weights=join(args.model_dir, str(i+1) + "_DeepSTARR_finetune.h5"), 
-            #                                       input_shape=X_train[0].shape, 
-            #                                       augment_list=augment_list, 
-            #                                       config_file=args.config, 
-            #                                       predict_std=args.std)
             model = utils.load_model_from_weights(weights=join(args.model_dir, str(i+1) + "_DeepSTARR_finetune.h5"), 
                                                   input_shape=X_train[0].shape, 
                                                   augment_list=augment_list, 

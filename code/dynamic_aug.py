@@ -210,6 +210,11 @@ class DynamicAugModel(keras.Model):
         batch_labels = self._ensemble_predict(batch_seqs)
         batch_labels = tf.cast(tf.convert_to_tensor(batch_labels), tf.float32)
         
+        print(batch_seqs.shape)
+        print(batch_labels.shape)
+        print(batch_seqs)
+        print(batch_labels)
+
         assert(batch_seqs.shape[0]==batch_labels.shape[0])
         print('batch labels shape')
         print(batch_labels.shape)
@@ -273,6 +278,10 @@ class DynamicAugModel(keras.Model):
         all_preds = tf.stack(all_preds)
         # if self.kwargs['predict_std']:
         #     return tf.concat([tf.math.reduce_mean(all_preds, axis=0), tf.math.reduce_std(all_preds, axis=0)], axis=1)
+        if self.kwargs['epistemic'] and self.kwargs['aleatoric']:
+            print('getting ensemble labels for mean, aleatoric, and epistemic (ResidualBind model)')
+            # specific to ResidualBind model
+            return tf.concat([tf.math.reduce_mean(all_preds, axis=0), tf.expand_dims(tf.math.reduce_std(all_preds[:,:,0], axis=0), axis=-1)], axis=1)
         if self.kwargs['epistemic']:
             return tf.concat([tf.math.reduce_mean(all_preds, axis=0), tf.math.reduce_std(all_preds, axis=0)], axis=1)
             # new_labels = tf.concat([tf.math.reduce_mean(all_preds, axis=0), tf.math.reduce_std(all_preds, axis=0)], axis=1)[:,:(all_preds.shape[-1]+1)]

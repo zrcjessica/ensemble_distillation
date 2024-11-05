@@ -1,10 +1,10 @@
 # calculates stdev of DeepSTARR ensemble predictions on train/test/val
 
 # MODELS_DIR=../results/DeepSTARR_lr-decay
-MODELS_DIR=../results/DeepSTARR_ensemble_NEW
-N_MODS=10
-DATA=../data/DeepSTARR/Sequences_activity_all.h5
-OUTDIR=../data/DeepSTARR_ensemble_NEW
+MODELS_DIR=../results/DeepSTARR_ensemble_NEW # path to ensemble of teacher models 
+N_MODS=10 # nr. of models in ensemble 
+DATA=../data/DeepSTARR/Sequences_activity_all.h5 # path to STARR-seq data
+OUTDIR=../data/DeepSTARR_ensemble_NEW # where to save output files
 
 # boolean vars (toggle true/false)
 EVOAUG=true

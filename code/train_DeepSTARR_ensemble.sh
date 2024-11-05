@@ -1,26 +1,26 @@
-# train an ensemble of original DeepSTARR models 
+# train an ensemble of DeepSTARR models with standard training 
 
-# ENSEMBLE_SIZE=10
-ENSEMBLE_SIZE=25   
+ENSEMBLE_SIZE=10 # define number of models to trian 
+# ENSEMBLE_SIZE=25   
 # OUTDIR=../results/DeepSTARR_lr-decay
-# OUTDIR=../results/DeepSTARR_ensemble_NEW
-OUTDIR=../results/DeepSTARR_ensemble_size
-DATA=../data/DeepSTARR/Sequences_activity_all.h5
-CONFIG=../config/DeepSTARR.yaml
-PROJECT_NAME=DeepSTARR_ensemble_size
-# PROJECT_NAME=DeepSTARR_ensemble_NEW
+OUTDIR=../results/DeepSTARR_ensemble_NEW # define output directory
+# OUTDIR=../results/DeepSTARR_ensemble_size
+DATA=../data/DeepSTARR/Sequences_activity_all.h5 # path to data 
+CONFIG=../config/DeepSTARR.yaml # path to model config 
+# PROJECT_NAME=DeepSTARR_ensemble_size
+PROJECT_NAME=DeepSTARR_ensemble_NEW # name of project for logging with WandB
 
 # train w/ evoaug
 evoaug=false
 if [ "$evoaug" = true ]; then
     OUTDIR=../results/DeepSTARR_evoaug_NEW
-    # PROJECT_NAME=DeepSTARR_ensemble_with_evoaug
 fi
 
 # train downsampled models 
 downsample=false 
 
-mkdir -p $OUTDIR
+# create output dir if it doesn't already exist 
+mkdir -p $OUTDIR 
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 
@@ -42,8 +42,8 @@ if [ "$downsample" = true ]; then
         done | simple_gpu_scheduler --gpus 6
     done 
 else 
-    # for i in $(seq 1 $ENSEMBLE_SIZE)
-    for i in $(seq 11 $ENSEMBLE_SIZE)
+    for i in $(seq 1 $ENSEMBLE_SIZE)
+    # for i in $(seq 11 $ENSEMBLE_SIZE)
     do 
         if [ "$evoaug" = true ]; then
             echo "python train_DeepSTARR.py --ix $i --out $OUTDIR --data $DATA --plot --config $CONFIG --project $PROJECT_NAME --lr_decay --evoaug"

@@ -1,13 +1,13 @@
 # trains a single distilled DeepSTARR model that predicts uncertainty (logvar) and ensemble mean
 
 # OUTDIR=../results/DeepSTARR_lr-decay/distilled_with_logvar
-OUTDIR=../results/DeepSTARR_ensemble_NEW/distilled_with_logvar
+OUTDIR=../results/DeepSTARR_ensemble_NEW/distilled_with_logvar # define output dir 
 # DATA_DIR=../data/DeepSTARR
-DATA_DIR=../data/DeepSTARR_ensemble_NEW
-DATA=${DATA_DIR}/all_data_with_ensemble_metrics_hierarchical.h5
-CONFIG=../config/DeepSTARR.yaml
-PROJECT_NAME=DeepSTARR_distilled_with_logvar
-NMODS=10
+DATA_DIR=../data/DeepSTARR_ensemble_NEW # path to data 
+DATA=${DATA_DIR}/all_data_with_ensemble_metrics_hierarchical.h5 # training data 
+CONFIG=../config/DeepSTARR.yaml # model config 
+PROJECT_NAME=DeepSTARR_distilled_with_logvar # name for WandB project logging 
+NMODS=10 # nr. of models to train
 
 # train w/ evoaug
 evoaug=false
