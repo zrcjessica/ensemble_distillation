@@ -15,9 +15,9 @@ import numpy as np
 
 '''
 train distilled ResidualBind models w/ mean+aleatoric+epistemic predictions 
-assumes that h5 file provided contains ensemble avg/std data (that would otherwise be provided to --distill arugment of train_lentiMPRA.py)
+assumes that HDF5 file provided to --data contains ensemble avg/std 
 for training downsampled models, make sure that h5 file provided to --data corresponds to downsample proportion
---evoaug flag determines whether model will be trained w/ evoaug augmentations
+--evoaug flag determines whether model will be trained w/ EvoAug 
 '''
 
 def parse_args():
@@ -50,6 +50,36 @@ def parse_args():
     return args
 
 def eval_performance(model, X_test, y_test, outfh, celltype, logvar=False):
+    """
+    Evaluate the performance of distilled model a test sequences and saves results to a CSV file.
+
+    Parameters:
+    -----------
+    model : keras.Model
+        Distilled ResidualBind model
+    X_test : np.ndarray
+        One-hot encoded test sequences from lentiMPRA 
+    y_test : np.ndarray
+        Target labels corresponding to test sequences; should reflect ensemble average/std
+    outfh : str
+        Output file path to save evaluation results in CSV format.
+    celltype : str
+        The cell type associated with the dataset ('K562' or 'HepG2'), used for labeling.
+    logvar : bool, optional
+        If True, the model predicts uncertainty as log-variance, which is converted back to standard deviation for evaluation.
+        Default is False.
+
+    Returns:
+    --------
+    None
+        Results are saved to a CSV file at the specified output path.
+
+    Notes:
+    ------
+    - Assumes that the model predictions have three output dimensions (e.g., point estimate, aleatoric, and epistemic uncertainties).
+    - Converts log-variance uncertainty estimates to standard deviation if `logvar` is True.
+    - Uses `utils.summarise_lentiMPRA_performance` to summarize and save the evaluation metrics, which considers both aleatoric and epistemic uncertainties.
+    """
     y_pred = model.predict(X_test)
     if logvar:
         # convert logvar back to std for evaluation

@@ -7,7 +7,6 @@ from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 import utils
 import h5py
 from model_zoo import DeepSTARR
-import plotting
 import pandas as pd
 import wandb
 from wandb.integration.keras import WandbMetricsLogger
@@ -43,7 +42,7 @@ def parse_args():
     parser.add_argument("--config", type=str,
                         help='path to wandb config (yaml)')
     parser.add_argument('--aug', type=str, default='evoaug',
-                        help='define what type of augmentations to apply')
+                        help='define what type of augmentations to apply (mutagenesis, evoaug, random)')
     parser.add_argument('--append', action='store_true',
                         help='if set, append augmentations to original data')
     parser.add_argument('--ensemble_dir', type=str,
@@ -56,6 +55,7 @@ def parse_args():
     return args
 
 def eval_performance(model, X_test, y_test, outfh, logvar=False):
+    """Evaluate model performance on test data and save results."""
     y_pred = model.predict(X_test)
     if logvar:
         # convert logvar back to std for evaluation
@@ -65,8 +65,7 @@ def eval_performance(model, X_test, y_test, outfh, logvar=False):
     results.to_csv(outfh, index=False)
 
 def main(args):
-
-    # set up wandb for logging
+    # Set up wandb for experiment tracking
     wandb.login()
     run = wandb.init(project=args.project, config=args.config, reinit=True)
     wandb.config['model_ix'] = args.ix
@@ -75,12 +74,9 @@ def main(args):
     wandb.config['finetune'] = False
     wandb.config.update({'distill':True, 'std':True}, allow_val_change=True) # update config
 
-    # load data from h5 (ensemble avg and std returned for y_train)
+    # Load data from HDF5 file (ensemble avg and std returned for y_train)
     X_train, y_train, X_test, y_test, X_val, y_val = utils.load_DeepSTARR_data(args.data,  
                                                                                std=True)
-    
-    print('y_train.shape')
-    print(y_train.shape)
     assert((y_train.shape[-1]==4) & (y_test.shape[-1]==4) & (y_val.shape[-1]==4))
 
     # # downsample training data
@@ -98,17 +94,10 @@ def main(args):
     #     y_val[:,2] = np.log(np.square(y_val[:,2]))
     #     y_val[:,3] = np.log(np.square(y_val[:,3]))
 
-    # load ensemble of models
+    # Load ensemble of pre-trained models
     ensemble = [load_model(join(args.ensemble_dir, f'{i}_DeepSTARR.h5')) for i in range(1,args.ensemble_size+1)]
 
-    # create model
-    # model = dynamic_aug.DynamicAugModel(DeepSTARR,
-    #                                     input_shape=X_train[0].shape,
-    #                                     aug=args.aug,
-    #                                     append=args.append,
-    #                                     ensemble=ensemble,
-    #                                     config=wandb.config, 
-    #                                     predict_std=True)
+    # Initialize model with dynamic augmentations
     model = dynamic_aug.DynamicAugModel(DeepSTARR,
                                         input_shape=X_train[0].shape,
                                         aug=args.aug,
@@ -117,14 +106,14 @@ def main(args):
                                         config=wandb.config, 
                                         epistemic=True)
 
-    # update lr in config if different value provided to input
+    # Update learning rate in config if a new value is provided
     if args.lr != wandb.config['optim_lr']:
         wandb.config.update({'optim_lr':args.lr}, allow_val_change=True)
 
-    # compile model
+    # Compile model with Adam optimizer and specified loss function
     model.compile(optimizer=Adam(learning_rate=args.lr), loss=wandb.config['loss_fxn'])
 
-    # define callbacks
+    # Define callbacks for training
     callbacks_list = [WandbMetricsLogger()]
     if wandb.config['early_stopping']:
         es_callback = EarlyStopping(patience=wandb.config['es_patience'], 
@@ -146,7 +135,7 @@ def main(args):
                              'lr_decay_patience': 3, 
                              'lr_decay_factor': 0.2}, allow_val_change=True)
 
-    # train model with augmentations 
+    # Train model with augmentations
     history = model.fit(X_train, y_train, 
                         batch_size=wandb.config['batch_size'], 
                         epochs=wandb.config['epochs'],
@@ -155,35 +144,22 @@ def main(args):
     
     run.finish()
 
-
-    # save model weights
+    # Save model weights, history, and performance evaluation
     if args.append:
         save_path = join(args.out, f"{args.ix}_DeepSTARR_{args.aug}_append_aug.h5")
         model.save_weights(save_path)
-        # save history
         with open(join(args.out, f"{args.ix}_{args.aug}_append_historyDict_aug"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
-        # evaluate best model (and save)
         eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_{args.aug}_append_performance_aug.csv'))
-
-        # plot loss curves and spearman correlation over training epochs and save 
-        if args.plot:
-            plotting.plot_loss(history, join(args.out, f"{args.ix}_{args.aug}_append_loss_curves_aug.png"))
     else:
-        # save model weights
+        # Non-append version of saving
         save_path = join(args.out, f"{args.ix}_DeepSTARR_{args.aug}_aug.h5")
         model.save_weights(save_path)
-        # save history
         with open(join(args.out, f"{args.ix}_{args.aug}_historyDict_aug"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
-        # evaluate best model (and save)
         eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_{args.aug}_performance_aug.csv'))
-
-        # plot loss curves and spearman correlation over training epochs and save 
-        if args.plot:
-            plotting.plot_loss(history, join(args.out, f"{args.ix}_{args.aug}_loss_curves_aug.png"))
     
-    # train finetune (no augs) 
+    # Fine-tune the model without augmentations
     run = wandb.init(project=args.project, config=args.config, reinit=True)
     wandb.config['model_ix'] = args.ix
     wandb.config['aug'] = args.aug
@@ -198,12 +174,6 @@ def main(args):
     wandb.config['finetune_epochs'] = finetune_epochs
     wandb.config['finetune_lr'] = 0.001
     finetune_optimizer = keras.optimizers.Adam(learning_rate=wandb.config['finetune_lr'])
-    # model = dynamic_aug.DynamicAugModel(DeepSTARR,
-    #                                     input_shape=X_train[0].shape,
-    #                                     aug=None,
-    #                                     append=False,
-    #                                     config=wandb.config, 
-    #                                     predict_std=True)
     model = dynamic_aug.DynamicAugModel(DeepSTARR,
                                         input_shape=X_train[0].shape,
                                         aug=None,
@@ -212,8 +182,8 @@ def main(args):
                                         epistemic=True)
     model.compile(optimizer=finetune_optimizer, loss=wandb.config['loss_fxn'])
     model.load_weights(save_path)
-    # model.finetune_mode()
 
+    # Fine-tune training
     history = model.fit(X_train, y_train, 
                         batch_size=wandb.config['batch_size'], 
                         epochs=wandb.config['finetune_epochs'],
@@ -221,34 +191,21 @@ def main(args):
                         callbacks=callbacks_list) 
     
 
-    # save model weights
+     # Save fine-tuned model and performance evaluation
     if args.append:
         save_path = join(args.out, f"{args.ix}_DeepSTARR_{args.aug}_append_finetune.h5")
         model.save_weights(save_path)
-        # save history
         with open(join(args.out, f"{args.ix}_{args.aug}_append_historyDict_finetune"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
-        # evaluate best model (and save)
         eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_{args.aug}_append_performance_finetune.csv'))
-
-        # plot loss curves and spearman correlation over training epochs and save 
-        if args.plot:
-            plotting.plot_loss(history, join(args.out, f"{args.ix}_{args.aug}_append_loss_curves_finetune.png"))
     else:
-        # save model weights
         save_path = join(args.out, f"{args.ix}_DeepSTARR_{args.aug}_finetune.h5")
         model.save_weights(save_path)
-        # save history
         with open(join(args.out, f"{args.ix}_{args.aug}_historyDict_finetune"), 'wb') as pickle_fh:
             pickle.dump(history.history, pickle_fh)
-        # evaluate best model (and save)
         eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_{args.aug}_performance_finetune.csv'))
 
-        # plot loss curves and spearman correlation over training epochs and save 
-        if args.plot:
-            plotting.plot_loss(history, join(args.out, f"{args.ix}_{args.aug}_loss_curves_finetune.png"))
-
-    # save updated config as yaml
+    # save updated model config as yaml
     with open(join(args.out, "config.yaml"), 'w') as f:
         yaml.dump(dict(wandb.config), f, allow_unicode=True, default_flow_style=False)
 

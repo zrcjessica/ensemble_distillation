@@ -19,31 +19,36 @@ import evoaug_tf
 from evoaug_tf import evoaug, augment
 import yaml
 
-def parse_data_dict(X_train, y_train, X_test, y_test, X_val, y_val):
-    '''
-    return train/test/val data as dictionary of dictionaries
-    '''
-    data_dict = {}
-    data_dict['train'] = {'X':X_train, 'y':y_train}
-    data_dict['test'] = {'X':X_test, 'y':y_test}
-    data_dict['val'] = {'X':X_val, 'y':y_val}
-    return data_dict
 
-def load_data(file, dset, std=False, dict=False):
-    '''
-    load Train/Test/Val splits for specified dset (DeepSTARR/lentiMPRA)    
-    if std=True, append std values to y for train/test/val
-    if dict=True, return train/test/val data as a dictionary
-    '''
-    assert(dset in ['DeepSTARR','lentiMPRA'])
-    if dset=='DeepSTARR':
-        return(load_DeepSTARR_data(file, std, dict))
-    else:
-        return(load_lentiMPRA_data(file))
+# def load_data(file, dset, std=False, dict=False):
+#     '''
+#     load Train/Test/Val splits for specified dset (DeepSTARR/lentiMPRA)    
+#     if std=True, append std values to y for train/test/val
+#     if dict=True, return train/test/val data as a dictionary
+#     '''
+#     assert(dset in ['DeepSTARR','lentiMPRA'])
+#     if dset=='DeepSTARR':
+#         return(load_DeepSTARR_data(file, std, dict))
+#     else:
+#         return(load_lentiMPRA_data(file))
 
 def load_lentiMPRA_data(file, epistemic=False):
     '''
-    load Train/Test/Val lentiMPRA data
+    Load lentiMPRA train, test, and validation datasets from an HDF5 file.
+
+    Parameters:
+    ----------
+    file : str
+        Path to the HDF5 file containing lentiMPRA data.
+    epistemic : bool, optional
+        If True, removes the last column of the target data, assuming it contains standard deviations 
+        for aleatoric uncertainty in epistemic models (which is not used). Default is False.
+
+    Returns:
+    -------
+    tuple
+        X_train, y_train, X_test, y_test, X_val, y_val: NumPy arrays for input and target data across 
+        training, test, and validation datasets.
     '''
     data = h5py.File(file, 'r')
 
@@ -69,20 +74,28 @@ def load_lentiMPRA_data(file, epistemic=False):
     
     return X_train, y_train, X_test, y_test, X_val, y_val
 
-def load_DeepSTARR_data(file, std=False, dict=False):
+def load_DeepSTARR_data(file, std=False):
     '''
-    load Train/Test/Val data from DeepSTARR h5
-    if std=True, append std values to y for train/test/val
-    if dict=True, return train/test/val data as a dictionary
+    Load train, test, and validation datasets from a DeepSTARR HDF5 file, 
+    with options to include standard deviation (epistemic uncertainty) values.
+
+    Parameters:
+    ----------
+    file : str
+        Path to the HDF5 file containing DeepSTARR data.
+    std : bool, optional
+        If True, appends standard deviation values to target (y) data for train, test, and validation sets. 
+        Default is False.
+
+    Returns:
+    -------
+    tuple or dict
+        X_train, y_train, X_test, y_test, X_val, y_val
     '''
     if 'hierarchical' in file:
         print('loading data from h5 file with hierarchical structure')
-        # X_train, y_train, X_test, y_test, X_val, y_val = load_DeepSTARR_data_hierarchical(file, ensemble, std)
         X_train, y_train, X_test, y_test, X_val, y_val = load_DeepSTARR_data_hierarchical(file, std)
-        if dict:
-            return parse_data_dict(X_train, y_train, X_test, y_test, X_val, y_val)
-        else:
-            return X_train, y_train, X_test, y_test, X_val, y_val
+        return X_train, y_train, X_test, y_test, X_val, y_val
     else:
         data = h5py.File(file, 'r')
         
@@ -106,14 +119,25 @@ def load_DeepSTARR_data(file, std=False, dict=False):
             y_val = np.append(y_val, np.array(data['std_Val']), axis=1)
 
         data.close()
-        if dict:
-            return parse_data_dict(X_train, y_train, X_test, y_test, X_val, y_val)
-        else:
-            return X_train, y_train, X_test, y_test, X_val, y_val
+        return X_train, y_train, X_test, y_test, X_val, y_val
     
 def load_DeepSTARR_data_hierarchical(file, std=False):
     '''
-    load Train/Test/Val data from DeepSTARR h5 with hierarchical structure
+    Load train, test, and validation datasets from a hierarchically structured DeepSTARR HDF5 file.
+
+    Parameters:
+    ----------
+    file : str
+        Path to the HDF5 file containing DeepSTARR data in a hierarchical structure.
+    std : bool, optional
+        If True, appends standard deviation values to target (y) data for train, test, and validation sets. 
+        Default is False.
+
+    Returns:
+    -------
+    tuple
+        X_train, y_train, X_test, y_test, X_val, y_val: NumPy arrays for input and target data across 
+        training, test, and validation datasets.
     '''
     data = h5py.File(file, 'r') 
     
@@ -131,7 +155,7 @@ def load_DeepSTARR_data_hierarchical(file, std=False):
 
     # add standard deviation data 
     if std:
-        y_train = np.array(data['Train']['ensemble_mean']) # ensemble avg. of train seqs should be in h5
+        y_train = np.array(data['Train']['ensemble_mean']) # ensemble avg. of train seqs should already be in h5
         y_train = np.append(y_train, np.array(data['Train']['std']), axis=1)
         y_test = np.append(y_test, np.array(data['Test']['std']), axis=1)
         y_val = np.append(y_val, np.array(data['Val']['std']), axis=1)
@@ -141,8 +165,27 @@ def load_DeepSTARR_data_hierarchical(file, std=False):
 
 def downsample(X_train, y_train, rng, p, return_ix=False):
     '''
-    randomly downsample training data 
-    p = [0,1) determines proportion of training data to keep
+    Randomly downsample the training data by a specified proportion.
+
+    Parameters:
+    ----------
+    X_train : np.array
+        Input training data.
+    y_train : np.array
+        Target training data.
+    rng : np.random.Generator
+        Random number generator for reproducible downsampling.
+    p : float
+        Proportion of training data to keep, where 0 <= p < 1.
+    return_ix : bool, optional
+        If True, returns only the indices of selected samples instead of downsampled data.
+        Default is False.
+
+    Returns:
+    -------
+    tuple or np.array
+        If return_ix is True, returns a 1D array of indices for downsampled data.
+        Otherwise, returns the downsampled X_train and y_train arrays.
     '''
     n_samples = X_train.shape[0]
     n_downsample = round(n_samples*p)
@@ -155,19 +198,22 @@ def downsample(X_train, y_train, rng, p, return_ix=False):
         else:
             return X_train[ix,:], y_train[ix,:]
 
-# def downsample_eval(X_train, y_train, p):
-#     '''
-#     randomly downsample training data 
-#     p = [0,1) determines proportion of training data to keep
-#     '''
-#     n_samples = X_train.shape[0]
-#     n_downsample = round(n_samples*p)
-#     ix = np.random.randint(0, n_samples, size=n_downsample)
-#     return ix
-
 def evaluate_performance(y_pred, y_truth):
     '''
-    calculate MSE, Spearman + Pearson corr between predicted/ground truth values
+    Calculate the Mean Squared Error (MSE), Pearson correlation, and Spearman correlation 
+    between predicted and ground truth values.
+
+    Parameters:
+    ----------
+    y_pred : np.array
+        Predicted values.
+    y_truth : np.array
+        Ground truth values.
+
+    Returns:
+    -------
+    list
+        A list containing the MSE, Pearson correlation coefficient, and Spearman correlation coefficient.
     '''
     mse = mean_squared_error(y_truth, y_pred)
     pearson = pearsonr(y_truth, y_pred)[0]
@@ -176,8 +222,27 @@ def evaluate_performance(y_pred, y_truth):
 
 def summarise_lentiMPRA_performance(y_pred, y_truth, celltype, aleatoric=False, epistemic=False):
     '''
-    calculate MSE, Spearman + Pearson corr on test data
-    return summary as data frame
+    Calculate MSE, Pearson, and Spearman correlations on test data for a specified cell type for lentiMPRA data, 
+    and return a summary as a DataFrame. Can include aleatoric and/or epistemic uncertainty metrics if specified.
+
+    Parameters:
+    ----------
+    y_pred : np.array
+        Predicted values with columns for base predictions and optional uncertainty predictions.
+    y_truth : np.array
+        Ground truth values with columns corresponding to y_pred.
+    celltype : str
+        Cell type name (K562 or HepG2), used as a key in the output DataFrame.
+    aleatoric : bool, optional
+        If True, include aleatoric uncertainty performance metrics.
+    epistemic : bool, optional
+        If True, include epistemic uncertainty performance metrics.
+
+    Returns:
+    -------
+    pd.DataFrame
+        DataFrame summarizing MSE, Pearson, and Spearman correlation metrics for base predictions
+        and any specified uncertainties.
     '''
     performance_dict = {}
     # calculate metrics for celltype
@@ -196,9 +261,23 @@ def summarise_lentiMPRA_performance(y_pred, y_truth, celltype, aleatoric=False, 
 
 def summarise_DeepSTARR_performance(y_pred, y_truth, std=False):
     '''
-    calculate MSE, Spearman + Pearson corr on test data
-    return summary for Dev + Hk as data frame
-    set std=True if output includes epistemic uncertainty
+    Calculate MSE, Pearson, and Spearman correlations on test data for "Dev" and "Hk" targets, 
+    and return a summary as a DataFrame. Can include uncertainty metrics if specified.
+
+    Parameters:
+    ----------
+    y_pred : np.array
+        Predicted values with columns for "Dev" and "Hk" predictions, and optional uncertainty predictions.
+    y_truth : np.array
+        Ground truth values with columns corresponding to y_pred.
+    std : bool, optional
+        If True, include uncertainty performance metrics for "Dev" and "Hk".
+
+    Returns:
+    -------
+    pd.DataFrame
+        DataFrame summarizing MSE, Pearson, and Spearman correlation metrics for "Dev", "Hk", 
+        and any specified uncertainties.
     '''
     performance_dict = {}
     # calculate metrics for Dev
@@ -214,20 +293,39 @@ def summarise_DeepSTARR_performance(y_pred, y_truth, std=False):
     return summary
 
 def get_attribution_files(dir, method, enhancer='Dev', top_n=500, avg_file=None):
-    '''
-    returns a list of all files containing attribution analysis results for an ensemble
-    if average is None (no average attribution map provided), assumes it is in the same directory
-    must supply method (shap/saliency) 
-    gets attr. scores for top 500 (Dev enhancers) DeepSTARR test seqs 
-    '''
+    """
+    Retrieves a list of files containing attribution analysis results for a model ensemble.
+
+    This function searches for attribution files in the specified directory (`dir`) for 
+    a given method (e.g., SHAP or saliency) and enhancer type. It returns a list of 
+    attribution files for the top_n sequences (default=500) as well as the path 
+    to an average attribution file. If an average file is not provided, the function 
+    assumes it follows a specific naming pattern and searches for it in `dir`.
+
+    Parameters:
+    - dir (str): The directory path containing attribution files.
+    - method (str): The attribution method used (e.g., 'shap' or 'saliency').
+    - enhancer (str): The enhancer type (default is 'Dev').
+    - top_n (int): The number of top sequences to consider (default is 500).
+    - avg_file (str, optional): The file path for the average attribution file. 
+                                If None, the function will search for a file with 
+                                the naming pattern `avg_top{top_n}_{enhancer}-mean_{method}.npy`.
+
+    Returns:
+    - tuple:
+        - attr_files (list of str): List of file paths for individual attribution analysis results.
+        - avg_file (str): File path of the average attribution file (relative to which RMSE will be calculated).
+    """
     if avg_file is None:
-        # avg_file = join(dir, f"average*{method}.npy")
         avg_file = join(dir, f"avg_top{top_n}_{enhancer}-mean_{method}.npy")
     attr_files = glob.glob(join(dir, f"*_top{top_n}_{enhancer}-mean_{method}.npy"))
-    # check if avg file is here
+    
+    # Exclude the average file if present in the attribute files list
     if avg_file in attr_files:
         attr_files = list(set(attr_files) - set([avg_file]))
-    return attr_files, avg_file 
+        
+    return attr_files, avg_file
+
 
 def get_lentiMPRA_attribution_files(dir, method, celltype, top_n=1000, avg_file=None):
     '''
@@ -245,31 +343,15 @@ def get_lentiMPRA_attribution_files(dir, method, celltype, top_n=1000, avg_file=
         attr_files = list(set(attr_files) - set([avg_file]))
     return attr_files, avg_file 
 
-# def get_binned_attribution_files(dir, quantile, method, nseqs=100, avg_file=None):
+# def parse_attribution_df(grad_file, i):
 #     '''
-#     returns a list of all files containing attribution analysis results for an ensemble
-#     if average is None (no average attribution map provided), assumes it is in the same directory
-#     must supply method (shap/saliency)
+#     given a gradient tensor, returns a dataframe for plotting with logomaker
+#     takes .npy file as input
 #     '''
-#     if avg_file is None:
-#         # avg_file = glob.glob(join(dir, f"average_q{quantile:.1f}_{nseqs}seqs_{method}.npy"))[0]
-#         avg_file = join(dir, f"average_q{quantile:.1f}_{nseqs}seqs_{method}.npy")
-#     attr_files = glob.glob(join(dir, f"*q{quantile}_{nseqs}seqs_{method}.npy"))
-#     # check if avg file is here
-#     if avg_file in attr_files:
-#         attr_files = list(set(attr_files) - set([avg_file]))
-#     return attr_files, avg_file 
-
-
-def parse_attribution_df(grad_file, i):
-    '''
-    given a gradient tensor, returns a dataframe for plotting with logomaker
-    takes .npy file as input
-    '''
-    grad = np.load(grad_file)
-    attr_df = pd.DataFrame(grad[i])
-    attr_df.rename(columns={0:'A', 1:'C', 2:'G', 3:'T'}, inplace=True)
-    return attr_df
+#     grad = np.load(grad_file)
+#     attr_df = pd.DataFrame(grad[i])
+#     attr_df.rename(columns={0:'A', 1:'C', 2:'G', 3:'T'}, inplace=True)
+#     return attr_df
 
 # taken from https://github.com/kundajelab/deeplift/blob/master/deeplift/dinuc_shuffle.py
 def dinuc_shuffle(seq, num_shufs=None, rng=None):
@@ -621,27 +703,76 @@ def load_lentiMPRA_from_weights(weights, input_shape, config_file, aleatoric=Fal
     return model
 
 def Gaussian_NLL_logvar(y, mu, logvar, reduce=True):
-    ax = list(range(1, len(y.shape)))
+    """
+    Computes the Gaussian Negative Log-Likelihood (NLL) given mean and log variance.
 
-    log_liklihood = 0.5 * (
-        -tf.exp(-logvar)*(mu-y)**2 - tf.math.log(2*tf.constant(np.pi, dtype=logvar.dtype)) - logvar
+    This function calculates the Gaussian NLL for a set of predictions, assuming 
+    heteroscedastic uncertainty (variance that varies per data point) represented 
+    by the log variance. This is often used in probabilistic regression.
+
+    Parameters:
+    - y (Tensor): The ground truth values.
+    - mu (Tensor): The predicted mean values.
+    - logvar (Tensor): The predicted log variance values.
+    - reduce (bool): If True, computes the mean of the loss across all samples. 
+                     If False, returns the loss per sample.
+
+    Returns:
+    - Tensor: The computed Gaussian NLL, either reduced to a mean value or 
+              as a tensor of per-sample losses.
+    """
+    ax = list(range(1, len(y.shape)))
+    
+    log_likelihood = 0.5 * (
+        -tf.exp(-logvar) * (mu - y)**2 
+        - tf.math.log(2 * tf.constant(np.pi, dtype=logvar.dtype)) 
+        - logvar
     )
-    loss = tf.reduce_mean(-log_liklihood, axis=ax)
+    loss = tf.reduce_mean(-log_likelihood, axis=ax)
     return tf.reduce_mean(loss) if reduce else loss
 
+
 def EvidentialRegression(y_true, evidential_output):
+    """
+    Computes the loss for Evidential Regression based on Gaussian NLL.
+
+    This function splits the evidential output into mean and log variance,
+    then calculates the NLL using these parameters to measure the error between
+    predictions and ground truth values with uncertainty estimates.
+
+    Parameters:
+    - y_true (Tensor): The ground truth values.
+    - evidential_output (Tensor): The model output containing predicted mean 
+                                  and log variance, concatenated along the last axis.
+
+    Returns:
+    - Tensor: The Gaussian NLL loss for evidential regression.
+    """
     mu, logvar = tf.split(evidential_output, 2, axis=-1)
     loss_nll = Gaussian_NLL_logvar(y_true, mu, logvar)
     return loss_nll
 
+
 def heteroscedastic_loss(y_true, y_pred):
-    '''
-    heteroscedastic loss function 
-    '''
+    """
+    Computes the heteroscedastic loss for probabilistic regression models.
+
+    This function uses a predicted mean and standard deviation for each output 
+    dimension and computes a likelihood-based loss. It accounts for the 
+    heteroscedastic (input-dependent) noise in the predictions.
+
+    Parameters:
+    - y_true (Tensor): The ground truth values.
+    - y_pred (Tensor): The model output containing predicted mean and 
+                       standard deviation, concatenated along the last axis.
+
+    Returns:
+    - Tensor: The computed heteroscedastic loss as a scalar value.
+    """
     n_outputs = y_true.shape[1]
     mu = y_pred[:, :n_outputs]
     std = y_pred[:, n_outputs:]
     
     return tf.reduce_mean(
-        0.5 * (((y_true - mu)**2) / (std**2) + tf.math.log(2*np.pi*std**2))
+        0.5 * (((y_true - mu)**2) / (std**2) + tf.math.log(2 * np.pi * std**2))
     )

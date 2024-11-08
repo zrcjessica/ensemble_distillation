@@ -1,18 +1,17 @@
-# train replicates of distilled lentiMPRA models w/ aleatoric uncertainty prediction
+# train replicates of distilled ResidualBind models w/ aleatoric uncertainty prediction
 
 ### script params/variables
-ENSEMBLE_SIZE=10
-ENSEMBLE_DIR=../results/lentiMPRA_aleatoric
-DATA_DIR=../data/lentiMPRA
-CONFIG=../config/lentiMPRA.yaml
-PROJECT_NAME=lentiMPRA_ensemble_aleatoric
+ENSEMBLE_SIZE=10 # nr. of models to train 
+ENSEMBLE_DIR=../results/lentiMPRA_aleatoric # path to directory containing teacher ensemble
+DATA_DIR=../data/lentiMPRA # directory containing lentiMPRA data
+CONFIG=../config/lentiMPRA.yaml # path to ResidualBind model config
+PROJECT_NAME=lentiMPRA_ensemble_aleatoric # project name for WandB logging 
 
 ### boolean flags
-# train downsampled models
-downsample=true
-# train w/ evoaug
-evoaug=false
+downsample=true # train models on subset of training data
+evoaug=false # train w/ evoaug
 if [ "$evoaug" = true ]; then
+    # update path to directory containing teacher models 
     ENSEMBLE_DIR=../results/lentiMPRA_aleatoric-evoaug
 fi
 

@@ -3,7 +3,17 @@ from keras.models import Model
 
 def DeepSTARR(input_shape, config, epistemic=False):
     '''
-    DeepSTARR model, using same params as in published model
+    Build the DeepSTARR model architecture.
+
+    Parameters:
+        input_shape (tuple): Shape of the input data.
+        config (dict): Configuration dictionary with model hyperparameters, including 
+                       the number of convolutional and dense layers, kernel sizes, 
+                       and activation functions.
+        epistemic (bool): If True, enables epistemic uncertainty prediction.
+
+    Returns:
+        Model: Compiled Keras model for DeepSTARR.
     '''
     # input node to model
     inputs = kl.Input(shape=input_shape)
@@ -45,9 +55,16 @@ def DeepSTARR(input_shape, config, epistemic=False):
 
 def DeepSTARR_heteroscedastic(input_shape, config):
     '''
-    DeepSTARR model, using same params as in published model
-    trained with heteroscedastic regression
+    Build the DeepSTARR model with heteroscedastic regression.
+
+    Parameters:
+        input_shape (tuple): Shape of the input data.
+        config (dict): Configuration dictionary with model hyperparameters.
+
+    Returns:
+        Model: Compiled Keras model with heteroscedastic regression.
     '''
+
     # input node to model
     inputs = kl.Input(shape=input_shape)
 
@@ -82,18 +99,32 @@ def DeepSTARR_heteroscedastic(input_shape, config):
 
 def lentiMPRA(input_shape, config, aleatoric=False, epistemic=False):
     '''
-    alias for calling ResidualBind function 
-    compatible with earlier scripts that used lentiMPRA function name 
+    Wrapper for calling ResidualBind, compatible with earlier script conventions.
+
+    Parameters:
+        input_shape (tuple): Shape of the input data.
+        config (dict): Configuration dictionary.
+        aleatoric (bool): If True, predict aleatoric uncertainty.
+        epistemic (bool): If True, predict epistemic uncertainty.
+
+    Returns:
+        Model: ResidualBind model for lentiMPRA data.
     '''
     return ResidualBind(input_shape, config, aleatoric, epistemic)
 
 def ResidualBind(input_shape, config, aleatoric=False, epistemic=False):
     '''
-    ResidualBind model for predicting lentiMPRA data
-    if aleatoric=True, predict aleatoric uncertainty
-    if epistemic=True, predict epistemic uncertainty 
-    '''
+    Build the ResidualBind model for predicting lentiMPRA data.
 
+    Parameters:
+        input_shape (tuple): Shape of the input data.
+        config (dict): Configuration dictionary with model hyperparameters.
+        aleatoric (bool): If True, predict aleatoric uncertainty.
+        epistemic (bool): If True, predict epistemic uncertainty.
+
+    Returns:
+        Model: Compiled Keras model.
+    '''
     def residual_block(input_layer, filter_size, activation='relu', dilated=5):
         '''
         define residual block for CNN
@@ -181,8 +212,14 @@ def ResidualBind(input_shape, config, aleatoric=False, epistemic=False):
 
 def ResidualBind_heteroscedastic(input_shape, config):
     '''
-    ResidualBind model for predicting lentiMPRA data
-    trained with heteroscedastic regression
+    Build the ResidualBind model with heteroscedastic regression.
+
+    Parameters:
+        input_shape (tuple): Shape of the input data.
+        config (dict): Configuration dictionary.
+
+    Returns:
+        Model: Compiled Keras model with heteroscedastic regression.
     '''
 
     def residual_block(input_layer, filter_size, activation='relu', dilated=5):

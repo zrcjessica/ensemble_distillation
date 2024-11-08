@@ -14,14 +14,12 @@ import yaml
 import numpy as np
 
 '''
-train an ensemble of lentiMPRA models
+Train an ensemble of ResidualBind models on lentiMPRA data for specified cell type (K562/HepG2)
 --downsample flag allows models to be trained with a subset of training data
 --distill flag determines if a distilled model is trained (using ensemble average of training data)
 --evoaug flag determines whether model will be trained w/ evoaug augmentations
---aleatoric flag set if training model to predict aleatoric uncertainty (model does not need to be distilled)
---epistemic flag set if training model to predict epistemic uncertainty (data comes from ensemble avg; part of distilled model)
 
-This script is used to train lentiMPRA models w/ predictions for activity and aleatoric. 
+This script is used to train ResidualBind models w/ predictions for activity and aleatoric. 
 Another script will be used to distill lentiMPRA models w/ mean+aleatoric+epistemic predictions.
 '''
 
@@ -35,8 +33,6 @@ def parse_args():
                         help='h5 file containing train/val/test data')
     parser.add_argument("--lr", default=0.001,
                         help="fixed learning rate")
-    parser.add_argument("--plot", action='store_true',
-                        help="if set, save training plots")
     parser.add_argument("--downsample", default=1, type=float,
                         help="if set, downsample training data to this amount ([0,1])")
     parser.add_argument("--first_activation", default='relu',
@@ -53,14 +49,12 @@ def parse_args():
                         help='factor for adjusting number of parameters in hidden layers')
     parser.add_argument("--aleatoric", action='store_true',
                         help='if set, predict aleatoric uncertainty')
-    parser.add_argument("--epistemic", action='store_true',
-                        help='if set, predict epistemic uncertainty')
     parser.add_argument("--evoaug", action='store_true',
                         help='if set, train models with evoaug')
     parser.add_argument("--celltype", type=str,
                         help='define celltype (K562/HepG2)')
     parser.add_argument("--logvar", action='store_true',
-                    help='if set, use logvar for uncertainty instead of std (default)')
+                        help='if set, use logvar for uncertainty instead of std (default)')
     args = parser.parse_args()
     return args
 
@@ -107,15 +101,6 @@ def main(args):
             wandb.config.update({'logvar':True}, allow_val_change=True)
             y_train[:,1] = np.log(np.square(np.maximum(y_train[:,1], 1e-8)))
             y_val[:,1] = np.log(np.square(np.maximum(y_val[:,1], 1e-8)))
-    # elif args.epistemic:
-    #     print('predicting epistemic uncertainty')
-    #     assert(y_train.shape[-1]==2 & y_test.shape[-1]==2 & y_val.shape[-1]==2)
-    #     assert(args.distill) # epistemic uncertainty only available for distilled models 
-    #     wandb.config.update({'epistemic':args.epistemic}, allow_val_change=True)
-    #     if args.logvar:
-    #         wandb.config.update({'logvar':True}, allow_val_change=True)
-    #         y_train[:,1] = np.log(np.square(np.maximum(y_train[:,1], 1e-8)))
-    #         y_val[:,1] = np.log(np.square(np.maximum(y_val[:,1], 1e-8)))
 
     # downsample training data
     if args.downsample != wandb.config['downsample']:
@@ -129,9 +114,6 @@ def main(args):
         wandb.config.update({'distill':True}, allow_val_change=True)
         y_train = np.load(args.distill)
         assert(X_train.shape[0]==y_train.shape[0])
-        # if args.predict_std and args.predict_std != wandb.config['std']:
-        #     # predict std
-        #     wandb.config.update({'std':args.predict_std}, allow_val_change=True)
 
     # adjust k in yaml 
     if args.k != wandb.config['k']:
@@ -205,7 +187,7 @@ def main(args):
         
         # evaluate best model (and save)
         eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_performance_aug.csv'), 
-                         args.celltype, aleatoric=args.aleatoric, epistemic=args.epistemic, logvar=args.logvar)
+                         args.celltype, aleatoric=args.aleatoric, epistemic=False, logvar=args.logvar)
 
         ### fine tune model (w/o augmentations)
         wandb.config.update({'finetune':True}, allow_val_change=True)
@@ -216,7 +198,8 @@ def main(args):
                                    augment_list=augment_list, 
                                    max_augs_per_seq=2, hard_aug=True, 
                                    config=wandb.config, 
-                                   aleatoric=args.aleatoric, epistemic=args.epistemic)
+                                   aleatoric=args.aleatoric, 
+                                   epistemic=False)
         model.compile(optimizer=Adam(learning_rate=0.0001), loss=wandb.config['loss_fxn'])
         model.load_weights(save_path)
         model.finetune_mode()
@@ -233,16 +216,13 @@ def main(args):
         # evaluate model performance
         eval_performance(model, X_test, y_test, 
                          join(args.out, f'{args.ix}_performance_finetune.csv'), 
-                         args.celltype, aleatoric=args.aleatoric, epistemic=args.epistemic, logvar=args.logvar)
+                         args.celltype, aleatoric=args.aleatoric, epistemic=False, logvar=args.logvar)
     else:
         # evaluate model performance
         eval_performance(model, X_test, y_test, 
                          join(args.out, f"{args.ix}_performance.csv"), 
-                         args.celltype, aleatoric=args.aleatoric, epistemic=args.epistemic, logvar=args.logvar)
+                         args.celltype, aleatoric=args.aleatoric, epistemic=False, logvar=args.logvar)
     
-        # plot loss curves and spearman correlation over training epochs and save 
-        if args.plot:
-            plotting.plot_loss(history, join(args.out, str(args.ix) + "_loss_curves.png"))
 
         # save model and history
         model.save(join(args.out, f"{args.ix}_lentiMPRA.h5"))

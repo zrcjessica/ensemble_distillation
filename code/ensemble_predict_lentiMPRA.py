@@ -1,6 +1,5 @@
 import argparse
 import utils
-import plotting
 import keras
 from keras.models import load_model
 from os.path import join
@@ -8,10 +7,9 @@ import numpy as np
 import gc
 
 '''
-get the average of the predictions from all lentiMPRA models in an ensemble
-applies trained ensemble models to test set
+Get the average of the predictions from all ResidualBind models in an ensemble
 if --eval flag set, evaluates ensemble avg prediction performance on test set
-if --distill flag set, averages predictions on train set from all lentiMPRA models in ensemble
+if --distill flag set, averages predictions on train set from all models in ensemble
 '''
 
 def parse_args():
@@ -26,16 +24,12 @@ def parse_args():
                         help='h5 file containing train/val/test data')
     parser.add_argument("--eval", action='store_true',
                         help='if set, evaluates average predictions and saves to file (ensemble_performance_avg.csv)')
-    parser.add_argument("--plot", action='store_true',
-                        help='if set, generate scatterplots comparing predictions with ground truth (only used in eval mode)')
     parser.add_argument("--distill", action='store_true',
                         help='if set, writes average predictions on train set (X_train) to file (ensemble_avg_y_train.npy)')
     parser.add_argument("--aleatoric", action='store_true',
                         help='if set, predict aleatoric uncertainty')
     parser.add_argument("--downsample", type=float,
                         help='if set, downsample training data (only used if in distill mode)')
-    # parser.add_argument("--set", default='test',
-    #                     help='one of train/test/val; determine which set of data to make predictions on')
     parser.add_argument("--evoaug", action='store_true',
                         help='set if working with models trained w/ EvoAug')
     parser.add_argument("--config", default=None,
@@ -61,8 +55,6 @@ def main(args):
 
     # if no output directory is specified, use same as model_dir
     outdir = args.out if args.out else args.model_dir
-    # if args.out is None:
-    #     outdir = args.model_dir
 
     for i in range(args.n_mods):
         print(f'predicting with model {i+1}/{args.n_mods}')
@@ -72,21 +64,16 @@ def main(args):
         gc.collect()
 
         # load model and predict 
-        model = None
+        model = None 
         if args.evoaug:
             assert(args.config is not None)
             import evoaug_tf
             from evoaug_tf import evoaug, augment
-            # augment_list = [
-            #     augment.RandomInsertionBatch(insert_min=0, insert_max=20),
-            #     augment.RandomDeletion(delete_min=0, delete_max=30),
-            #     augment.RandomTranslocationBatch(shift_min=0, shift_max=20)
-            # ]   
             augment_list = [
-            augment.RandomDeletion(delete_min=0, delete_max=20),
-            augment.RandomTranslocationBatch(shift_min=0, shift_max=20),
-            augment.RandomNoise(noise_mean=0, noise_std=0.2),
-            augment.RandomMutation(mutate_frac=0.05)
+                augment.RandomDeletion(delete_min=0, delete_max=20),
+                augment.RandomTranslocationBatch(shift_min=0, shift_max=20),
+                augment.RandomNoise(noise_mean=0, noise_std=0.2),
+                augment.RandomMutation(mutate_frac=0.05)
             ]
             model = utils.load_lentiMPRA_from_weights(weights=join(args.model_dir, str(i+1) + "_lentiMPRA_finetune.h5"), 
                                                       input_shape=X_train[0].shape, 
@@ -103,11 +90,6 @@ def main(args):
             train_cumsum += train_preds
         if args.eval:
             test_preds = model.predict(X_test)
-            if args.plot:
-                # plot pred vs. true
-                plotting.prediction_scatterplot(np.squeeze(test_preds), y_test,
-                                                colnames=[args.celltype, f'{args.celltype}-aleatoric', f'{args.celltype}-epistemic'][:(test_preds.shape[-1])],
-                                                outfh=join(outdir, f'{i+1}_pred_scatterplot.png'))
             test_cumsum += test_preds
     
     # calculate average across ensemble predictions
@@ -129,12 +111,7 @@ def main(args):
                                                                 aleatoric=args.aleatoric,
                                                                 epistemic=False)
         performance.to_csv(join(outdir, "ensemble_performance_avg.csv"), index=False)
-        if args.plot:
-            # plot average predictions against true values 
-            plotting.prediction_scatterplot(np.squeeze(avg_test_pred), y_test, 
-                                            colnames=[args.celltype, f'{args.celltype}-aleatoric', f'{args.celltype}-epistemic'][:(test_preds.shape[-1])], 
-                                            outfh=join(outdir, "avg_pred_scatterplot.png"))
-
+        
     if args.distill:
         # save average predictions on X_train to file and use for training distilled model
         np.save(join(outdir, f"ensemble_avg_y_train.npy"), avg_train_pred)

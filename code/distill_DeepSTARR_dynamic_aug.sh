@@ -1,15 +1,15 @@
 # train distilled DeepSTARR models w/ mean+std using dynamic augmentations
 
 AUG='random' # evoaug/mutagenesis/random 
-APPEND=false 
-# ENSEMBLE_DIR=../results/DeepSTARR_lr-decay/
-ENSEMBLE_DIR=../results/DeepSTARR_ensemble_NEW/
-DATA_DIR=../data/DeepSTARR_ensemble_NEW
-DATA=${DATA_DIR}/all_data_with_ensemble_metrics_hierarchical.h5
-CONFIG=../config/DeepSTARR.yaml
-PROJECT_NAME=DeepSTARR_dynamic_aug
-NMODS=10 # nr. of replicates to train
-OUTDIR=../results/DeepSTARR_dynamic_aug/${AUG}
+APPEND=false # if true, augmented seqs are appended to each mini batch
+ENSEMBLE_DIR=../results/DeepSTARR_ensemble_NEW/ # path to pre-trained ensemble of models 
+DATA_DIR=../data/DeepSTARR_ensemble_NEW # path to training data directory
+DATA=${DATA_DIR}/all_data_with_ensemble_metrics_hierarchical.h5 # path to training data 
+CONFIG=../config/DeepSTARR.yaml # path to model config
+PROJECT_NAME=DeepSTARR_dynamic_aug # project name for WandB logging 
+NMODS=10 # nr. of distilled models to train
+OUTDIR=../results/DeepSTARR_dynamic_aug/${AUG} # path to output directory
+
 if [ "$APPEND" = true ]; thene
 	OUTDIR=${OUTDIR}/append
 fi 

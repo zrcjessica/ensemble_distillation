@@ -11,10 +11,42 @@ from tensorflow import Variable
 import pandas as pd
 from os.path import join
 
-'''
-run attribution analysis (saliency/DeepSHAP) top examples from test set (y_test) for DeepSTARR models 
-'''
+"""
+Run Attribution Analysis on an ensemble of DeepSTARR models
 
+This script performs attribution analysis (either saliency or DeepSHAP) on the top
+predictions from a test set for an ensemble of DeepSTARR models 
+(or multiple distilled DeepSTARR models). It can analyze predictions
+for a specific promoter class and calculate either individual or average attribution scores
+across the models in the ensemble.
+
+Supported attribution methods:
+- `saliency`: Computes gradients to highlight important input features.
+- `shap`: Uses SHAP (SHapley Additive exPlanations) with options for dinucleotide shuffling as reference.
+
+The script also allows optional adjustments for models trained with EvoAug and for averaging 
+attribution scores across the ensemble.
+
+Usage:
+    python DeepSTARR_ensemble_attr_analysis.py --model_dir <path_to_model_files> --n_mods <number_of_models> --data <path_to_data_file> --out <output_directory> [additional options]
+
+Arguments:
+- `--model_dir`: Path to the directory storing trained model files.
+- `--n_mods`: Number of models in the ensemble to evaluate.
+- `--data`: Path to an HDF5 file containing train/validation/test data.
+- `--out`: Directory where the results will be saved.
+- `--top_n`: Number of top predictions from the test set to analyze (default: 500).
+- `--enhancer`: Specifies the promoter class for sorting top predictions ('Dev' or 'Hk', default: 'Dev').
+- `--head`: Specifies which output head to analyze ('mean', 'std', or 'logvar', default: 'mean').
+- `--average`: Flag to calculate average attribution map across all models in the ensemble.
+- `--method`: Attribution method to use ('saliency' or 'shap').
+- `--dinuc_shuffle`: If using SHAP, set this to use dinucleotide-shuffled sequences as references.
+- `--ref_size`: If using SHAP, specifies the size of the reference set (default: 100).
+- `--evoaug`: Set this flag if using models trained with EvoAug.
+- `--config`: Configuration file path (required if `--evoaug` is set).
+- `--std`: Flag indicating if the model predicts standard deviation (i.e., a distilled model).
+
+"""
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_dir", type=str,

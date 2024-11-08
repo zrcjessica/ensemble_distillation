@@ -1,17 +1,15 @@
-# train replicates of distilled lentiMPRA models w/ mean+epistemic+epistemic predictions
+# train replicates of distilled ResidualBind models that predict mean+aleatoric+epistemic 
 
 ### script params/variables
-N_MODS=10
-MODELS_DIR=../results/distilled_lentiMPRA_epistemic # output dir
-DATA_DIR=../data/lentiMPRA
-CONFIG=../config/lentiMPRA.yaml
-PROJECT_NAME=lentiMPRA_distilled_epistemic
+N_MODS=10 # nr. of distilled models to train
+MODELS_DIR=../results/distilled_lentiMPRA_epistemic # path to output directory
+DATA_DIR=../data/lentiMPRA # path to directory with lentiMPRA data
+CONFIG=../config/lentiMPRA.yaml # path to ResidualBind model config
+PROJECT_NAME=lentiMPRA_distilled_epistemic # project name for WandB logging 
 
 ### boolean flags
-# train downsampled models
-downsample=true
-# train w/ evoaug
-evoaug=true
+downsample=true # train downsampled models
+evoaug=true # train w/ evoaug
 if [ "$evoaug" = true ]; then
     MODELS_DIR=${MODELS_DIR}_evoaug
     DATA_DIR=${DATA_DIR}/evoaug
