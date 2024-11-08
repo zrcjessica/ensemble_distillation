@@ -53,16 +53,16 @@ Train an ensemble of DeepSTARR models with standard training. These models serve
 ## Outputs
 
 ### Standard training 
-- `[model_ix]_DeepSTARRHDF5`: model saved to h5 file w/ `model.save()`
+- `[model_ix]_DeepSTARR.h5`: model saved to h5 file w/ `model.save()`
 - `[model_ix]_historyDict`: pickled model history (`history.history`)
 - `[model_ix]_performance.csv`: model performance on test set 
 
 Outputs for downsampled models are saved in a subdirectory named according to downsampling proportion (as defined in bash script).
 
 ### Training with EvoAug
-- `[model_ix]_DeepSTARR_aug_weightsHDF5`: weights of model trained w/ EvoAug (saved w/ `model.save_weights()`)
+- `[model_ix]_DeepSTARR_aug_weights.h5`: weights of model trained w/ EvoAug (saved w/ `model.save_weights()`)
 - `[model_ix]_historyDict_aug`: pickled weights of augmented model 
-- `[model_ix]_DeepSTARR_finetuneHDF5`: weights of finetuned model (saved w/ `model.save_weights()`)
+- `[model_ix]_DeepSTARR_finetune.h5`: weights of finetuned model (saved w/ `model.save_weights()`)
 - `[model_ix]_historyDict_finetune`: pickled history of finetuned model 
 - `[model_ix]_performance_finetune.csv`: performance of finetuned model on test set
   
@@ -126,14 +126,14 @@ Train a user-defined amount of distilled DeepSTARR models that predict Dev and H
 - `distill_DeepSTARR_with_logvar.sh`: runs `train_stdev_DeepSTARR.py` w/ `--logvar` flag - epistemic uncertainty is learned as log variance instead of standard deviation 
 
 ## Outputs
-- `[model_ix]_DeepSTARRHDF5`: model saved to h5 file w/ `model.save()`
+- `[model_ix]_DeepSTARR.h5`: model saved to h5 file w/ `model.save()`
 - `[model_ix]_historyDict`: pickled model history (`history.history`)
 - `[model_ix]_performance.csv`: model performance on test set 
 
 ### With EvoAug
-- `[model_ix]_DeepSTARR_aug_weightsHDF5`: weights of model trained w/ EvoAug (saved w/ `model.save_weights()`)
+- `[model_ix]_DeepSTARR_aug_weights.h5`: weights of model trained w/ EvoAug (saved w/ `model.save_weights()`)
 - `[model_ix]_historyDict_aug`: pickled weights of augmented model 
-- `[model_ix]_DeepSTARR_finetuneHDF5`: weights of finetuned model (saved w/ `model.save_weights()`)
+- `[model_ix]_DeepSTARR_finetune.h5`: weights of finetuned model (saved w/ `model.save_weights()`)
 - `[model_ix]_historyDict_finetune`: pickled history of finetuned model 
 - `[model_ix]_performance_finetune.csv`: performance of finetuned model on test set
 <!-- - `[model_ix]_loss_curves.png` if run with `--plot` flag -->
