@@ -115,7 +115,7 @@ For all folds of data (train/test/val), add target labels for epistemic uncertai
 ### Code
 - `parse_DeepSTARR_data.ipynb`: located in `data_preprocessing` directory; requires outputs of steps 2a-b. You need to generate a separate HDF5 file corresponding to each downsampling proportion 
 ### Output
-- `all_data_with_ensemble_metrics_hierarchicalHDF5`: Contains the same input sequences but with updated target labels for distillation. 
+- `all_data_with_ensemble_metrics_hierarchical.h5`: Contains the same input sequences but with updated target labels for distillation. 
   
 # 3. Train distilled models with epistemic uncertainty estimates 
 Train a user-defined amount of distilled DeepSTARR models that predict Dev and Hk sequence activity and corresponding epistemic uncertainty. Requires the output of step 2. 
