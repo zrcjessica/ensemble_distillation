@@ -31,8 +31,6 @@ def parse_args():
                         help='h5 file containing train/val/test data')
     parser.add_argument("--lr", default=0.001,
                         help="fixed learning rate")
-    parser.add_argument("--plot", action='store_true',
-                        help="if set, save training plots")
     # parser.add_argument("--downsample", default=1, type=float,
     #                     help="if set, downsample training data to this amount ([0,1])")
     parser.add_argument("--lr_decay", action="store_true",

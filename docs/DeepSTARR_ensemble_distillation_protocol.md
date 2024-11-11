@@ -31,15 +31,21 @@
       - [1. RMSE Calculation (if `--rmse` flag is set)](#1-rmse-calculation-if---rmse-flag-is-set)
       - [2. Variance Calculation (if `--var` flag is set)](#2-variance-calculation-if---var-flag-is-set)
   - [3. Visualizing results](#3-visualizing-results)
-- [Training with dynamic augmentations](#training-with-dynamic-augmentations)
+- [Generating shifted sequences](#generating-shifted-sequences)
   - [Code](#code-7)
+- [Training with dynamic augmentations](#training-with-dynamic-augmentations)
+  - [Code](#code-8)
+  - [Outputs](#outputs-6)
 - [Evaluating different ensemble sizes](#evaluating-different-ensemble-sizes)
   - [1. Train up to $N$ teacher models with standard training](#1-train-up-to-n-teacher-models-with-standard-training)
-    - [Code](#code-8)
-  - [2. Evaluate performance of different ensemble sizes and get training data for distilled models](#2-evaluate-performance-of-different-ensemble-sizes-and-get-training-data-for-distilled-models)
     - [Code](#code-9)
-  - [3. Train distilled models based on different teacher ensemble sizes](#3-train-distilled-models-based-on-different-teacher-ensemble-sizes)
+    - [Outputs](#outputs-7)
+  - [2. Evaluate performance of different ensemble sizes and get training data for distilled models](#2-evaluate-performance-of-different-ensemble-sizes-and-get-training-data-for-distilled-models)
     - [Code](#code-10)
+    - [Outputs](#outputs-8)
+  - [3. Train distilled models based on different teacher ensemble sizes](#3-train-distilled-models-based-on-different-teacher-ensemble-sizes)
+    - [Code](#code-11)
+    - [Outputs](#outputs-9)
 
 Note: all bash scripts use a Slack bot to message user upon completion. To use this feature, refer to the Slack docs: [Sending messages using incoming webhooks](https://api.slack.com/messaging/webhooks)
 
@@ -53,18 +59,18 @@ Train an ensemble of DeepSTARR models with standard training. These models serve
 ## Outputs
 
 ### Standard training 
-- `[model_ix]_DeepSTARR.h5`: model saved to h5 file w/ `model.save()`
-- `[model_ix]_historyDict`: pickled model history (`history.history`)
-- `[model_ix]_performance.csv`: model performance on test set 
+- `<model_ix>_DeepSTARR.h5`: Trained DeepSTARR model (saved w/ `model.save()`). 
+- `<model_ix>_historyDict`: Pickled model history (from `history.history`).
+- `<model_ix>_performance.csv`: DeepSTARR model performance on held out test set.
 
 Outputs for downsampled models are saved in a subdirectory named according to downsampling proportion (as defined in bash script).
 
 ### Training with EvoAug
-- `[model_ix]_DeepSTARR_aug_weights.h5`: weights of model trained w/ EvoAug (saved w/ `model.save_weights()`)
-- `[model_ix]_historyDict_aug`: pickled weights of augmented model 
-- `[model_ix]_DeepSTARR_finetune.h5`: weights of finetuned model (saved w/ `model.save_weights()`)
-- `[model_ix]_historyDict_finetune`: pickled history of finetuned model 
-- `[model_ix]_performance_finetune.csv`: performance of finetuned model on test set
+- `<model_ix>_DeepSTARR_aug_weights.h5`: Weights of model trained w/ EvoAug (saved w/ `model.save_weights()`)
+- `<model_ix>_historyDict_aug`: Pickled weights of augmented model.
+- `<model_ix>_DeepSTARR_finetune.h5`: Weights of finetuned model (saved w/ `model.save_weights()`).
+- `<model_ix>_historyDict_finetune`: Pickled history of finetuned model. 
+- `<model_ix>_performance_finetune.csv`: Performance of finetuned model on test set.
   
 # 2. Generate training data for distilled models 
 
@@ -76,19 +82,19 @@ Use the teacher ensemble to make predictions on training sequences and calculate
 - `eval_and_distill_DeepSTARR.sh`: runs `ensemble_predict_DeepSTARR.py` with both `--eval` and `--distill` flags set
   
 ### Outputs
-- `ensemble_avg_y_train.npy`: ensemble average predictions on train seqs (if `--distill` flag set)
-- `ensemble_performance_avg.csv`: ensemble average performance on test seqs (if `--eval` flag set)
+- `ensemble_avg_y_train.npy`: Ensemble average predictions on train sequences (if `--distill` flag set).
+- `ensemble_performance_avg.csv`: Ensemble average performance on test sequences (if `--eval` flag set).
 
 ## 2b. Calculate ensemble standard deviation
 Use the teacher ensemble to make predictions on all STARR-seq data (train/val/test) and calculate the ensemble standard deviation of these performances. These values are used as new target labels for training the epistemic uncertainty output head of distilled DeepSTARR models. 
 
 ### Code
-- `stdev_ensemble_predictions.py`: make predictions on train/test/val seqs with ensemble of DeepSTARR teacher models and save ensemble standard deviations as numpy arrays to `npy` files. 
+- `stdev_ensemble_predictions.py`: make predictions on train/test/val sequences with ensemble of DeepSTARR teacher models and save ensemble standard deviations as numpy arrays to `npy` files. 
 - `generate_stdev_dataset.sh`: run the above script
 ### Outputs
-- `ensemble_std_train.npy`: ensemble standard deviation of predictions on train seqs
-- `ensemble_std_test.npy`: ensemble standard deviation of predictions on test seqs 
-- `ensemble_std_val.npy`: ensemble standard deviation of predictions on val seqs 
+- `ensemble_std_train.npy`: Ensemble standard deviation of predictions on train sequences.
+- `ensemble_std_test.npy`: Ensemble standard deviation of predictions on test sequences.
+- `ensemble_std_val.npy`: Ensemble standard deviation of predictions on val sequences. 
 <!-- # 3. Evaluate model performance 
 - for original models
   - trained on all training data
@@ -106,7 +112,7 @@ Use the teacher ensemble to make predictions on all STARR-seq data (train/val/te
 - `run_ensemble_predict_DeepSTARR_evoaug.sh`: runs `ensemble_predict_DeepSTARR.py` with both `--eval` and `--distill` flags set for DeepSTARR ensembles trained w/ EvoAug
 ## Outputs
 - `ensemble_performance_avg.csv`
-- `[model_ix]_pred_scatterplot.png`: scatterplot of predicted vs. true values for test set
+- `<model_ix>_pred_scatterplot.png`: scatterplot of predicted vs. true values for test set
 - `avg_pred_scatterplot.png` if `--plot` flag set -->
 
 ## 2c. Parse HDF5 file with data for training distilled models 
@@ -121,22 +127,22 @@ For all folds of data (train/test/val), add target labels for epistemic uncertai
 Train a user-defined amount of distilled DeepSTARR models that predict Dev and Hk sequence activity and corresponding epistemic uncertainty. Requires the output of step 2. 
 
 ## Code
-- `train_stdev_DeepSTARR.py`: python script for training distilled model w/ stdev. prediction (modified from `train_DeepSTARR.py`)
-- `distill_DeepSTARR_with_std.sh`: run `train_stdev_DeepSTARR.py`; toggle `evoaug` and `downsample` boolean variables accordingly
-- `distill_DeepSTARR_with_logvar.sh`: runs `train_stdev_DeepSTARR.py` w/ `--logvar` flag - epistemic uncertainty is learned as log variance instead of standard deviation 
+- `train_stdev_DeepSTARR.py`: Trains distilled model that predicts epistemic uncertainty (modified from `train_DeepSTARR.py`).
+- `distill_DeepSTARR_with_std.sh`: Run `train_stdev_DeepSTARR.py`; toggle `evoaug` and `downsample` boolean variables accordingly.
+- `distill_DeepSTARR_with_logvar.sh`: Runs `train_stdev_DeepSTARR.py` w/ `--logvar` flag. In this case, epistemic uncertainty is learned as log variance instead of standard deviation.
 
 ## Outputs
-- `[model_ix]_DeepSTARR.h5`: model saved to h5 file w/ `model.save()`
-- `[model_ix]_historyDict`: pickled model history (`history.history`)
-- `[model_ix]_performance.csv`: model performance on test set 
+- `<model_ix>_DeepSTARR.h5`: Distilled DeepSTARR model (saved with `model.save()`).
+- `<model_ix>_historyDict`: Pickled model history (from `history.history`).
+- `<model_ix>_performance.csv`: Model performance on held out test sequences.
 
 ### With EvoAug
-- `[model_ix]_DeepSTARR_aug_weights.h5`: weights of model trained w/ EvoAug (saved w/ `model.save_weights()`)
-- `[model_ix]_historyDict_aug`: pickled weights of augmented model 
-- `[model_ix]_DeepSTARR_finetune.h5`: weights of finetuned model (saved w/ `model.save_weights()`)
-- `[model_ix]_historyDict_finetune`: pickled history of finetuned model 
-- `[model_ix]_performance_finetune.csv`: performance of finetuned model on test set
-<!-- - `[model_ix]_loss_curves.png` if run with `--plot` flag -->
+- `<model_ix>_DeepSTARR_aug_weights.h5`: Weights of model trained w/ EvoAug (saved w/ `model.save_weights()`).
+- `<model_ix>_historyDict_aug`: Pickled weights of augmented model.
+- `<model_ix>_DeepSTARR_finetune.h5`: Weights of finetuned model (saved w/ `model.save_weights()`).
+- `<model_ix>_historyDict_finetune`: Pickled history of finetuned model.
+- `<model_ix>_performance_finetune.csv`: Performance of finetuned model on test set.
+<!-- - `<model_ix>_loss_curves.png` if run with `--plot` flag -->
 <!-- # 3. Train distilled models 
 
 - trained on all training data
@@ -237,7 +243,7 @@ Each .npy file contains an array of attribution scores, representing either indi
   <!-- - `run_evoaug_DeepSTARR_ensemble_attr_analysis.sh`: runs attribution analysis on DeepSTARR models trained w/ evoaug on full dataset; has been modified to include boolean flags for downsampled and distilled models -->
 
 ## 2. Analyze attribution scores
-We perform two analyses of the attribution maps obtained in step #1:
+We perform two analyses of the attribution maps obtained in step [1](#1-calculate-attribution-maps):
 1. RMSE from ensemble average attribution score
 2. Standard deviation of attribution scores
 ### Code
@@ -269,14 +275,37 @@ The .npy file contains an array of standard deviations (computed from variances)
 <!-- - `euclidean_distance_attribution_maps.ipynb`: plot results
 - `plot_attribution_analysis_evoaug_deepstarr.ipynb`: visualize the results of the attribution analyses conducted for DeepSTARR ensembles & distilled models trained w/ EvoAug -->
 
+# Generating shifted sequences 
+Apply random mutagenesis, EvoAug, or random shuffling to STARR-seq test sequences to simulate a covariate shift. 
+
+## Code 
+- `get_ood_starrseq.ipynb`: Located in `data_preprocessing` directory. Generates shifted sequences and saves them as one-hot encoded sequences (shape (N,4)) to an HDF5 file for easy retrieval. 
+
 # Training with dynamic augmentations
 Train distilled models with dynamic augmentations. On each mini-batch, dynamically generate augmented sequences and either append or replace original training data. Target labels for augmented sequences are generated using an ensemble of models. Augmentation options: `random`, `mutagenesis`, `evoaug`
 
 ## Code
-- `dynamic_aug.py`: class definition for `DynamicAugModel()`
-- `train_dynamic_aug_DeepSTARR.py`: train distilled DeepSTARR models to activity and epistemic uncertainty predictions with dynamic augmentations. 
-- `distill_DeepSTARR_dynamic_aug.sh`: bash script wrapper that runs `train_dynamic_aug_DeepSTARR.py` to train distilled DeepSTARR models with dynamic augmentations 
+- `dynamic_aug.py`: Class definition for `DynamicAugModel()`
+- `train_dynamic_aug_DeepSTARR.py`: Train distilled DeepSTARR models to activity and epistemic uncertainty predictions with dynamic augmentations. 
+- `distill_DeepSTARR_dynamic_aug.sh`: Bash script that runs `train_dynamic_aug_DeepSTARR.py` to train distilled DeepSTARR models with dynamic augmentations.
 
+## Outputs 
+Located in output directory specified to `--out` argument of `train_dynamic_aug_DeepSTARR.py`. 
+
+If `--append` flag is set: 
+- `<ix>_DeepSTARR_<aug>_append_aug.h5`: Weights of distilled DeepSTARR model trained with specified dynamic augmentation. 
+- `<ix>_<aug>_append_historyDict_aug`: Training history of distilled DeepSTARR model trained with specified dynamic augmentation. 
+- `<ix>_<aug>_append_performance_aug.csv`: CSV file with performance metrics for distilled DeepSTARR model trained with specified dynamic augmentation. 
+- `<ix>_DeepSTARR_<aug>_append_finetune.h5`: Weights of distilled DeepSTARR model trained with specified dynamic augmentation. 
+- `<ix>_<aug>_append_historyDict_finetune`: Training history of distilled DeepSTARR model trained with specified dynamic augmentation. 
+- `<ix>_<aug>_append_performance_finetune.csv`: CSV file with performance metrics for distilled DeepSTARR model trained with specified dynamic augmentation. 
+If `--append` flag is **not** set:
+- `<ix>_DeepSTARR_<aug>_aug.h5`: Weights of distilled DeepSTARR model trained with specified dynamic augmentation. 
+- `<ix>_<aug>_historyDict_aug`: Training history of distilled DeepSTARR model trained with specified dynamic augmentation. 
+- `<ix>_<aug>_performance_aug.csv`: CSV file with performance metrics for distilled DeepSTARR model trained with specified dynamic augmentation. 
+- `<ix>_DeepSTARR_<aug>_finetune.h5`: Weights of distilled DeepSTARR model trained with specified dynamic augmentation. 
+- `<ix>_<aug>_historyDict_finetune`: Training history of distilled DeepSTARR model trained with specified dynamic augmentation. 
+- `<ix>_<aug>_performance_finetune.csv`: CSV file with performance metrics for distilled DeepSTARR model trained with specified dynamic augmentation. 
 <!-- # Interval coverage probability analysis
 ## Code 
 - `prediction_interval_analysis.ipynb` -->
@@ -293,8 +322,10 @@ This is done as part of the interval coverage probability analysis. An additiona
 The following steps assume that the user has trained $N$ DeepSTARR models with standard training (generated with `train_DeepSTARR.py`), where $N$ is the largest ensemble size being evaluated for this analysis (in our case, $N=25$).
 
 ### Code 
-See [Train ensemble of DeepSTARR models with standard training](#1-train-ensemble-of-deepstarr-models-with-standard-training).
+See code for [Train ensemble of DeepSTARR models with standard training](#code).
 
+### Outputs
+See outputs of [Train ensemble of DeepSTARR models with standard training](#standard-training).
 ## 2. Evaluate performance of different ensemble sizes and get training data for distilled models 
 These steps follow [Generate training data for distilled models](#2-generate-training-data-for-distilled-models) while also providing performance metrics for different ensemble sizes.
 
@@ -302,8 +333,12 @@ These steps follow [Generate training data for distilled models](#2-generate-tra
 - `ensemble_predict_DeepSTARR_over_ensemble_size.py`: Modified from `ensemble_predict_DeepSTARR.py` and `stdev_ensemble_predictions.py` to combine their functions and make predictions over max ensemble size and get ensemble average and standard deviation and performance metrics for various downsamples of max ensemble size (in our case, 2, 3, 4, 5, 10, 15, 20, 25). This script returns the ensemble average over the training sequences for all ensemble sizes evaluated as well as the ensemble standard deviation over all data splits and all ensemble sizes evaluated. 
 - `eval_and_distill_DeepSTARR_over_ensemble_size.sh`: runs `ensemble_predict_DeepSTARR_over_ensemble_size.py` 
 - `parse_DeepSTARR_distillation_data_over_ensemble_size.ipynb`: parse outputs of `ensemble_predict_DeepSTARR_over_ensemble_size.py` to generate HDF5 files for training distilled models; one HDF5 file per ensemble size evaluated. 
+### Outputs
+See outputs from [Step 2: Generate training data for distilled models](#2-generate-training-data-for-distilled-models).
 
 ## 3. Train distilled models based on different teacher ensemble sizes
 Use the output of `parse_DeepSTARR_distillaion_data_over_ensemble_size.ipynb` to train distilled models based on different teacher ensemble sizes. 
 ### Code 
 - `distill_DeepSTARR_with_std_over_ensemble_size.sh`: run `train_stdev_DeepSTARR.py` looping over different teacher ensemble sizes and the respective distillation training data associated with them
+### Outputs
+See outputs of [Step 3: Train distilled models with epistemic uncertainty estimates](#outputs-3).

@@ -32,8 +32,6 @@ def parse_args():
                         help='h5 file containing train/val/test data')
     parser.add_argument("--lr", default=0.001,
                         help="fixed learning rate")
-    parser.add_argument("--plot", action='store_true',
-                        help="if set, save training plots")
     # parser.add_argument("--downsample", default=1, type=float,
     #                     help="if set, downsample training data to this amount ([0,1])")
     parser.add_argument("--lr_decay", action="store_true",
@@ -169,10 +167,6 @@ def main(args):
             # evaluate best model (and save)
             eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_{args.aug}_append_performance_aug.csv'), 
                             args.celltype, aleatoric=True, epistemic=True)
-
-            # plot loss curves and spearman correlation over training epochs and save 
-            if args.plot:
-                plotting.plot_loss(history, join(args.out, f"{args.ix}_{args.aug}_append_loss_curves_aug.png"))
         else:
             # save model weights
             # save_path = join(args.out, f"{args.ix}_lentiMPRA_{args.aug}_aug.h5")
@@ -184,10 +178,6 @@ def main(args):
             # evaluate best model (and save)
             eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_{args.aug}_performance_aug.csv'),
                             args.celltype)
-
-            # plot loss curves and spearman correlation over training epochs and save 
-            if args.plot:
-                plotting.plot_loss(history, join(args.out, f"{args.ix}_{args.aug}_loss_curves_aug.png"))
     
     # train finetune (no augs) 
     run = wandb.init(project=args.project, config=args.config, reinit=True)
@@ -234,9 +224,6 @@ def main(args):
         eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_{args.aug}_append_performance_finetune.csv'),
                          args.celltype)
 
-        # plot loss curves and spearman correlation over training epochs and save 
-        if args.plot:
-            plotting.plot_loss(history, join(args.out, f"{args.ix}_{args.aug}_append_loss_curves_finetune.png"))
     else:
         # save model weights
         save_path = join(args.out, f"{args.ix}_lentiMPRA_{args.aug}_finetune.h5")
@@ -248,9 +235,6 @@ def main(args):
         eval_performance(model, X_test, y_test, join(args.out, f'{args.ix}_{args.aug}_performance_finetune.csv'),
                          args.celltype)
 
-        # plot loss curves and spearman correlation over training epochs and save 
-        if args.plot:
-            plotting.plot_loss(history, join(args.out, f"{args.ix}_{args.aug}_loss_curves_finetune.png"))
 
     # save updated config as yaml
     with open(join(args.out, "config.yaml"), 'w') as f:

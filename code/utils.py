@@ -19,19 +19,6 @@ import evoaug_tf
 from evoaug_tf import evoaug, augment
 import yaml
 
-
-# def load_data(file, dset, std=False, dict=False):
-#     '''
-#     load Train/Test/Val splits for specified dset (DeepSTARR/lentiMPRA)    
-#     if std=True, append std values to y for train/test/val
-#     if dict=True, return train/test/val data as a dictionary
-#     '''
-#     assert(dset in ['DeepSTARR','lentiMPRA'])
-#     if dset=='DeepSTARR':
-#         return(load_DeepSTARR_data(file, std, dict))
-#     else:
-#         return(load_lentiMPRA_data(file))
-
 def load_lentiMPRA_data(file, epistemic=False):
     '''
     Load lentiMPRA train, test, and validation datasets from an HDF5 file.

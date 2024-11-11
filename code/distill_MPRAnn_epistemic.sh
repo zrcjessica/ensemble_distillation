@@ -1,29 +1,28 @@
 # train replicates of distilled MPRAnn models w/ activity+epistemic+epistemic predictions
 
 ### script params/variables
-N_MODS=10
-MODELS_DIR=../results/distilled_MPRAnn_epistemic
-DATA_DIR=../data/MPRAnn_aleatoric
-CONFIG=../config/MPRAnn.yaml
-PROJECT_NAME=MPRAnn_distilled_epistemic
+N_MODS=10 # nr. models to train 
+MODELS_DIR=../results/distilled_MPRAnn_epistemic # path to output dir
+DATA_DIR=../data/MPRAnn_aleatoric # path to directory with data 
+CONFIG=../config/MPRAnn.yaml # path to MPRAnn model config 
+PROJECT_NAME=MPRAnn_distilled_epistemic # project name for WandB logging 
 
 ### boolean flags
-# train downsampled models
-downsample=false
-# train w/ evoaug
-evoaug=false
+downsample=false # train downsampled models
+evoaug=false # train w/ evoaug
 if [ "$evoaug" = true ]; then
+    # update paths 
     MODELS_DIR=${MODELS_DIR}_evoaug
     DATA_DIR=${DATA_DIR}/evoaug
 fi
-# use logvar instead of std for epistemic uncertainty 
-logvar=false  
+logvar=false  # use logvar instead of std for epistemic uncertainty 
 if [ "$logvar" = true ]; then  
+    # update paths 
     MODELS_DIR=${MODELS_DIR}/logvar
 fi 
-# train on data distilled from models trained with heteroscedastic regression 
-heteroscedastic=true
+heteroscedastic=true # teacher models trained with heteroscedastic regression
 if [ "$heteroscedastic" = true ]; then 
+    # update paths
     DATA_DIR=../data/MPRAnn_heteroscedastic
     MODELS_DIR=../results/distilled_MPRAnn_heteroscedastic
     PROJECT_NAME=MPRAnn_heteroscedastic_distilled
@@ -31,8 +30,8 @@ fi
 
 ### define cell type
 CELLTYPE='HepG2' # HepG2 or K562
-MODELS_DIR=${MODELS_DIR}/${CELLTYPE}
-DATA=${DATA_DIR}/${CELLTYPE}_distillation_data_with_epistemic.h5
+MODELS_DIR=${MODELS_DIR}/${CELLTYPE} # update paths 
+DATA=${DATA_DIR}/${CELLTYPE}_distillation_data_with_epistemic.h5 # path to data HDF5
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 

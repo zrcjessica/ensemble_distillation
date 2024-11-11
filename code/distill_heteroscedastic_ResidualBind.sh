@@ -1,28 +1,26 @@
 # train replicates of distilled ResidualBind models w/ activity+epistemic+epistemic predictions
 
 ### script params/variables
-N_MODS=10
-MODELS_DIR=../results/distilled_ResidualBind_epistemic
-DATA_DIR=../data/lentiMPRA_aleatoric
-CONFIG=../config/lentiMPRA.yaml
-PROJECT_NAME=lentiMPRA_distilled_epistemic
+N_MODS=10 # nr. of models to train 
+MODELS_DIR=../results/distilled_ResidualBind_epistemic # path to output dir 
+DATA_DIR=../data/lentiMPRA_aleatoric # path to directory with data for training 
+CONFIG=../config/lentiMPRA.yaml # path to ResidualBind model config
+PROJECT_NAME=lentiMPRA_distilled_epistemic # project name for WandB logging 
 
 ### boolean flags
-# train downsampled models
-downsample=false
-# train w/ evoaug
-evoaug=false
+downsample=false # train downsampled models
+evoaug=false # train w/ evoaug
 if [ "$evoaug" = true ]; then
+    # update paths 
     MODELS_DIR=${MODELS_DIR}_evoaug
     DATA_DIR=${DATA_DIR}/evoaug
 fi
-# use logvar instead of std for epistemic uncertainty 
-logvar=false  
+logvar=false  # use logvar instead of std for epistemic uncertainty 
 if [ "$logvar" = true ]; then  
+    # update paths 
     MODELS_DIR=${MODELS_DIR}/logvar
 fi 
-# train on data distilled from models trained with heteroscedastic regression 
-heteroscedastic=true
+heteroscedastic=true # train on data distilled from models trained with heteroscedastic regression 
 if [ "$heteroscedastic" = true ]; then 
     DATA_DIR=../data/ResidualBind_heteroscedastic
     MODELS_DIR=../results/distilled_ResidualBind_heteroscedastic
@@ -31,14 +29,14 @@ fi
 
 ### define cell type
 CELLTYPE='HepG2' # HepG2 or K562
-MODELS_DIR=${MODELS_DIR}/${CELLTYPE}
-DATA=${DATA_DIR}/${CELLTYPE}_distillation_data_with_epistemic.h5
+MODELS_DIR=${MODELS_DIR}/${CELLTYPE} # update outdir path 
+DATA=${DATA_DIR}/${CELLTYPE}_distillation_data_with_epistemic.h5 # path to training data
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 
 if [ "$downsample" = true ]; then
     echo 'training on downsampled data'
-    DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 ) # used if downsample set to true
+    DOWNSAMPLE_ARR=( 0.1 0.25 0.5 0.75 ) 
     for p in "${!DOWNSAMPLE_ARR[@]}"
     do
         echo "downsample p = ${DOWNSAMPLE_ARR[$p]}"
