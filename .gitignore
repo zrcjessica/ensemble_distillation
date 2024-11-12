@@ -8,6 +8,7 @@
 /results
 /data_preprocessing/parse_data.ipynb
 /data_preprocessing/get_missing_cagi_alleles.ipynb
+/data_preprocessing/test_ood_shift_DeepSTARR.ipynb
 /notebooks
 /code/test.sh
 /code/train_without_scheduler.sh
