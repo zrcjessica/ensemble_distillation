@@ -33,19 +33,20 @@
   - [3. Visualizing results](#3-visualizing-results)
 - [Generating shifted sequences](#generating-shifted-sequences)
   - [Code](#code-7)
+  - [Outputs](#outputs-6)
 - [Training with dynamic augmentations](#training-with-dynamic-augmentations)
   - [Code](#code-8)
-  - [Outputs](#outputs-6)
+  - [Outputs](#outputs-7)
 - [Evaluating different ensemble sizes](#evaluating-different-ensemble-sizes)
   - [1. Train up to $N$ teacher models with standard training](#1-train-up-to-n-teacher-models-with-standard-training)
     - [Code](#code-9)
-    - [Outputs](#outputs-7)
+    - [Outputs](#outputs-8)
   - [2. Evaluate performance of different ensemble sizes and get training data for distilled models](#2-evaluate-performance-of-different-ensemble-sizes-and-get-training-data-for-distilled-models)
     - [Code](#code-10)
-    - [Outputs](#outputs-8)
+    - [Outputs](#outputs-9)
   - [3. Train distilled models based on different teacher ensemble sizes](#3-train-distilled-models-based-on-different-teacher-ensemble-sizes)
     - [Code](#code-11)
-    - [Outputs](#outputs-9)
+    - [Outputs](#outputs-10)
 
 Note: all bash scripts use a Slack bot to message user upon completion. To use this feature, refer to the Slack docs: [Sending messages using incoming webhooks](https://api.slack.com/messaging/webhooks)
 
@@ -280,6 +281,8 @@ Apply random mutagenesis, EvoAug, or random shuffling to STARR-seq test sequence
 
 ## Code 
 - `get_ood_starrseq.ipynb`: Located in `data_preprocessing` directory. Generates shifted sequences and saves them as one-hot encoded sequences (shape (N,4)) to an HDF5 file for easy retrieval. 
+## Outputs
+- HDF5 file containing shifted sequences, with keys corresponding to type of shift applied
 
 # Training with dynamic augmentations
 Train distilled models with dynamic augmentations. On each mini-batch, dynamically generate augmented sequences and either append or replace original training data. Target labels for augmented sequences are generated using an ensemble of models. Augmentation options: `random`, `mutagenesis`, `evoaug`

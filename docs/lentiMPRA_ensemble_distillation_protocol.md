@@ -1,14 +1,28 @@
 - [1. Train ResidualBind models (activity)](#1-train-residualbind-models-activity)
   - [Scripts](#scripts)
   - [Outputs](#outputs)
+    - [Trained lentiMPRA Models](#trained-lentimpra-models)
+    - [Pickled Model Histories](#pickled-model-histories)
+    - [Model Performance on Test Set](#model-performance-on-test-set)
+    - [Additional Files](#additional-files)
 - [2. Evaluate performance of ensemble](#2-evaluate-performance-of-ensemble)
   - [Scripts](#scripts-1)
+  - [Outputs](#outputs-1)
 - [3. Train ensemble of ResidualBind models (mean+aleatoric std)](#3-train-ensemble-of-residualbind-models-meanaleatoric-std)
   - [Scripts](#scripts-2)
+  - [Outputs](#outputs-2)
+    - [Data for training ensemble of ResidualBind models with aleatoric uncertainty prediction](#data-for-training-ensemble-of-residualbind-models-with-aleatoric-uncertainty-prediction)
+    - [Ensemble of ResidualBind models with aleatoric uncertainty prediction](#ensemble-of-residualbind-models-with-aleatoric-uncertainty-prediction)
 - [4. Get data for training distilled ResidualBind models](#4-get-data-for-training-distilled-residualbind-models)
   - [Code](#code)
+  - [Outputs](#outputs-3)
+    - [Ensemble averages](#ensemble-averages)
+    - [Ensemble standard deviations](#ensemble-standard-deviations)
+      - [Additional files for downsampled data](#additional-files-for-downsampled-data)
+    - [Data for training distilled models](#data-for-training-distilled-models)
 - [5. Distill replicates of ResidualBind models (mean+aleatoric+epistemic uncertainty)](#5-distill-replicates-of-residualbind-models-meanaleatoricepistemic-uncertainty)
   - [Scripts](#scripts-3)
+    - [Outputs](#outputs-4)
 - [Other analyses](#other-analyses)
   - [Training with dynamic augmentations](#training-with-dynamic-augmentations)
     - [Scripts](#scripts-4)
@@ -29,6 +43,23 @@ Train an ensemble of ResidualBind models with standard training to predict regul
 - `train_lentiMPRA_ensemble.sh`: runs `train_lentiMPRA.py`; can toggle `evoaug` and `downsample` boolean variables to train with/without EvoAug or downsampling training data, respectively. 
 
 ## Outputs
+### Trained lentiMPRA Models
+- `<model_ix>_lentiMPRA.h5`: Trained lentiMPRA model without augmentations (saved with `model.save()`).
+- `<model_ix>_lentiMPRA_aug_weights.h5`: Trained lentiMPRA model weights with augmentations.
+- `<model_ix>_lentiMPRA_finetune.h5`: Fine-tuned model weights without augmentations.
+
+### Pickled Model Histories
+- `<model_ix>_historyDict`: Training history for models trained without augmentations.
+- `<model_ix>_historyDict_aug`: Training history for models trained with augmentations.
+- `<model_ix>_historyDict_finetune`: Training history for fine-tuned models.
+
+### Model Performance on Test Set
+- `<model_ix>_performance.csv`: Performance of models trained without augmentations.
+- `<model_ix>_performance_aug.csv`: Performance of models trained with augmentations.
+- `<model_ix>_performance_finetune.csv`: Performance of fine-tuned models.
+
+### Additional Files
+- `config.yaml`: Updated configuration file with all training parameters (not specific to a particular model index).
 
 # 2. Evaluate performance of ensemble 
 Evaluate performance of ensemble average predictions on held out test sequences. This provides benchmark ensemble performance. 
@@ -37,6 +68,10 @@ Evaluate performance of ensemble average predictions on held out test sequences.
 ## Scripts
 - `ensemble_predict_lentiMPRA.py`: Use with `--eval` flag to evaluate ensemble average performance on test set for ResidualBind models
 - `eval_and_distill_ensemble_lentiMPRA.sh`: Runs `ensemble_predict_lentiMPRA.py` with `--eval` and `--distill` flags set. Only output of `--eval` flag is needed to evaluate ensemble performance. 
+## Outputs
+- `ensemble_avg_y_train.npy`: Ensemble average predictions on training sequences (`X_train`), generated if the `--distill` flag is set.
+- `ensemble_performance_avg.csv`: Ensemble average performance on test sequences (`X_test`), saved if the `--eval` flag is set.
+
 
 <!-- # 3. Get ensemble average of training data
 Calculate ensemble average performance on training sequences and save to .npy file. The output is used to train the distilled models. Can be combined with [step 2](#2-evaluate-performance-of-ensemble) using the same script. 
@@ -57,8 +92,13 @@ For HepG2 and K562.
 Train an ensemble of ResidualBind models on the mean and standard deviation over biological replicates in the lentiMPRA data. These models predict activity and aleatoric uncertainty, and will be distilled to produce student models that can predict both aleatoric and epistemic uncertainty. 
 
 ## Scripts 
-- `parse_lentiMPRA_data_with_aleatoric.ipynb`: parse HDF5 files for K562 and HepG2 with mean and standard deviation of experimental activity values across biological replicates in lentiMPRA data (target labels have shape (N,2)).
+- `parse_lentiMPRA_data_with_aleatoric.ipynb`: Parse HDF5 files for K562 and HepG2 with mean and standard deviation of experimental activity values across biological replicates in lentiMPRA data (target labels have shape (N,2)).
 - `train_lentiMPRA_aleatoric.sh`: run `train_lentiMPRA.py` with `--aleatoric` flag using HDF5 files generated above as input to `--data`.
+## Outputs 
+### Data for training ensemble of ResidualBind models with aleatoric uncertainty prediction
+The Jupyter notebook generates an HDF5 file that contains lentiMPRA data in train/test/val splits, where target labels have shape (N,2) and second column represents replicate standard deviation (aleatoric uncertainty).
+### Ensemble of ResidualBind models with aleatoric uncertainty prediction
+See outputs of [1. Train ResidualBind models (activity)](#outputs) for outputs of script for training ensemble of ResidualBind models with activity and aleatoric uncertainty outputs.
 
 # 4. Get data for training distilled ResidualBind models  
 For the ensemble of ResidualBind models that predict activity and aleatoric uncertainty, we need the ensemble average of its predictions across training sequence as well as the ensemble standard deviation of its predictions across all splits to generate a new HDF5 file that contains data for training and evaluating the distilled models, which will predict activity, aleatoric, and epistemic uncertainty. 
@@ -69,6 +109,22 @@ For the ensemble of ResidualBind models that predict activity and aleatoric unce
 - `get_lentiMPRA_ensemble_std.sh`: run `get_lentiMPRA_ensemble_std.py` on ensemble of models w/ activity+aleatoric outputs
 - `parse_lentiMPRA_data_with_epistemic.ipynb`: Parse HDF5 file containing all data for distilling mean+aleatoric+epistemic models using ensemble mean for train seqs and ensemble standard deviation for train/test/val seqs. HDF5 files are specific to downsampling proportion. 
   - Ensemble standard deviation was calculated for both activity and aleatoric output heads of teacher ensemble. We will omit the latter quantity when training the distilled models, as the epistemic output head describes the epistemic uncertainty for regulatory activity.
+## Outputs
+### Ensemble averages
+See outputs of [2. Evaluate performance of ensemble](#outputs-1) for outputs of `ensemble_predict_lentiMPRA.py`. 
+
+### Ensemble standard deviations
+- `<celltype>_ensemble_std_train.npy`: Ensemble standard deviation of predictions on training sequences (`X_train`).
+- `<celltype>_ensemble_std_test.npy`: Ensemble standard deviation of predictions on test sequences (`X_test`).
+- `<celltype>_ensemble_std_val.npy`: Ensemble standard deviation of predictions on validation sequences (`X_val`).
+#### Additional files for downsampled data
+If the `--downsample` flag is set:
+- `<celltype>_downsample<downsample_value>_ensemble_std_train.npy`: Ensemble standard deviation of predictions on downsampled training sequences.
+- `<celltype>_downsample<downsample_value>_ensemble_std_test.npy`: Ensemble standard deviation of predictions on downsampled test sequences.
+- `<celltype>_downsample<downsample_value>_ensemble_std_val.npy`: Ensemble standard deviation of predictions on downsampled validation sequences.
+### Data for training distilled models
+Jupyter notebook produces an HDF5 file containing train/test/val splits for training distilled models. Target labels should have shape (N,4) where the 3rd and 4th columns store the ensemble standard deviations of the activity and aleatoric uncertainty output heads, respectively. In practice, the fourth column is not used for training the distilled models. The first and second columns of the target labels for the training split represent the ensemble averages for the activity and aleatoric uncertainty output heads, respectively.
+
 <!-- # 6. Distill replicates of ResidualBind models (activity+aleatoric uncertainty)
 Use average of ensemble average on training seqs to replace `y_train` and train distilled models. Average of aleatoric uncertainty predictions are used as new target aleatoric uncertainty values for training set seqs.
 
@@ -82,6 +138,7 @@ Finally, train distilled models using ensemble of models trained in [step 3](#3-
 ## Scripts
 - `train_distilled_lentiMPRA_with_epistemic.py`: Replaces `train_lentiMPRA.py`, assumes `--aleatoric` and `--epistemic` are `True` and that HDF5 file provided to `--data` contains only data for distillation, bypassing the need for the `--distill` flag and explicitly providing ensemble level metrics. 
 - `distill_lentiMPRA_epistemic.sh`: Runs `train_distilled_lentiMPRA_with_epistemic.py` to train distilled models.
+### Outputs 
 
 # Other analyses
 
