@@ -26,12 +26,19 @@
 - [Other analyses](#other-analyses)
   - [Training with dynamic augmentations](#training-with-dynamic-augmentations)
     - [Scripts](#scripts-4)
+    - [Outputs](#outputs-5)
+    - [If `--append` flag is set:](#if---append-flag-is-set)
+    - [If `--append` flag is **not** set:](#if---append-flag-is-not-set)
+    - [Additional Files](#additional-files-1)
   - [Training models w/ evidential regression](#training-models-w-evidential-regression)
     - [Scripts](#scripts-5)
+    - [Outputs](#outputs-6)
   - [MPRAnn](#mprann)
     - [Scripts](#scripts-6)
+    - [Outputs](#outputs-7)
   - [ResidualBind + heteroscedastic regression](#residualbind--heteroscedastic-regression)
     - [Scripts](#scripts-7)
+    - [Outputs](#outputs-8)
   - [MPRAnn + heteroscedastic regression](#mprann--heteroscedastic-regression)
 
 
@@ -157,11 +164,35 @@ Train distilled models with dynamic augmentations. On each mini-batch, dynamical
 - `train_dynamic_aug_lentiMPRA.py`: train distilled lentiMPRA models with activity, aleatoric and epistemic uncertainty predictions using ensemble of DeepSTARR models with activity and aleatoric uncertainty outputs. 
 - `distill_lentiMPRA_dynamic_aug.sh`: run `train_dynamic_aug_lentiMPRA.py`
 
+### Outputs
+Located in the output directory specified by the `--out` argument.
+
+### If `--append` flag is set:
+- `<ix>_lentiMPRA_<aug>_append_aug.h5`: Weights of the distilled ResidualBind model trained with the specified dynamic augmentation.
+- `<ix>_<aug>_append_historyDict_aug`: Pickled training history of the distilled ResidualBind model trained with the specified dynamic augmentation.
+- `<ix>_<aug>_append_performance_aug.csv`: CSV file containing performance metrics of the distilled ResidualBind model trained with the specified dynamic augmentation.
+- `<ix>_lentiMPRA_<aug>_append_finetune.h5`: Weights of the distilled ResidualBind model fine-tuned after training with the specified dynamic augmentation.
+- `<ix>_<aug>_append_historyDict_finetune`: Pickled training history of the fine-tuned ResidualBind model.
+- `<ix>_<aug>_append_performance_finetune.csv`: CSV file containing performance metrics of the fine-tuned ResidualBind model.
+
+### If `--append` flag is **not** set:
+- `<ix>_lentiMPRA_<aug>_aug.h5`: Weights of the distilled ResidualBind model trained with the specified dynamic augmentation.
+- `<ix>_<aug>_historyDict_aug`: Pickled training history of the distilled ResidualBind model trained with the specified dynamic augmentation.
+- `<ix>_<aug>_performance_aug.csv`: CSV file containing performance metrics of the distilled ResidualBind model trained with the specified dynamic augmentation.
+- `<ix>_lentiMPRA_<aug>_finetune.h5`: Weights of the distilled ResidualBind model fine-tuned after training with the specified dynamic augmentation.
+- `<ix>_<aug>_historyDict_finetune`: Pickled training history of the fine-tuned ResidualBind model.
+- `<ix>_<aug>_performance_finetune.csv`: CSV file containing performance metrics of the fine-tuned ResidualBind model.
+
+### Additional Files
+- `config.yaml`: Updated configuration file with training parameters.
+
 ## Training models w/ evidential regression
 These models are used for the interval coverage probability analysis. 
 ### Scripts
 - `train_lentiMPRA.py`: Set `--evidential` flag to train with evidential regression. These models will have an additional output head that predicts aleatoric uncertainty as log variance. 
 - `train_evidential_lentiMPRA.sh`: Runs `train_lentiMPRA.py` to train ResidualBind models with evidential regression. 
+### Outputs
+See outputs of [1. Train ResidualBind models (activity)](#outputs).
 
 ## MPRAnn
 ### Scripts
@@ -171,6 +202,11 @@ These models are used for the interval coverage probability analysis.
 - `parse_MPRAnn_distillation_data.ipynb`: generates HDF5 file with updated train/test/val data for distilled models with activity + aleatoric + epistemic uncertainty outputs 
 - `train_distilled_MPRAnn_with_epistemic.py`: Train distilled MPRAnn models to predict activity + aleatoric + epistemic uncertainty using data from notebook above
 - `distill_MPRAnn_epistemic.sh`: Runs `train_distilled_MPRAnn_with_epistemic.py` to train distilled MPRAnn models. 
+### Outputs
+- `<ix>_MPRAnn.h5`: Trained MPRAnn model (saved with `model.save()`), if evidential loss is not used.
+- `<ix>_historyDict`: Training history for the MPRAnn model without augmentations.
+- `<ix>_performance.csv`: Performance of MPRAnn models on the test sequences without augmentations.
+- `config.yaml`: Updated configuration file with training parameters.
 
 ## ResidualBind + heteroscedastic regression
 ### Scripts 
@@ -179,6 +215,7 @@ These models are used for the interval coverage probability analysis.
 - `get_heteroscedastic_ResidualBind_ensemble_std.sh` and `get_heteroscedastic_ResidualBind_ensemble_std.py`: calculate standard deviation of ensemble predictions for activity and aleatoric uncertainty  
 - `parse_lentiMPRA_data_with_epistemic.ipynb`: same as notebook used to parse data for distilling ResidualBind; set `heteroscedastic = True` and `evoaug = False`
 - `distill_heteroscedastic_ResidualBind.sh`: Runs `train_distilled_lentiMPRA_with_epistemic.py` to train distilled ResidualBind models based on teacher ensemble of ResidualBind models trained with heteroscedastic regression. 
+### Outputs 
 
 ## MPRAnn + heteroscedastic regression
 - `train_heteroscedastic_MPRAnn.py` + `train_heteroscedastic_MPRAnn_ensemble.sh`: train ensemble of MPRAnn models with heteroscedastic regression on the lentiMPRA data that includes across replicate std. (makes it easier for evaluating performance of both activity and aleatoric uncertainty output heads )
