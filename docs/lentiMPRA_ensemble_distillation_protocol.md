@@ -22,7 +22,7 @@
     - [Data for training distilled models](#data-for-training-distilled-models)
 - [5. Distill replicates of ResidualBind models (mean+aleatoric+epistemic uncertainty)](#5-distill-replicates-of-residualbind-models-meanaleatoricepistemic-uncertainty)
   - [Scripts](#scripts-3)
-    - [Outputs](#outputs-4)
+  - [Outputs](#outputs-4)
 - [Other analyses](#other-analyses)
   - [Training with dynamic augmentations](#training-with-dynamic-augmentations)
     - [Scripts](#scripts-4)
@@ -138,7 +138,14 @@ Finally, train distilled models using ensemble of models trained in [step 3](#3-
 ## Scripts
 - `train_distilled_lentiMPRA_with_epistemic.py`: Replaces `train_lentiMPRA.py`, assumes `--aleatoric` and `--epistemic` are `True` and that HDF5 file provided to `--data` contains only data for distillation, bypassing the need for the `--distill` flag and explicitly providing ensemble level metrics. 
 - `distill_lentiMPRA_epistemic.sh`: Runs `train_distilled_lentiMPRA_with_epistemic.py` to train distilled models.
-### Outputs 
+## Outputs 
+- `<model_ix>_ResidualBind_aug_weights.h5`: Model weights trained with augmentations (EvoAug).
+- `<model_ix>_ResidualBind_finetune.h5`: Fine-tuned model weights after training without augmentations.
+- `<model_ix>_historyDict_aug`: Pickled training history for models trained with augmentations.
+- `<model_ix>_historyDict_finetune`: Pickled training history for fine-tuned models.
+- `<model_ix>_performance_aug.csv`: Performance of models trained with augmentations on test sequences.
+- `<model_ix>_performance_finetune.csv`: Performance of fine-tuned models on test sequences.
+- `config.yaml`: Updated configuration file with training parameters.
 
 # Other analyses
 
