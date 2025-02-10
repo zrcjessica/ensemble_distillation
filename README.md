@@ -17,13 +17,16 @@ DEGU (**Distilling Ensembles for Genomic Uncertainty-aware models**) is a deep l
 - **Generalization under Covariate Shift**: Enhanced robustness when applied to out-of-distribution genomic sequences.
 - **Computational Efficiency**: Retains ensemble performance in a single distilled model, reducing inference costs.
 
-## Dataset
+## Datasets
 We used publicly available genomic datasets, including:
 - **STARR-seq (fly enhancer activity)**
 - **lentiMPRA (human cis-regulatory sequence activity)**
 - **Base-resolution ATAC-seq profiles**
 
 For details on dataset preprocessing, refer to `data/README.md`.
+
+## Documentation
+For details on how knowledge distillation was applied to each dataset, refer to the corresponding markdown file in `docs/`. 
 
 ## Citation
 If you use this repository, please cite our paper:
