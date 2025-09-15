@@ -93,8 +93,12 @@ python paper_reproducibility/code/train_degu_distilled_model_deepstarr.py \
 
 ### lentiMPRA distilled:
 - **Script**: `paper_reproducibility/code/train_degu_distilled_model_lentimpra.py`
-- **Architecture**: DREAM-RNN with 3 outputs: `[activity, aleatoric, epistemic]`
+- **Architecture**: DREAM-RNN with configurable outputs based on uncertainty type:
+  - Epistemic only: `[activity, epistemic]` (2 outputs)
+  - Aleatoric only: `[activity, aleatoric]` (2 outputs) 
+  - Both: `[activity, aleatoric, epistemic]` (3 outputs)
 - **Input**: NPZ file from step 2 containing ensemble predictions
+- **Configuration**: Set `aleatoric: true/false` and `epistemic: true/false` in YAML config
 - **Example**:
 ```bash
 python paper_reproducibility/code/train_degu_distilled_model_lentimpra.py \
@@ -140,6 +144,39 @@ All scripts support on-the-fly downsampling with fixed seed (1234) for reproduci
 - **Distilled models**: 4 outputs (DeepSTARR: Dev/Hk + std) or 3 outputs (lentiMPRA: activity + aleatoric + epistemic)
 - **Full DREAM-RNN**: Bi-LSTM layers with convolutional backbone as per @DREAM_paper
 
+### Modular architecture design
+The DREAM-RNN implementation follows a modular approach that allows flexible uncertainty estimation:
+
+- **Base models**: Standard DREAM-RNN with 2 outputs (DeepSTARR: Dev/Hk, lentiMPRA: activity)
+- **Distillation modification**: Distillation scripts modify the final layer to add uncertainty heads
+  - DeepSTARR: 2 outputs → 4 outputs (Dev, Hk, Dev_std, Hk_std)
+  - lentiMPRA: 1 output → 3 outputs (activity, aleatoric, epistemic)
+- **Implementation**: Uses `nn.ModuleDict` for final layer to allow easy modification by distillation scripts
+
+### Uncertainty estimation options (per @DEGU_paper)
+Following the DEGU methodology, different uncertainty types can be estimated:
+
+**Epistemic uncertainty** (model uncertainty):
+- Captured by variability across ensemble predictions
+- Available for both DeepSTARR and lentiMPRA
+- Represents uncertainty due to limited training data
+
+**Aleatoric uncertainty** (data uncertainty):
+- Captured by variability across experimental replicates
+- Available for lentiMPRA (3 replicates) and ATAC-seq (3 replicates)
+- Represents irreducible noise in experimental measurements
+
+**Combined uncertainty**:
+- Total uncertainty = √(epistemic² + aleatoric²)
+- Provides comprehensive uncertainty assessment
+- Enables better calibration and decision-making
+
+**Configuration options**:
+- Standard training: No uncertainty heads
+- Epistemic only: Add epistemic uncertainty head (ensemble variability)
+- Aleatoric only: Add aleatoric uncertainty head (replicate variability) 
+- Both: Add both epistemic and aleatoric uncertainty heads
+
 ### Hyperparameters
 Aligned with @DREAM_paper specifications:
 - **Epochs**: 80 (configurable via YAML)
@@ -168,6 +205,55 @@ All scripts support standard arguments:
 - `evaluate_ensemble_and_generate_distillation_data.py`: Ensemble evaluation and distillation data generation
 - `train_degu_distilled_model_deepstarr.py`: Distilled model training for DeepSTARR
 - `train_degu_distilled_model_lentimpra.py`: Distilled model training for lentiMPRA
+
+## Configuration examples for different uncertainty types
+
+### DeepSTARR uncertainty configurations:
+DeepSTARR distillation always includes epistemic uncertainty (ensemble variability):
+
+```yaml
+# DREAM_RNN_DeepSTARR.yaml for distilled models
+epochs: 80
+batch_size: 1024
+optimizer: 'AdamW'
+optim_lr: 0.005
+std: true  # Enable epistemic uncertainty (ensemble variability)
+```
+
+### lentiMPRA uncertainty configurations:
+
+**Epistemic uncertainty only** (ensemble variability):
+```yaml
+# DREAM_RNN_lentiMPRA.yaml
+epochs: 80
+batch_size: 1024
+optimizer: 'AdamW'
+optim_lr: 0.005
+aleatoric: false  # No aleatoric uncertainty
+epistemic: true   # Enable epistemic uncertainty
+```
+
+**Aleatoric uncertainty only** (experimental replicates):
+```yaml
+# DREAM_RNN_lentiMPRA.yaml
+epochs: 80
+batch_size: 1024
+optimizer: 'AdamW'
+optim_lr: 0.005
+aleatoric: true   # Enable aleatoric uncertainty
+epistemic: false  # No epistemic uncertainty
+```
+
+**Both uncertainties** (recommended for full DEGU methodology):
+```yaml
+# DREAM_RNN_lentiMPRA.yaml
+epochs: 80
+batch_size: 1024
+optimizer: 'AdamW'
+optim_lr: 0.005
+aleatoric: true   # Enable aleatoric uncertainty
+epistemic: true   # Enable epistemic uncertainty
+```
 
 ## Complete workflow example
 
