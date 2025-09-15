@@ -53,3 +53,11 @@ kernel_sizes:
 lstm_hidden_channels:
   desc: Hidden dimensions for Bi-LSTM
   value: 320  # DREAM paper: 320 hidden dimensions each (640 total)
+
+# Uncertainty heads (aligns with DEGU paper and lentiMPRA protocol)
+aleatoric:
+  desc: If true, predict aleatoric uncertainty (replicate std)
+  value: false
+epistemic:
+  desc: If true, predict epistemic uncertainty (via ensemble std distillation)
+  value: false

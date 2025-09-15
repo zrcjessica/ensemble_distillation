@@ -85,10 +85,18 @@ def DREAM_RNN_lentiMPRA(input_shape, config, epistemic=False):
     x = kl.BatchNormalization()(x)
     x = kl.Activation(config.get('activation', 'relu'))(x)
 
-    if epistemic:
-        outputs = kl.Dense(2, activation='linear')(x)  # expression, std
+    # Determine heads based on config flags
+    want_aleatoric = bool(config.get('aleatoric', False))
+    want_epistemic = bool(config.get('epistemic', epistemic))
+
+    if want_aleatoric and want_epistemic:
+        outputs = kl.Dense(3, activation='linear')(x)  # mean, aleatoric, epistemic
+    elif want_aleatoric and not want_epistemic:
+        outputs = kl.Dense(2, activation='linear')(x)  # mean, aleatoric
+    elif want_epistemic and not want_aleatoric:
+        outputs = kl.Dense(2, activation='linear')(x)  # mean, epistemic
     else:
-        outputs = kl.Dense(1, activation='linear')(x)  # expression only
+        outputs = kl.Dense(1, activation='linear')(x)  # mean only
 
     model = Model(inputs=inputs, outputs=outputs)
     return model
