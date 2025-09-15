@@ -120,6 +120,13 @@ All scripts support on-the-fly downsampling with fixed seed (1234) for reproduci
 - Use `--downsample 0.1` for 10% of data, `--downsample 0.005` for 0.5%, etc.
 - Training data is downsampled while validation/test data remains full size
 - Consistent across standard training, ensemble evaluation, and distillation
+- **Important**: Use the same downsample ratio across all pipeline steps for consistency
+
+### Data requirements
+- **DeepSTARR**: `zenodo/data/DeepSTARR_distillation_data.h5` with Train/Val/Test splits
+- **lentiMPRA**: `zenodo/data/lentiMPRA_K562_activity_and_aleatoric_data.h5` or `lentiMPRA_HepG2_activity_and_aleatoric_data.h5`
+- All data files should contain X (sequences) and y (labels) arrays
+- Sequences are automatically transposed from (N, L, 4) to (N, 4, L) for PyTorch compatibility
 
 ### Architecture consistency
 - **Standard models**: 2 outputs (DeepSTARR: Dev/Hk, lentiMPRA: activity)
@@ -133,9 +140,24 @@ Aligned with @DREAM_paper specifications:
 - **Optimizer**: AdamW with lr=0.005
 - **Scheduler**: OneCycleLR
 - **Architecture**: Full DREAM-RNN with Bi-LSTM layers
+- **Dropout**: 0.2
+- **LSTM hidden dimensions**: 320 (640 total with bidirectional)
+- **Kernel sizes**: [9, 15] for first convolutional layer
+
+### Command line arguments
+All scripts support standard arguments:
+- `--data`: Path to HDF5 data file
+- `--out`/`--output_dir`: Output directory for models and results
+- `--config`: Path to YAML configuration file
+- `--downsample`: Downsample ratio (0.0-1.0)
+- `--ix`: Model index for ensemble training
+- `--gpu`: GPU device ID (0, 1, 2, etc.)
+- `--epochs`: Number of training epochs
+- `--batch_size`: Batch size for training
 
 ## Complete workflow example
 
+### DeepSTARR workflow:
 ```bash
 # 1. Train 10 standard models (DeepSTARR)
 for i in {0..9}; do
@@ -164,3 +186,49 @@ for i in {0..4}; do
     --epochs 80 --batch_size 1024
 done
 ```
+
+### lentiMPRA workflow (K562):
+```bash
+# 1. Train 10 standard models (lentiMPRA K562)
+for i in {0..9}; do
+  python paper_reproducibility/code/train_DREAM_RNN_lentiMPRA.py \
+    --data zenodo/data/lentiMPRA_K562_activity_and_aleatoric_data.h5 \
+    --out results/DREAM_RNN/lentiMPRA/K562/standard \
+    --config paper_reproducibility/config/DREAM_RNN_lentiMPRA.yaml \
+    --ix $i --gpu 0
+done
+
+# 2. Evaluate ensemble and generate distillation data
+python paper_reproducibility/code/evaluate_ensemble_and_generate_distillation_data.py \
+  --dataset lentiMPRA \
+  --celltype K562 \
+  --model_dir results/DREAM_RNN/lentiMPRA/K562/standard \
+  --n_mods 10 \
+  --data zenodo/data/lentiMPRA_K562_activity_and_aleatoric_data.h5 \
+  --out results/DREAM_RNN/lentiMPRA/K562/ensemble \
+  --eval --distill --downsample 1.0
+
+# 3. Train 5 distilled models
+for i in {0..4}; do
+  python paper_reproducibility/code/train_degu_distilled_model_lentimpra.py \
+    --distillation_data results/DREAM_RNN/lentiMPRA/K562/ensemble/distillation_data_lentiMPRA_K562_1.0.npz \
+    --output_dir results/DREAM_RNN/lentiMPRA/K562/distilled \
+    --config paper_reproducibility/config/DREAM_RNN_lentiMPRA.yaml \
+    --model_index $i \
+    --epochs 80 --batch_size 1024
+done
+```
+
+## Troubleshooting
+
+### Common issues:
+1. **CUDA out of memory**: Reduce batch size in config file or use smaller downsample ratio
+2. **File not found errors**: Ensure data files are in `zenodo/data/` directory
+3. **Model loading errors**: Check that model files exist in the specified directory
+4. **Import errors**: Ensure all dependencies are installed (PyTorch, h5py, numpy, etc.)
+
+### Performance tips:
+- Use GPU acceleration with `--gpu 0` (or other available GPU)
+- For testing, use small downsample ratios (0.01, 0.1) to speed up training
+- Monitor GPU memory usage and adjust batch size accordingly
+- Use the test config files for quick validation runs
