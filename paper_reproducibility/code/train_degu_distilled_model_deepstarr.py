@@ -143,6 +143,7 @@ class UnifiedDeepSTARRDEGUTrainer:
     def _load_actual_sequences(self):
         """Load actual DNA sequences from the original dataset"""
         # Extract downsample ratio from distillation data path
+        # DeepSTARR files are named: distillation_data_DeepSTARR_<downsample>.npz
         path_str = str(self.distillation_data_path)
         if "0.005" in path_str:
             downsample_ratio = 0.005
@@ -156,7 +157,7 @@ class UnifiedDeepSTARRDEGUTrainer:
             downsample_ratio = 0.5
         elif "0.75" in path_str:
             downsample_ratio = 0.75
-        elif "1.0" in path_str:
+        elif "1.0" in path_str or "full" in path_str:
             downsample_ratio = 1.0
         else:
             raise ValueError("Could not determine downsample ratio from path")

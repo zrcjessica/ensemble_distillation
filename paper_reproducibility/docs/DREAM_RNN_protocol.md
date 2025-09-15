@@ -47,7 +47,7 @@ The ensemble evaluator loads multiple trained models, generates predictions, and
 
 ### Outputs:
 - `ensemble_performance_avg.csv` - ensemble performance metrics (if `--eval`)
-- `distillation_data_<DATASET>_<CELLTYPE>_<DOWNSAMPLE>.npz` - contains:
+- `distillation_data_<DATASET>_<DOWNSAMPLE>.npz` (DeepSTARR) or `distillation_data_<DATASET>_<CELLTYPE>_<DOWNSAMPLE>.npz` (lentiMPRA) - contains:
   - `train_mean`, `train_std` - ensemble predictions for training data
   - `val_mean`, `val_std` - ensemble predictions for validation data  
   - `test_mean`, `test_std` - ensemble predictions for test data
@@ -86,7 +86,7 @@ Distilled models learn to approximate ensemble predictions and provide uncertain
 - **Example**:
 ```bash
 python paper_reproducibility/code/train_degu_distilled_model_deepstarr.py \
-  --distillation_data results/DREAM_RNN/DeepSTARR/ensemble/distillation_data_DeepSTARR_Dev_1.0.npz \
+  --distillation_data results/DREAM_RNN/DeepSTARR/ensemble/distillation_data_DeepSTARR_1.0.npz \
   --output_dir results/DREAM_RNN/DeepSTARR/distilled \
   --epochs 80 --batch_size 1024 --learning_rate 0.005
 ```
@@ -158,7 +158,7 @@ python paper_reproducibility/code/evaluate_ensemble_and_generate_distillation_da
 # 3. Train 5 distilled models
 for i in {0..4}; do
   python paper_reproducibility/code/train_degu_distilled_model_deepstarr.py \
-    --distillation_data results/DREAM_RNN/DeepSTARR/ensemble/distillation_data_DeepSTARR_Dev_1.0.npz \
+    --distillation_data results/DREAM_RNN/DeepSTARR/ensemble/distillation_data_DeepSTARR_1.0.npz \
     --output_dir results/DREAM_RNN/DeepSTARR/distilled \
     --model_index $i \
     --epochs 80 --batch_size 1024

@@ -439,7 +439,11 @@ class EnsembleEvaluator:
         ensemble_outputs_dir = Path(self.ensemble_dir) / "ensemble_outputs"
         ensemble_outputs_dir.mkdir(exist_ok=True)
         
-        distillation_file = ensemble_outputs_dir / f"distillation_data_{self.dataset}_{self.celltype}_{self.downsample_ratio}.npz"
+        # For DeepSTARR, don't include celltype in filename since model outputs both Dev and Hk
+        if self.dataset == "DeepSTARR":
+            distillation_file = ensemble_outputs_dir / f"distillation_data_{self.dataset}_{self.downsample_ratio}.npz"
+        else:
+            distillation_file = ensemble_outputs_dir / f"distillation_data_{self.dataset}_{self.celltype}_{self.downsample_ratio}.npz"
         np.savez_compressed(distillation_file, **distillation_data)
         print(f"  Saved distillation data to: {distillation_file}")
         
@@ -844,7 +848,11 @@ def main():
             if std_test_pred is not None:
                 npz_payload['test_std'] = std_test_pred
             if npz_payload:
-                tag = f"{args.dataset}_{(args.celltype or 'NA')}_{args.downsample or 'full'}"
+                # For DeepSTARR, don't include celltype in filename since model outputs both Dev and Hk
+                if args.dataset == "DeepSTARR":
+                    tag = f"{args.dataset}_{args.downsample or 'full'}"
+                else:
+                    tag = f"{args.dataset}_{(args.celltype or 'NA')}_{args.downsample or 'full'}"
                 np.savez_compressed(os.path.join(outdir, f"distillation_data_{tag}.npz"), **npz_payload)
 
         return
