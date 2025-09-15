@@ -24,7 +24,7 @@ import h5py
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'code'))
 
 # Import the model classes
-from train_DREAM_RNN_official import DREAM_RNN_Official
+from model_zoo import DREAM_RNN_Official
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -34,7 +34,7 @@ class UnifiedDeepSTARRDEGUTrainer:
     """Trainer for unified DeepSTARR DEGU distilled models (both Dev and Hk outputs)"""
     
     def __init__(self, distillation_data_path, output_dir, model_index=0, 
-                 batch_size=1024, learning_rate=0.005, epochs=80, device='cuda'):
+                 batch_size=1024, learning_rate=0.005, epochs=80, device='cuda', config=None):
         self.distillation_data_path = Path(distillation_data_path)
         self.output_dir = Path(output_dir)
         self.model_index = model_index
@@ -42,6 +42,7 @@ class UnifiedDeepSTARRDEGUTrainer:
         self.learning_rate = learning_rate
         self.epochs = epochs
         self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
+        self.config = config or {}
         
         # Create output directory
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -239,16 +240,12 @@ class UnifiedDeepSTARRDEGUTrainer:
         
         print("=== DEBUG: Creating DREAM_RNN_Official model ===")
         sys.stdout.flush()
-        # Create model with 4 outputs: [Dev_mean, Hk_mean, Dev_std, Hk_std]
-        self.model = DREAM_RNN_Official(seqsize=249, in_channels=4)
+        # Create model with config-driven output heads for DEGU distillation
+        # Set std=True in config to enable 4 outputs: [Dev_mean, Hk_mean, Dev_std, Hk_std]
+        distillation_config = self.config.copy()
+        distillation_config['std'] = True  # Enable epistemic uncertainty heads for distillation
+        self.model = DREAM_RNN_Official(input_shape=(249, 4), config=distillation_config, epistemic=True)
         print("=== DEBUG: DREAM_RNN_Official model created successfully ===")
-        sys.stdout.flush()
-        
-        print("=== DEBUG: Modifying final layer ===")
-        sys.stdout.flush()
-        # Modify final layer to have 4 outputs for unified DEGU distillation
-        self.model.final_block['final_dense'] = nn.Linear(256, 4)
-        print("=== DEBUG: Final layer modified successfully ===")
         sys.stdout.flush()
         
         print("=== DEBUG: About to move model to device ===")
@@ -596,8 +593,21 @@ def main():
     parser.add_argument('--learning_rate', type=float, default=0.005, help='Learning rate')
     parser.add_argument('--epochs', type=int, default=80, help='Number of training epochs')
     parser.add_argument('--device', default='cuda', help='Device to use (cuda/cpu)')
+    parser.add_argument('--config', type=str, default='paper_reproducibility/config/DREAM_RNN_DeepSTARR.yaml', help='Config file')
     
     args = parser.parse_args()
+    
+    # Load config
+    import yaml
+    with open(args.config, 'r') as f:
+        config_raw = yaml.safe_load(f)
+    
+    config = {}
+    for key, item in config_raw.items():
+        if isinstance(item, dict) and 'value' in item:
+            config[key] = item['value']
+        else:
+            config[key] = item
     
     # Disable cuDNN to avoid version conflicts
     torch.backends.cudnn.enabled = False
@@ -608,6 +618,7 @@ def main():
         distillation_data_path=args.distillation_data,
         output_dir=args.output_dir,
         model_index=args.model_index,
+        config=config,
         batch_size=args.batch_size,
         learning_rate=args.learning_rate,
         epochs=args.epochs,

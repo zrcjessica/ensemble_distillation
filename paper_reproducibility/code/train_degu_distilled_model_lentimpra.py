@@ -40,9 +40,8 @@ if torch.cuda.is_available():
     torch.backends.cudnn.enabled = False
     print("Disabled cuDNN to avoid version conflicts")
 
-# Import the EXACT SAME DREAM_RNN_LentiMPRA class used for teacher ensemble training
-# This ensures architectural consistency as required by the @DEGU_paper
-from train_DREAM_RNN_lentiMPRA import DREAM_RNN_LentiMPRA
+# Import the model from model_zoo to use config-driven heads
+from model_zoo import DREAM_RNN_lentiMPRA
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -63,7 +62,8 @@ class DEGULentiMPRADistillationTrainer:
                  batch_size: int = 1024,
                  learning_rate: float = 0.005,
                  epochs: int = 80,
-                 device: str = 'cuda'):
+                 device: str = 'cuda',
+                 config: dict = None):
         """
         Initialize DEGU distillation trainer for lentiMPRA data.
         
@@ -83,6 +83,7 @@ class DEGULentiMPRADistillationTrainer:
         self.learning_rate = learning_rate
         self.epochs = epochs
         self.device = device
+        self.config = config or {}
         
         # Create output directory
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -334,16 +335,22 @@ class DEGULentiMPRADistillationTrainer:
         print(f"  Input channels: 4 (A, T, G, C)")
         print(f"  Sequence length: {self.seq_len} bp")
         
-        print(f"  About to import DREAM_RNN_LentiMPRA...")
+        print(f"  About to create DREAM_RNN_lentiMPRA with config-driven heads...")
         sys.stdout.flush()
         
-        # Create model with DREAM-RNN architecture
-        print(f"  Creating DREAM_RNN_LentiMPRA instance...")
-        sys.stdout.flush()
+        # Create model with config-driven output heads for DEGU distillation
+        # Enable epistemic uncertainty heads for distillation
+        distillation_config = {
+            'aleatoric': True,   # Enable aleatoric uncertainty head
+            'epistemic': True,   # Enable epistemic uncertainty head
+            'activation': 'relu',
+            'first_activation': 'relu'
+        }
         
-        self.model = DREAM_RNN_LentiMPRA(
-            in_channels=4,  # 4 channels (A, T, G, C)
-            seqsize=self.seq_len  # 230bp length for lentiMPRA
+        self.model = DREAM_RNN_lentiMPRA(
+            input_shape=(self.seq_len, 4),  # (230, 4) for lentiMPRA
+            config=distillation_config,
+            epistemic=True
         )
         
         print(f"  Model created, moving to device: {self.device}")
@@ -854,8 +861,22 @@ def main():
                        help='Number of training epochs (default: 80)')
     parser.add_argument('--device', type=str, default='cuda',
                        help='Device to use (default: cuda)')
+    parser.add_argument('--config', type=str, default='paper_reproducibility/config/DREAM_RNN_lentiMPRA.yaml',
+                       help='Config file (default: DREAM_RNN_lentiMPRA.yaml)')
     
     args = parser.parse_args()
+    
+    # Load config
+    import yaml
+    with open(args.config, 'r') as f:
+        config_raw = yaml.safe_load(f)
+    
+    config = {}
+    for key, item in config_raw.items():
+        if isinstance(item, dict) and 'value' in item:
+            config[key] = item['value']
+        else:
+            config[key] = item
     
     # Disable cuDNN to avoid version conflicts
     torch.backends.cudnn.enabled = False
@@ -869,7 +890,8 @@ def main():
         batch_size=args.batch_size,
         learning_rate=args.learning_rate,
         epochs=args.epochs,
-        device=args.device
+        device=args.device,
+        config=config
     )
     
     trainer.train()
