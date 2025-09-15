@@ -535,7 +535,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train DREAM-RNN using official @DREAM_paper implementation")
     parser.add_argument("--out", type=str, required=True, help="Output directory")
     parser.add_argument("--data", type=str, required=True, help="Input data file")
-    parser.add_argument("--config", type=str, default="DREAM_RNN_config.yaml", help="Config file")
+    parser.add_argument("--config", type=str, default="paper_reproducibility/config/DREAM_RNN_DeepSTARR.yaml", help="Config file")
     parser.add_argument("--dataset", type=str, default="DeepSTARR", help="Dataset name")
     parser.add_argument("--celltype", type=str, default="Dev", help="Cell type")
     parser.add_argument("--downsample", type=float, default=1.0, help="Downsample ratio")
