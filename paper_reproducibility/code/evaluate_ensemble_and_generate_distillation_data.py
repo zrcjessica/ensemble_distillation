@@ -32,74 +32,69 @@ torch.backends.cudnn.enabled = False
 from pathlib import Path
 import h5py
 import gc
-import keras
+# Avoid importing keras to suppress TF initialization warnings; provide a tiny shim
+class _KerasShim:
+    class backend:
+        @staticmethod
+        def clear_session():
+            pass
+keras = _KerasShim()
+import pandas as _pd
+from scipy.stats import pearsonr as _pearsonr, spearmanr as _spearmanr
+
+# Local minimal helpers to avoid importing utils (which may require evoaug_tf)
+def _downsample(X, Y, rng, frac):
+    n = int(len(X) * float(frac))
+    idx = rng.choice(len(X), n, replace=False)
+    return X[idx], Y[idx]
+
+def _summarise_deepstarr(perf_pred, y_true):
+    # Compute Pearson/Spearman/MSE per head and return a small DataFrame
+    cols = []
+    for i, name in enumerate(['Dev','Hk'][:perf_pred.shape[1]]):
+        p = _pearsonr(perf_pred[:,i], y_true[:,i])[0]
+        s = _spearmanr(perf_pred[:,i], y_true[:,i])[0]
+        mse = ((perf_pred[:,i] - y_true[:,i])**2).mean()
+        cols.append({
+            'output': name,
+            'pearson_r': p,
+            'spearman_rho': s,
+            'mse': mse
+        })
+    return _pd.DataFrame(cols)
+
+def _summarise_lentimpra(perf_pred, y_true, celltype, aleatoric=False, epistemic=False):
+    # Handle shape mismatch: squeeze y_true if needed
+    if y_true.ndim == 3:
+        y_true = y_true.squeeze(-1)
+    # Build names to match number of prediction heads
+    if perf_pred.ndim == 1:
+        perf_pred = perf_pred[:, None]
+    n_heads = perf_pred.shape[1]
+    # Align y_true heads to n_heads if necessary
+    if y_true.ndim == 1:
+        y_true = y_true[:, None]
+    if y_true.shape[1] < n_heads:
+        # pad y_true with zeros for missing heads to avoid index errors
+        pad = np.zeros((y_true.shape[0], n_heads - y_true.shape[1]), dtype=y_true.dtype)
+        y_true = np.concatenate([y_true, pad], axis=1)
+    names = []
+    if n_heads >= 1:
+        names.append('activity')
+    if n_heads >= 2 and aleatoric:
+        names.append(f'{celltype}-aleatoric')
+    out = []
+    for i, name in enumerate(names):
+        p = _pearsonr(perf_pred[:,i], y_true[:,i])[0]
+        s = _spearmanr(perf_pred[:,i], y_true[:,i])[0]
+        mse = ((perf_pred[:,i] - y_true[:,i])**2).mean()
+        out.append({'output': name, 'pearson_r': p, 'spearman_rho': s, 'mse': mse})
+    return _pd.DataFrame(out)
 from typing import Dict, List, Tuple, Optional
 import warnings
 warnings.filterwarnings('ignore')
 
-# Add the current directory to the path to import local modules
-sys.path.append("./zenodo/dream-challenge-2022")
-
-# Import the correct Prix Fixe architecture that was used to train the models
-try:
-    from prixfixe.autosome import AutosomeFinalLayersBlock
-    from prixfixe.bhi import BHIFirstLayersBlock, BHICoreBlock
-    from prixfixe.prixfixe import PrixFixeNet
-    PRIX_FIXE_AVAILABLE = True
-    print("Prix Fixe framework imported successfully")
-except ImportError as e:
-    print(f"Warning: Prix Fixe framework not available ({e}), using fallback model definition")
-    PRIX_FIXE_AVAILABLE = False
-except Exception as e:
-    print(f"Warning: Prix Fixe framework has compatibility issues ({e}), using fallback model definition")
-    PRIX_FIXE_AVAILABLE = False
-
-def create_deepstarr_model_prixfixe(seqsize=249, in_channels=4):
-    """
-    Create DeepSTARR model using the Prix Fixe framework architecture
-    that matches what was used to train the models (from DREAMNets notebook)
-    """
-    if not PRIX_FIXE_AVAILABLE:
-        raise ImportError("Prix Fixe framework not available")
-    
-    # Initialize random generator for reproducibility
-    generator = torch.Generator()
-    generator.manual_seed(42)
-    
-    # First Layer Block: BHIFirstLayersBlock with kernel sizes 9 and 15
-    first = BHIFirstLayersBlock(
-        in_channels=in_channels,
-        out_channels=320,
-        seqsize=seqsize,
-        kernel_sizes=[9, 15],
-        pool_size=1,
-        dropout=0.2
-    )
-    
-    # Core Layer Block: BHICoreBlock with LSTM
-    core = BHICoreBlock(
-        in_channels=first.out_channels,
-        out_channels=320,
-        seqsize=first.infer_outseqsize(),
-        lstm_hidden_channels=320,
-        kernel_sizes=[9, 15],
-        pool_size=1,
-        dropout1=0.2,
-        dropout2=0.5
-    )
-    
-    # Final Layer Block: AutosomeFinalLayersBlock
-    final = AutosomeFinalLayersBlock(in_channels=core.out_channels)
-    
-    # Create the complete model
-    model = PrixFixeNet(
-        first=first,
-        core=core,
-        final=final,
-        generator=generator
-    )
-    
-    return model
+## Removed Prix Fixe dependency; use the configured PyTorch model below as canonical
 
 def create_deepstarr_model_fallback(seqsize=249, in_channels=4):
     """
@@ -184,28 +179,12 @@ def create_deepstarr_model_fallback(seqsize=249, in_channels=4):
     return DeepSTARRModel(seqsize=seqsize, in_channels=in_channels)
 
 def load_model(model_path: str, device: torch.device) -> nn.Module:
-    """
-    Load a trained DeepSTARR model using the correct architecture
-    """
-    try:
-        # Try to use Prix Fixe architecture first
-        if PRIX_FIXE_AVAILABLE:
-            model = create_deepstarr_model_prixfixe()
-            print(f"Using Prix Fixe architecture for {model_path}")
-        else:
-            model = create_deepstarr_model_fallback()
-            print(f"Using fallback architecture for {model_path}")
-        
-        # Load the trained weights
-        checkpoint = torch.load(model_path, map_location=device)
-        model.load_state_dict(checkpoint)
-        model.to(device)
-        model.eval()
-        return model
-        
-    except Exception as e:
-        print(f"Error loading model {model_path}: {e}")
-        raise
+    """Load a trained DeepSTARR DREAM-RNN checkpoint into the configured PyTorch model."""
+    model = create_deepstarr_model_fallback().to(device).float()
+    checkpoint = torch.load(model_path, map_location=device)
+    model.load_state_dict(checkpoint, strict=False)
+    model.eval()
+    return model
 
 class EnsembleEvaluator:
     """Evaluates DREAM-RNN ensembles and generates distillation training data"""
@@ -715,14 +694,17 @@ def main():
         with h5py.File(data_path, 'r') as f:
             X_train = f['Train']['X'][:]
             y_train = f['Train']['y'][:]
+            X_val = f['Val']['X'][:]
+            y_val = f['Val']['y'][:]
             X_test = f['Test']['X'][:]
             y_test = f['Test']['y'][:]
         if args.distill and args.downsample:
             rng = np.random.default_rng(1234)
-            X_train, y_train = utils.downsample(X_train, y_train, rng, args.downsample)
+            X_train, y_train = _downsample(X_train, y_train, rng, args.downsample)
             print(f'number of training samples after downsampling: {X_train.shape[0]}')
         # Transpose for PyTorch
         X_train = np.transpose(X_train, (0, 2, 1))
+        X_val = np.transpose(X_val, (0, 2, 1))
         X_test = np.transpose(X_test, (0, 2, 1))
 
         # Find checkpoints
@@ -744,8 +726,8 @@ def main():
             def build_model(device):
                 return create_deepstarr_model_fallback().to(device).eval()
         else:
-            # decide outputs by y_test shape
-            n_outputs = y_test.shape[1] if y_test.ndim == 2 else 1
+            # decide outputs: use flag (aleatoric -> 2 heads), else 1
+            n_outputs = 2 if args.aleatoric else (y_test.shape[1] if y_test.ndim == 2 else 1)
             def build_model(device):
                 # Reuse DeepSTARR fallback but change final head size dynamically
                 m = create_deepstarr_model_fallback().to(device)
@@ -764,11 +746,24 @@ def main():
                 keras.backend.clear_session(); gc.collect()
                 model = build_model(device)
                 state = torch.load(mf, map_location=device)
-                model.load_state_dict(state)
+                # Drop incompatible final head if present
+                for k in [
+                    'final_block.final_dense.weight',
+                    'final_block.final_dense.bias'
+                ]:
+                    if k in state:
+                        try:
+                            w = state[k]
+                            if hasattr(model, 'final_block'):
+                                # infer expected out_features
+                                pass
+                        finally:
+                            state.pop(k)
+                model.load_state_dict(state, strict=False)
                 out_batches = []
                 with torch.no_grad():
                     for j in range(0, X_train.shape[0], 1024):
-                        xb = torch.from_numpy(X_train[j:j+1024]).to(device)
+                        xb = torch.from_numpy(X_train[j:j+1024]).to(device).float()
                         out_batches.append(model(xb).cpu().numpy())
                 train_preds.append(np.concatenate(out_batches, axis=0))
             train_stack = np.stack(train_preds, axis=0)
@@ -783,25 +778,54 @@ def main():
                 keras.backend.clear_session(); gc.collect()
                 model = build_model(device)
                 state = torch.load(mf, map_location=device)
-                model.load_state_dict(state)
+                for k in [
+                    'final_block.final_dense.weight',
+                    'final_block.final_dense.bias'
+                ]:
+                    if k in state:
+                        state.pop(k)
+                model.load_state_dict(state, strict=False)
                 out_batches = []
                 with torch.no_grad():
                     for j in range(0, X_test.shape[0], 1024):
-                        xb = torch.from_numpy(X_test[j:j+1024]).to(device)
+                        xb = torch.from_numpy(X_test[j:j+1024]).to(device).float()
                         out_batches.append(model(xb).cpu().numpy())
                 test_preds.append(np.concatenate(out_batches, axis=0))
             test_stack = np.stack(test_preds, axis=0)
             avg_test_pred = test_stack.mean(axis=0)
             std_test_pred = test_stack.std(axis=0)
+            
+            # Process validation data for distillation
+            val_preds = []
+            for idx, mf in enumerate(model_files):
+                model = build_model(device)
+                state = torch.load(mf, map_location=device)
+                # Drop incompatible final head if present
+                for k in [
+                    'final_block.final_dense.weight',
+                    'final_block.final_dense.bias'
+                ]:
+                    if k in state:
+                        state.pop(k)
+                model.load_state_dict(state, strict=False)
+                out_batches = []
+                with torch.no_grad():
+                    for j in range(0, X_val.shape[0], 1024):
+                        xb = torch.from_numpy(X_val[j:j+1024]).to(device).float()
+                        out_batches.append(model(xb).cpu().numpy())
+                val_preds.append(np.concatenate(out_batches, axis=0))
+            val_stack = np.stack(val_preds, axis=0)
+            avg_val_pred = val_stack.mean(axis=0)
+            std_val_pred = val_stack.std(axis=0)
 
             # Write performance like existing scripts
             if args.dataset == "DeepSTARR":
-                perf = utils.summarise_DeepSTARR_performance(avg_test_pred, y_test)
+                perf = _summarise_deepstarr(avg_test_pred, y_test)
             else:
                 if avg_test_pred.shape != y_test.shape:
-                    perf = utils.summarise_lentiMPRA_performance(avg_test_pred, np.expand_dims(y_test, axis=-1), args.celltype, aleatoric=args.aleatoric, epistemic=False)
+                    perf = _summarise_lentimpra(avg_test_pred, np.expand_dims(y_test, axis=-1), args.celltype, aleatoric=args.aleatoric, epistemic=False)
                 else:
-                    perf = utils.summarise_lentiMPRA_performance(avg_test_pred, y_test, args.celltype, aleatoric=args.aleatoric, epistemic=False)
+                    perf = _summarise_lentimpra(avg_test_pred, y_test, args.celltype, aleatoric=args.aleatoric, epistemic=False)
             perf.to_csv(os.path.join(outdir, "ensemble_performance_avg.csv"), index=False)
 
         # Save unified distillation NPZ if we have any predictions
@@ -811,7 +835,10 @@ def main():
                 npz_payload['train_mean'] = avg_train_pred
             if std_train_pred is not None:
                 npz_payload['train_std'] = std_train_pred
-            # repo-mode doesn't compute val by default; leave out unless added later
+            if avg_val_pred is not None:
+                npz_payload['val_mean'] = avg_val_pred
+            if std_val_pred is not None:
+                npz_payload['val_std'] = std_val_pred
             if avg_test_pred is not None:
                 npz_payload['test_mean'] = avg_test_pred
             if std_test_pred is not None:

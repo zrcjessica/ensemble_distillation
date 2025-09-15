@@ -201,7 +201,9 @@ class DEGULentiMPRADistillationTrainer:
             raise ValueError("Could not determine cell type from path")
         
         # Extract downsample ratio
-        if "0.1" in path_str:
+        if "0.005" in path_str:
+            downsample_ratio = "0.005"
+        elif "0.1" in path_str:
             downsample_ratio = "0.1"
         elif "0.25" in path_str:
             downsample_ratio = "0.25"
@@ -213,7 +215,7 @@ class DEGULentiMPRADistillationTrainer:
             downsample_ratio = "1.0"
         
         # Load the corresponding lentiMPRA data file
-        data_file = f"/grid/wsbs/home_norepl/christen/ensemble_distillation/zenodo/data/lentiMPRA_{celltype}_activity_and_aleatoric_data.h5"
+        data_file = f"/home/jessica/ensemble_distillation/zenodo/data/lentiMPRA_{celltype}_activity_and_aleatoric_data.h5"
         logger.info(f"Loading actual sequences and experimental data from: {data_file}")
         
         import h5py
@@ -226,6 +228,18 @@ class DEGULentiMPRADistillationTrainer:
             train_experimental = f['Train/y'][:]
             val_experimental = f['Val/y'][:]
             test_experimental = f['Test/y'][:]
+        
+        # Apply on-the-fly downsampling to training data if needed (same as standard training script)
+        if downsample_ratio != "1.0":
+            downsample_float = float(downsample_ratio)
+            if downsample_float < 1.0:
+                logger.info(f"Downsampling training sequences to {downsample_float:.1%} with fixed seed for reproducibility")
+                rng = np.random.default_rng(1234)  # Same fixed seed as standard training script
+                n_samples = max(1, int(len(train_sequences) * downsample_float))
+                indices = rng.choice(len(train_sequences), n_samples, replace=False)
+                train_sequences = train_sequences[indices]
+                train_experimental = train_experimental[indices]
+                logger.info(f"  Training sequences downsampled from {int(len(train_sequences)/downsample_float)} to {len(train_sequences)} samples")
         
         # Apply downsampling if specified (with fixed seed for reproducibility)
         if downsample_ratio != "1.0":
@@ -347,11 +361,13 @@ class DEGULentiMPRADistillationTrainer:
             'first_activation': 'relu'
         }
         
-        self.model = DREAM_RNN_lentiMPRA(
-            input_shape=(self.seq_len, 4),  # (230, 4) for lentiMPRA
-            config=distillation_config,
-            epistemic=True
-        )
+        # Import PyTorch model from the lentiMPRA training script
+        from train_DREAM_RNN_lentiMPRA import DREAM_RNN_LentiMPRA
+        
+        self.model = DREAM_RNN_LentiMPRA(in_channels=4, seqsize=230)
+        
+        # Modify final layer to have 3 outputs for unified DEGU distillation: [activity, aleatoric, epistemic]
+        self.model.final_block.final_dense = nn.Linear(256, 3)
         
         print(f"  Model created, moving to device: {self.device}")
         sys.stdout.flush()

@@ -3,7 +3,12 @@ from keras.models import Model
 
 def DREAM_RNN_Official(input_shape, config, epistemic=False):
     '''
-    DREAM-RNN style backbone with replaceable final head.
+    Full DREAM-RNN architecture matching the paper specifications.
+    
+    Architecture:
+    - BHIFirstLayersBlock: Conv1D with kernel sizes [9, 15], 160 channels each → 320 total
+    - BHICoreBlock: Bi-LSTM(320→640) + Conv1D blocks [9, 15] → 320 total  
+    - AutosomeFinalLayersBlock: Pointwise conv(320→256) + Dense(256→2 or 4)
 
     Parameters:
         input_shape (tuple): (L, C) input shape, expected (249, 4)
@@ -14,35 +19,56 @@ def DREAM_RNN_Official(input_shape, config, epistemic=False):
         Model: Keras model with 2 outputs (Dev,Hk) or 4 (Dev,Hk,Dev-std,Hk-std)
     '''
     inputs = kl.Input(shape=input_shape)
-
-    # Convolutional feature extractor
-    x = kl.Conv1D(128, kernel_size=7, padding='same')(inputs)
-    x = kl.BatchNormalization()(x)
-    x = kl.Activation(config.get('first_activation', 'relu'))(x)
-    x = kl.MaxPool1D(2)(x)
-
-    x = kl.Conv1D(128, kernel_size=5, padding='same')(x)
-    x = kl.BatchNormalization()(x)
-    x = kl.Activation(config.get('activation', 'relu'))(x)
-    x = kl.MaxPool1D(2)(x)
-
-    x = kl.Conv1D(256, kernel_size=3, padding='same')(x)
-    x = kl.BatchNormalization()(x)
-    x = kl.Activation(config.get('activation', 'relu'))(x)
-    x = kl.MaxPool1D(2)(x)
-
-    # Global average pooling
+    
+    # BHIFirstLayersBlock: Two parallel conv blocks with kernel sizes 9 and 15
+    conv1 = kl.Conv1D(160, kernel_size=9, padding='same')(inputs)
+    conv1 = kl.BatchNormalization()(conv1)
+    conv1 = kl.Activation(config.get('first_activation', 'relu'))(conv1)
+    conv1 = kl.Dropout(config.get('dropout', 0.2))(conv1)
+    
+    conv2 = kl.Conv1D(160, kernel_size=15, padding='same')(inputs)
+    conv2 = kl.BatchNormalization()(conv2)
+    conv2 = kl.Activation(config.get('first_activation', 'relu'))(conv2)
+    conv2 = kl.Dropout(config.get('dropout', 0.2))(conv2)
+    
+    # Concatenate the two conv outputs → 320 channels
+    x = kl.Concatenate(axis=-1)([conv1, conv2])
+    
+    # BHICoreBlock: Bi-LSTM + Conv blocks
+    # Transpose for LSTM: (batch, seq, channels)
+    x_lstm = kl.Permute((1, 2))(x)
+    
+    # Bi-LSTM with 320 hidden units each direction → 640 total
+    lstm_hidden = config.get('lstm_hidden_channels', 320)
+    x_lstm = kl.Bidirectional(kl.LSTM(lstm_hidden, return_sequences=True))(x_lstm)
+    
+    # Transpose back: (batch, channels, seq)
+    x_lstm = kl.Permute((1, 2))(x_lstm)
+    
+    # Apply conv blocks on LSTM output
+    conv3 = kl.Conv1D(160, kernel_size=9, padding='same')(x_lstm)
+    conv3 = kl.BatchNormalization()(conv3)
+    conv3 = kl.Activation(config.get('activation', 'relu'))(conv3)
+    conv3 = kl.Dropout(config.get('dropout', 0.2))(conv3)
+    
+    conv4 = kl.Conv1D(160, kernel_size=15, padding='same')(x_lstm)
+    conv4 = kl.BatchNormalization()(conv4)
+    conv4 = kl.Activation(config.get('activation', 'relu'))(conv4)
+    conv4 = kl.Dropout(config.get('dropout', 0.2))(conv4)
+    
+    # Concatenate conv outputs → 320 channels
+    x = kl.Concatenate(axis=-1)([conv3, conv4])
+    x = kl.Dropout(0.5)(x)  # Additional dropout as in BHICoreBlock
+    
+    # AutosomeFinalLayersBlock: Pointwise conv + Global pooling + Dense
+    x = kl.Conv1D(256, kernel_size=1, padding='same')(x)
     x = kl.GlobalAveragePooling1D()(x)
-
-    # Dense projection
-    x = kl.Dense(256)(x)
-    x = kl.BatchNormalization()(x)
-    x = kl.Activation(config.get('activation', 'relu'))(x)
-
+    
+    # Final dense layer
     if epistemic:
-        outputs = kl.Dense(4, activation='linear')(x)
+        outputs = kl.Dense(4, activation='linear')(x)  # Dev, Hk, Dev_std, Hk_std
     else:
-        outputs = kl.Dense(2, activation='linear')(x)
+        outputs = kl.Dense(2, activation='linear')(x)  # Dev, Hk
 
     model = Model(inputs=inputs, outputs=outputs)
     return model
@@ -60,30 +86,50 @@ def DREAM_RNN_lentiMPRA(input_shape, config, epistemic=False):
         Model: Keras model with 1 output (expression) or 2 (expression, std)
     '''
     inputs = kl.Input(shape=input_shape)
-
-    # Convolutional feature extractor
-    x = kl.Conv1D(128, kernel_size=7, padding='same')(inputs)
-    x = kl.BatchNormalization()(x)
-    x = kl.Activation(config.get('first_activation', 'relu'))(x)
-    x = kl.MaxPool1D(2)(x)
-
-    x = kl.Conv1D(128, kernel_size=5, padding='same')(x)
-    x = kl.BatchNormalization()(x)
-    x = kl.Activation(config.get('activation', 'relu'))(x)
-    x = kl.MaxPool1D(2)(x)
-
-    x = kl.Conv1D(256, kernel_size=3, padding='same')(x)
-    x = kl.BatchNormalization()(x)
-    x = kl.Activation(config.get('activation', 'relu'))(x)
-    x = kl.MaxPool1D(2)(x)
-
-    # Global average pooling
+    
+    # BHIFirstLayersBlock: Two parallel conv blocks with kernel sizes 9 and 15
+    conv1 = kl.Conv1D(160, kernel_size=9, padding='same')(inputs)
+    conv1 = kl.BatchNormalization()(conv1)
+    conv1 = kl.Activation(config.get('first_activation', 'relu'))(conv1)
+    conv1 = kl.Dropout(config.get('dropout', 0.2))(conv1)
+    
+    conv2 = kl.Conv1D(160, kernel_size=15, padding='same')(inputs)
+    conv2 = kl.BatchNormalization()(conv2)
+    conv2 = kl.Activation(config.get('first_activation', 'relu'))(conv2)
+    conv2 = kl.Dropout(config.get('dropout', 0.2))(conv2)
+    
+    # Concatenate the two conv outputs → 320 channels
+    x = kl.Concatenate(axis=-1)([conv1, conv2])
+    
+    # BHICoreBlock: Bi-LSTM + Conv blocks
+    # Transpose for LSTM: (batch, seq, channels)
+    x_lstm = kl.Permute((1, 2))(x)
+    
+    # Bi-LSTM with 320 hidden units each direction → 640 total
+    lstm_hidden = config.get('lstm_hidden_channels', 320)
+    x_lstm = kl.Bidirectional(kl.LSTM(lstm_hidden, return_sequences=True))(x_lstm)
+    
+    # Transpose back: (batch, channels, seq)
+    x_lstm = kl.Permute((1, 2))(x_lstm)
+    
+    # Apply conv blocks on LSTM output
+    conv3 = kl.Conv1D(160, kernel_size=9, padding='same')(x_lstm)
+    conv3 = kl.BatchNormalization()(conv3)
+    conv3 = kl.Activation(config.get('activation', 'relu'))(conv3)
+    conv3 = kl.Dropout(config.get('dropout', 0.2))(conv3)
+    
+    conv4 = kl.Conv1D(160, kernel_size=15, padding='same')(x_lstm)
+    conv4 = kl.BatchNormalization()(conv4)
+    conv4 = kl.Activation(config.get('activation', 'relu'))(conv4)
+    conv4 = kl.Dropout(config.get('dropout', 0.2))(conv4)
+    
+    # Concatenate conv outputs → 320 channels
+    x = kl.Concatenate(axis=-1)([conv3, conv4])
+    x = kl.Dropout(0.5)(x)  # Additional dropout as in BHICoreBlock
+    
+    # AutosomeFinalLayersBlock: Pointwise conv + Global pooling + Dense
+    x = kl.Conv1D(256, kernel_size=1, padding='same')(x)
     x = kl.GlobalAveragePooling1D()(x)
-
-    # Dense projection
-    x = kl.Dense(256)(x)
-    x = kl.BatchNormalization()(x)
-    x = kl.Activation(config.get('activation', 'relu'))(x)
 
     # Determine heads based on config flags
     want_aleatoric = bool(config.get('aleatoric', False))

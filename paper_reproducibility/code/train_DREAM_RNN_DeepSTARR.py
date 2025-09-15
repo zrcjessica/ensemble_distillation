@@ -28,16 +28,9 @@ from tqdm import tqdm
 from scipy.stats import pearsonr, spearmanr
 import torch.nn.functional as F
 
-# Add the code directory to path to import utils
-sys.path.append(os.path.join(os.path.expanduser('~'), 'ensemble_distillation/code'))
-
-# Make utils import optional, similar to the lentiMPRA script
-try:
-    import utils
-    UTILS_AVAILABLE = True
-except ImportError:
-    UTILS_AVAILABLE = False
-    print("Warning: utils module not available, continuing without it")
+# Note: This script is PyTorch-only and does not require the TensorFlow-based
+# paper_reproducibility/code/utils.py (which depends on evoaug_tf). Avoid importing
+# it to prevent optional dependency warnings.
 
 # Try to import wandb, but make it optional
 try:
@@ -310,6 +303,16 @@ def load_data(args):
     X_val = np.transpose(X_val, (0, 2, 1))  # (N, 249, 4) -> (N, 4, 249)
     X_test = np.transpose(X_test, (0, 2, 1))  # (N, 249, 4) -> (N, 4, 249)
     
+    # Optional additional downsampling for quick smoke tests
+    if hasattr(args, 'downsample') and args.downsample < 1.0:
+        print(f"Downsampling training data to {args.downsample:.1%} with fixed seed for reproducibility")
+        rng = np.random.default_rng(1234)
+        n_samples = max(1, int(len(X_train) * args.downsample))
+        indices = rng.choice(len(X_train), n_samples, replace=False)
+        X_train = X_train[indices]
+        y_train = y_train[indices]
+        print(f"  Training data downsampled from {int(len(X_train)/args.downsample)} to {len(X_train)} samples")
+
     print(f"Processed data shapes:")
     print(f"  X_train: {X_train.shape}")
     print(f"  X_val: {X_val.shape}")

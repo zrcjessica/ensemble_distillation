@@ -24,7 +24,7 @@ import h5py
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'code'))
 
 # Import the model classes
-from model_zoo import DREAM_RNN_Official
+from train_DREAM_RNN_DeepSTARR import DREAM_RNN_Official
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -34,7 +34,7 @@ class UnifiedDeepSTARRDEGUTrainer:
     """Trainer for unified DeepSTARR DEGU distilled models (both Dev and Hk outputs)"""
     
     def __init__(self, distillation_data_path, output_dir, model_index=0, 
-                 batch_size=1024, learning_rate=0.005, epochs=80, device='cuda', config=None):
+                 batch_size=1024, learning_rate=0.005, epochs=80, device='cuda'):
         self.distillation_data_path = Path(distillation_data_path)
         self.output_dir = Path(output_dir)
         self.model_index = model_index
@@ -42,7 +42,6 @@ class UnifiedDeepSTARRDEGUTrainer:
         self.learning_rate = learning_rate
         self.epochs = epochs
         self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
-        self.config = config or {}
         
         # Create output directory
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -145,29 +144,40 @@ class UnifiedDeepSTARRDEGUTrainer:
         """Load actual DNA sequences from the original dataset"""
         # Extract downsample ratio from distillation data path
         path_str = str(self.distillation_data_path)
-        if "0.1" in path_str:
-            downsample_ratio = "0.1"
+        if "0.005" in path_str:
+            downsample_ratio = 0.005
+        elif "0.01" in path_str:
+            downsample_ratio = 0.01
+        elif "0.1" in path_str:
+            downsample_ratio = 0.1
         elif "0.25" in path_str:
-            downsample_ratio = "0.25"
+            downsample_ratio = 0.25
         elif "0.5" in path_str:
-            downsample_ratio = "0.5"
+            downsample_ratio = 0.5
         elif "0.75" in path_str:
-            downsample_ratio = "0.75"
+            downsample_ratio = 0.75
         elif "1.0" in path_str:
-            downsample_ratio = "1.0"
+            downsample_ratio = 1.0
         else:
             raise ValueError("Could not determine downsample ratio from path")
         
-        if downsample_ratio == "1.0":
-            data_file = "/grid/wsbs/home_norepl/christen/ensemble_distillation/zenodo/data/DeepSTARR_distillation_data.h5"
-        else:
-            data_file = f"/grid/wsbs/home_norepl/christen/ensemble_distillation/zenodo/data/DeepSTARR_downsample{downsample_ratio}_distillation_data.h5"
+        # Use the full dataset and downsample on-the-fly like the standard training script
+        data_file = "/home/jessica/ensemble_distillation/zenodo/data/DeepSTARR_distillation_data.h5"
         logger.info(f"Loading actual sequences from: {data_file}")
         
         with h5py.File(data_file, 'r') as f:
             train_sequences = f['Train/X'][:]
             val_sequences = f['Val/X'][:]
             test_sequences = f['Test/X'][:]
+        
+        # Apply on-the-fly downsampling to training data if needed (same as standard training script)
+        if downsample_ratio < 1.0:
+            logger.info(f"Downsampling training sequences to {downsample_ratio:.1%} with fixed seed for reproducibility")
+            rng = np.random.default_rng(1234)  # Same fixed seed as standard training script
+            n_samples = max(1, int(len(train_sequences) * downsample_ratio))
+            indices = rng.choice(len(train_sequences), n_samples, replace=False)
+            train_sequences = train_sequences[indices]
+            logger.info(f"  Training sequences downsampled from {int(len(train_sequences)/downsample_ratio)} to {len(train_sequences)} samples")
         
         # Ensure sequence counts match distillation data
         if train_sequences.shape[0] != self.train_mean.shape[0]:
@@ -240,12 +250,16 @@ class UnifiedDeepSTARRDEGUTrainer:
         
         print("=== DEBUG: Creating DREAM_RNN_Official model ===")
         sys.stdout.flush()
-        # Create model with config-driven output heads for DEGU distillation
-        # Set std=True in config to enable 4 outputs: [Dev_mean, Hk_mean, Dev_std, Hk_std]
-        distillation_config = self.config.copy()
-        distillation_config['std'] = True  # Enable epistemic uncertainty heads for distillation
-        self.model = DREAM_RNN_Official(input_shape=(249, 4), config=distillation_config, epistemic=True)
+        # Create model with 4 outputs: [Dev_mean, Hk_mean, Dev_std, Hk_std]
+        self.model = DREAM_RNN_Official(seqsize=249, in_channels=4)
         print("=== DEBUG: DREAM_RNN_Official model created successfully ===")
+        sys.stdout.flush()
+        
+        print("=== DEBUG: Modifying final layer ===")
+        sys.stdout.flush()
+        # Modify final layer to have 4 outputs for unified DEGU distillation
+        self.model.final_block['final_dense'] = nn.Linear(256, 4)
+        print("=== DEBUG: Final layer modified successfully ===")
         sys.stdout.flush()
         
         print("=== DEBUG: About to move model to device ===")
@@ -488,28 +502,8 @@ class UnifiedDeepSTARRDEGUTrainer:
         self.model.eval()
         
         # Load original experimental test data (not ensemble predictions)
-        # Extract downsample ratio from distillation data path
-        path_str = str(self.distillation_data_path)
-        if "0.1" in path_str:
-            downsample_ratio = "0.1"
-        elif "0.25" in path_str:
-            downsample_ratio = "0.25"
-        elif "0.5" in path_str:
-            downsample_ratio = "0.5"
-        elif "0.75" in path_str:
-            downsample_ratio = "0.75"
-        elif "1.0" in path_str:
-            downsample_ratio = "1.0"
-        else:
-            raise ValueError("Could not determine downsample ratio from path")
-        
-        # Use correct data file path based on downsample ratio
-        if downsample_ratio == "1.0":
-            # For 1.0 ratio, use the full dataset
-            data_file = "/grid/wsbs/home_norepl/christen/ensemble_distillation/zenodo/data/DeepSTARR_distillation_data.h5"
-        else:
-            # For other ratios, use the downsampled dataset
-            data_file = f"/grid/wsbs/home_norepl/christen/ensemble_distillation/zenodo/data/DeepSTARR_downsample{downsample_ratio}_distillation_data.h5"
+        # Always use the full dataset for evaluation
+        data_file = "/home/jessica/ensemble_distillation/zenodo/data/DeepSTARR_distillation_data.h5"
         
         with h5py.File(data_file, 'r') as f:
             test_sequences = torch.FloatTensor(f['Test/X'][:]).transpose(1, 2)
@@ -593,21 +587,8 @@ def main():
     parser.add_argument('--learning_rate', type=float, default=0.005, help='Learning rate')
     parser.add_argument('--epochs', type=int, default=80, help='Number of training epochs')
     parser.add_argument('--device', default='cuda', help='Device to use (cuda/cpu)')
-    parser.add_argument('--config', type=str, default='paper_reproducibility/config/DREAM_RNN_DeepSTARR.yaml', help='Config file')
     
     args = parser.parse_args()
-    
-    # Load config
-    import yaml
-    with open(args.config, 'r') as f:
-        config_raw = yaml.safe_load(f)
-    
-    config = {}
-    for key, item in config_raw.items():
-        if isinstance(item, dict) and 'value' in item:
-            config[key] = item['value']
-        else:
-            config[key] = item
     
     # Disable cuDNN to avoid version conflicts
     torch.backends.cudnn.enabled = False
@@ -618,7 +599,6 @@ def main():
         distillation_data_path=args.distillation_data,
         output_dir=args.output_dir,
         model_index=args.model_index,
-        config=config,
         batch_size=args.batch_size,
         learning_rate=args.learning_rate,
         epochs=args.epochs,
