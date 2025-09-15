@@ -161,7 +161,6 @@ All scripts support standard arguments:
 - `evaluate_ensemble_and_generate_distillation_data.py`: Ensemble evaluation and distillation data generation
 - `train_degu_distilled_model_deepstarr.py`: Distilled model training for DeepSTARR
 - `train_degu_distilled_model_lentimpra.py`: Distilled model training for lentiMPRA
-- `evaluate_DREAM_RNN_DeepSTARR.py`: Individual model evaluation for DeepSTARR
 
 ## Complete workflow example
 
@@ -239,4 +238,4 @@ done
 - Use GPU acceleration with `--gpu 0` (or other available GPU)
 - For testing, use small downsample ratios (0.01, 0.1) to speed up training
 - Monitor GPU memory usage and adjust batch size accordingly
-- Use the test config files for quick validation runs
+- For quick validation runs, create temporary config files with reduced epochs and batch sizes
