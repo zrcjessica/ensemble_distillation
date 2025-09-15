@@ -163,7 +163,9 @@ class UnifiedDeepSTARRDEGUTrainer:
             raise ValueError("Could not determine downsample ratio from path")
         
         # Use the full dataset and downsample on-the-fly like the standard training script
-        data_file = "/home/jessica/ensemble_distillation/zenodo/data/DeepSTARR_distillation_data.h5"
+        # Get the repo root directory (go up from paper_reproducibility/code/)
+        repo_root = Path(__file__).resolve().parent.parent.parent
+        data_file = repo_root / "zenodo/data/DeepSTARR_distillation_data.h5"
         logger.info(f"Loading actual sequences from: {data_file}")
         
         with h5py.File(data_file, 'r') as f:
@@ -504,7 +506,9 @@ class UnifiedDeepSTARRDEGUTrainer:
         
         # Load original experimental test data (not ensemble predictions)
         # Always use the full dataset for evaluation
-        data_file = "/home/jessica/ensemble_distillation/zenodo/data/DeepSTARR_distillation_data.h5"
+        # Get the repo root directory (go up from paper_reproducibility/code/)
+        repo_root = Path(__file__).resolve().parent.parent.parent
+        data_file = repo_root / "zenodo/data/DeepSTARR_distillation_data.h5"
         
         with h5py.File(data_file, 'r') as f:
             test_sequences = torch.FloatTensor(f['Test/X'][:]).transpose(1, 2)

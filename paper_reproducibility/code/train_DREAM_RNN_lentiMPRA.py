@@ -27,7 +27,9 @@ from tqdm import tqdm
 from scipy.stats import pearsonr, spearmanr
 
 # Add the code directory to path for potential future imports
-sys.path.append('/home/jessica/ensemble_distillation/code')
+# Get the repo root directory (go up from paper_reproducibility/code/)
+repo_root = Path(__file__).resolve().parent.parent.parent
+sys.path.append(str(repo_root / 'code'))
 # import utils  # Not needed for core functionality
 
 # Try to import wandb, but make it optional

@@ -215,7 +215,9 @@ class DEGULentiMPRADistillationTrainer:
             downsample_ratio = "1.0"
         
         # Load the corresponding lentiMPRA data file
-        data_file = f"/home/jessica/ensemble_distillation/zenodo/data/lentiMPRA_{celltype}_activity_and_aleatoric_data.h5"
+        # Get the repo root directory (go up from paper_reproducibility/code/)
+        repo_root = Path(__file__).resolve().parent.parent.parent
+        data_file = repo_root / f"zenodo/data/lentiMPRA_{celltype}_activity_and_aleatoric_data.h5"
         logger.info(f"Loading actual sequences and experimental data from: {data_file}")
         
         import h5py

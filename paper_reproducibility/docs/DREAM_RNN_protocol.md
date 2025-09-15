@@ -155,6 +155,14 @@ All scripts support standard arguments:
 - `--epochs`: Number of training epochs
 - `--batch_size`: Batch size for training
 
+### Scripts overview
+- `train_DREAM_RNN_DeepSTARR.py`: Standard DREAM-RNN training for DeepSTARR
+- `train_DREAM_RNN_lentiMPRA.py`: Standard DREAM-RNN training for lentiMPRA
+- `evaluate_ensemble_and_generate_distillation_data.py`: Ensemble evaluation and distillation data generation
+- `train_degu_distilled_model_deepstarr.py`: Distilled model training for DeepSTARR
+- `train_degu_distilled_model_lentimpra.py`: Distilled model training for lentiMPRA
+- `evaluate_DREAM_RNN_DeepSTARR.py`: Individual model evaluation for DeepSTARR
+
 ## Complete workflow example
 
 ### DeepSTARR workflow:

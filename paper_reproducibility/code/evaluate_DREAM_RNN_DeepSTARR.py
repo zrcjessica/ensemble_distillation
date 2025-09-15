@@ -10,6 +10,7 @@ import torch.nn as nn
 import h5py
 import numpy as np
 import pandas as pd
+from pathlib import Path
 from scipy.stats import pearsonr, spearmanr
 from sklearn.metrics import mean_squared_error
 from tqdm import tqdm
@@ -18,7 +19,9 @@ from tqdm import tqdm
 torch.backends.cudnn.enabled = False
 
 # Add the dream-challenge-2022 directory to the path
-sys.path.insert(0, 'zenodo/dream-challenge-2022')
+# Get the repo root directory (go up from paper_reproducibility/code/)
+repo_root = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(repo_root / 'zenodo/dream-challenge-2022'))
 
 # Import the model class
 from train_DREAM_RNN_official import DREAM_RNN_Official
@@ -48,10 +51,12 @@ def evaluate_model(model_path, downsample_ratio, output_path, device='cuda:0'):
     model.eval()
     
     # Get the correct data file path
+    # Get the repo root directory (go up from paper_reproducibility/code/)
+    repo_root = Path(__file__).resolve().parent.parent.parent
     if downsample_ratio == "1.0":
-        data_file = "zenodo/data/DeepSTARR_distillation_data.h5"
+        data_file = repo_root / "zenodo/data/DeepSTARR_distillation_data.h5"
     else:
-        data_file = f"zenodo/data/DeepSTARR_downsample{downsample_ratio}_distillation_data.h5"
+        data_file = repo_root / f"zenodo/data/DeepSTARR_downsample{downsample_ratio}_distillation_data.h5"
     
     print(f"Loading test data from: {data_file}")
     
