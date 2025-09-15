@@ -26,10 +26,15 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
+from pathlib import Path
+
+# Add the code directory to the path for potential future imports
+# Get the repo root directory (go up from paper_reproducibility/code/)
+repo_root = Path(__file__).resolve().parent.parent.parent
+sys.path.append(str(repo_root / 'code'))
 
 # Temporarily disable cuDNN to avoid version incompatibility
 torch.backends.cudnn.enabled = False
-from pathlib import Path
 import h5py
 import gc
 # Avoid importing keras to suppress TF initialization warnings; provide a tiny shim

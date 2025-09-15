@@ -28,6 +28,11 @@ from tqdm import tqdm
 from scipy.stats import pearsonr, spearmanr
 import torch.nn.functional as F
 
+# Add the code directory to the path for potential future imports
+# Get the repo root directory (go up from paper_reproducibility/code/)
+repo_root = Path(__file__).resolve().parent.parent.parent
+sys.path.append(str(repo_root / 'code'))
+
 # Note: This script is PyTorch-only and does not require the TensorFlow-based
 # paper_reproducibility/code/utils.py (which depends on evoaug_tf). Avoid importing
 # it to prevent optional dependency warnings.

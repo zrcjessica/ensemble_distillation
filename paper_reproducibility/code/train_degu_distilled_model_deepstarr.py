@@ -20,8 +20,10 @@ from torch.optim.lr_scheduler import OneCycleLR
 import pandas as pd
 import h5py
 
-# Add the code directory to the path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'code'))
+# Add the code directory to the path for potential future imports
+# Get the repo root directory (go up from paper_reproducibility/code/)
+repo_root = Path(__file__).resolve().parent.parent.parent
+sys.path.append(str(repo_root / 'code'))
 
 # Import the model classes
 from train_DREAM_RNN_DeepSTARR import DREAM_RNN_Official

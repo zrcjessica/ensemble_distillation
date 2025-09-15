@@ -29,6 +29,11 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 from pathlib import Path
+
+# Add the code directory to the path for potential future imports
+# Get the repo root directory (go up from paper_reproducibility/code/)
+repo_root = Path(__file__).resolve().parent.parent.parent
+sys.path.append(str(repo_root / 'code'))
 import random
 from typing import Dict, Tuple, Optional
 import logging
