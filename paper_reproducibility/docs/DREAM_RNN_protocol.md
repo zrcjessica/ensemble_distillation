@@ -128,6 +128,13 @@ All scripts support on-the-fly downsampling with fixed seed (1234) for reproduci
 - All data files should contain X (sequences) and y (labels) arrays
 - Sequences are automatically transposed from (N, L, 4) to (N, 4, L) for PyTorch compatibility
 
+### Portability and path handling
+- **Relative path resolution**: All scripts use `Path(__file__).resolve().parent.parent.parent` to find the repository root
+- **Cross-platform compatibility**: Scripts work regardless of execution location or operating system
+- **Automatic dependency resolution**: Scripts automatically add the code directory to Python path
+- **Data file discovery**: Scripts can find data files in `zenodo/data/` relative to repository root
+- **No hardcoded paths**: All paths are resolved relative to script location for maximum portability
+
 ### Architecture consistency
 - **Standard models**: 2 outputs (DeepSTARR: Dev/Hk, lentiMPRA: activity)
 - **Distilled models**: 4 outputs (DeepSTARR: Dev/Hk + std) or 3 outputs (lentiMPRA: activity + aleatoric + epistemic)
@@ -230,9 +237,10 @@ done
 
 ### Common issues:
 1. **CUDA out of memory**: Reduce batch size in config file or use smaller downsample ratio
-2. **File not found errors**: Ensure data files are in `zenodo/data/` directory
+2. **File not found errors**: Ensure data files are in `zenodo/data/` directory relative to repository root
 3. **Model loading errors**: Check that model files exist in the specified directory
 4. **Import errors**: Ensure all dependencies are installed (PyTorch, h5py, numpy, etc.)
+5. **Path resolution errors**: Scripts automatically resolve paths relative to their location - no need to run from specific directories
 
 ### Performance tips:
 - Use GPU acceleration with `--gpu 0` (or other available GPU)
