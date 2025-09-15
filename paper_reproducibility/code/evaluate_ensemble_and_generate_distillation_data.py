@@ -1,24 +1,58 @@
 #!/usr/bin/env python3
 """
-Dispatcher for ensemble evaluation and distillation data generation.
+DREAM-RNN Ensemble Evaluation and Distillation Data Generation
 
-This script aligns with the repository's existing pattern (see
-`ensemble_predict_DeepSTARR.py` and `ensemble_predict_MPRAnn.py`) and
-forwards arguments to the appropriate dataset-specific script:
+This script follows the DEGU methodology to:
+1. Load all models from a trained ensemble
+2. Generate predictions on train/val/test data
+3. Calculate ensemble mean and standard deviation (epistemic uncertainty)
+4. Save distillation training data
+5. Evaluate ensemble performance
 
-- DeepSTARR → ensemble_predict_DeepSTARR.py
-- lentiMPRA → ensemble_predict_lentiMPRA.py
-
-It supports both evaluation (`--eval`) and distillation data generation
-(`--distill`) and keeps the familiar CLI flags used elsewhere in this
-directory.
+Usage:
+    python evaluate_ensemble_and_generate_distillation_data.py \
+        --ensemble_dir dream_rnn_official_0.1 \
+        --dataset DeepSTARR \
+        --celltype Dev \
+        --downsample_ratio 0.1 \
+        --data_path /path/to/data.h5 \
+        --output_dir distillation_data_0.1
 """
 
 import argparse
 import os
 import sys
-import subprocess
+import numpy as np
+import pandas as pd
+import torch
+import torch.nn as nn
 
+# Temporarily disable cuDNN to avoid version incompatibility
+torch.backends.cudnn.enabled = False
+from pathlib import Path
+import h5py
+import gc
+import keras
+from typing import Dict, List, Tuple, Optional
+import warnings
+warnings.filterwarnings('ignore')
+
+# Add the current directory to the path to import local modules
+sys.path.append("./zenodo/dream-challenge-2022")
+
+# Import the correct Prix Fixe architecture that was used to train the models
+try:
+    from prixfixe.autosome import AutosomeFinalLayersBlock
+    from prixfixe.bhi import BHIFirstLayersBlock, BHICoreBlock
+    from prixfixe.prixfixe import PrixFixeNet
+    PRIX_FIXE_AVAILABLE = True
+    print("Prix Fixe framework imported successfully")
+except ImportError as e:
+    print(f"Warning: Prix Fixe framework not available ({e}), using fallback model definition")
+    PRIX_FIXE_AVAILABLE = False
+except Exception as e:
+    print(f"Warning: Prix Fixe framework has compatibility issues ({e}), using fallback model definition")
+    PRIX_FIXE_AVAILABLE = False
 
 def create_deepstarr_model_prixfixe(seqsize=249, in_channels=4):
     """
@@ -621,74 +655,170 @@ class EnsembleEvaluator:
             return False
 
 def main():
-    parser = argparse.ArgumentParser(description="Ensemble eval and distillation data dispatcher")
-    # Common flags aligned with existing scripts
-    parser.add_argument("--dataset", required=True, choices=["DeepSTARR", "lentiMPRA"])
-    parser.add_argument("--model_dir", required=True, help="Directory with trained models")
-    parser.add_argument("--n_mods", type=int, required=True, help="Number of models in ensemble")
-    parser.add_argument("--data", required=True, help="Path to HDF5 data file")
-    parser.add_argument("--out", required=False, default=None, help="Output directory")
-    parser.add_argument("--eval", action='store_true', help="Evaluate ensemble avg on test set")
-    parser.add_argument("--distill", action='store_true', help="Write ensemble avg on train set")
-    parser.add_argument("--downsample", type=float, default=None, help="Training downsample ratio")
-    parser.add_argument("--evoaug", action='store_true', help="If teachers used EvoAug")
-    parser.add_argument("--config", default=None, help="Config file (needed if --evoaug)")
-    # lentiMPRA-specific
-    parser.add_argument("--celltype", type=str, help="K562/HepG2 for lentiMPRA; Dev/Hk ignored")
-    parser.add_argument("--aleatoric", action='store_true', help="Predict aleatoric for lentiMPRA")
-    parser.add_argument("--plot", action='store_true', help="Scatterplots (lentiMPRA eval only)")
+    parser = argparse.ArgumentParser(
+        description="Evaluate DREAM-RNN ensemble and generate distillation data"
+    )
+    
+    # Unified CLI supports both legacy (ensemble_dir, data_path, downsample_ratio)
+    # and repo-style (model_dir, n_mods, data, out, eval, distill)
+    parser.add_argument("--ensemble_dir", type=str, help="Directory containing trained ensemble models")
+    parser.add_argument("--model_dir", type=str, help="Directory containing trained models (repo style)")
+    
+    parser.add_argument(
+        "--dataset", 
+        type=str, 
+        required=True,
+        choices=["DeepSTARR", "lentiMPRA"],
+        help="Dataset type (DeepSTARR or lentiMPRA)"
+    )
+    
+    parser.add_argument(
+        "--celltype", 
+        type=str, 
+        required=True,
+        help="Cell type (Dev, Hk for DeepSTARR; K562, HepG2 for lentiMPRA)"
+    )
+    
+    parser.add_argument(
+        "--save_both_celltypes",
+        action="store_true",
+        help="For DeepSTARR, save plot performance files for both Dev and Hk celltypes"
+    )
+    
+    parser.add_argument("--downsample_ratio", type=float, help="Downsample ratio (legacy)")
+    parser.add_argument("--downsample", type=float, help="Downsample ratio (repo style)")
+    
+    parser.add_argument("--data_path", type=str, help="Path to HDF5 (legacy)")
+    parser.add_argument("--data", type=str, help="Path to HDF5 (repo style)")
+    parser.add_argument("--n_mods", type=int, help="Number of models in ensemble (repo style)")
+    parser.add_argument("--out", type=str, default=None, help="Output directory (repo style)")
+    parser.add_argument("--eval", action='store_true', help="Evaluate ensemble average on test set")
+    parser.add_argument("--distill", action='store_true', help="Write ensemble average on train set")
+    parser.add_argument("--aleatoric", action='store_true', help="lentiMPRA: use aleatoric head in metrics")
+    
 
+    
     args = parser.parse_args()
+    
+    # Determine which CLI mode to use
+    repo_mode = args.model_dir is not None and args.data is not None and args.n_mods is not None
 
-    # Build command for the appropriate script
-    py = sys.executable
-    if args.dataset == "DeepSTARR":
-        script = os.path.join(os.path.dirname(__file__), "ensemble_predict_DeepSTARR.py")
-        cmd = [py, script,
-               "--model_dir", args.model_dir,
-               "--n_mods", str(args.n_mods),
-               "--data", args.data]
-        if args.out:
-            cmd += ["--out", args.out]
-        if args.eval:
-            cmd += ["--eval"]
-        if args.distill:
-            cmd += ["--distill"]
-        if args.downsample is not None:
-            cmd += ["--downsample", str(args.downsample)]
-        if args.evoaug:
-            cmd += ["--evoaug"]
-            if args.config:
-                cmd += ["--config", args.config]
-    else:
-        script = os.path.join(os.path.dirname(__file__), "ensemble_predict_lentiMPRA.py")
-        cmd = [py, script,
-               "--model_dir", args.model_dir,
-               "--n_mods", str(args.n_mods),
-               "--data", args.data]
-        if args.out:
-            cmd += ["--out", args.out]
-        if args.eval:
-            cmd += ["--eval"]
-        if args.plot:
-            cmd += ["--plot"]
-        if args.distill:
-            cmd += ["--distill"]
-        if args.aleatoric:
-            cmd += ["--aleatoric"]
-        if args.downsample is not None:
-            cmd += ["--downsample", str(args.downsample)]
-        if args.evoaug:
-            cmd += ["--evoaug"]
-            if args.config:
-                cmd += ["--config", args.config]
-        if args.celltype:
-            cmd += ["--celltype", args.celltype]
+    if repo_mode:
+        # Repo-style flow: predict like ensemble_predict_*.py but for DREAM-RNN (PyTorch)
+        model_dir = args.model_dir
+        n_mods = args.n_mods
+        data_path = args.data
+        outdir = args.out if args.out else model_dir
+        Path(outdir).mkdir(parents=True, exist_ok=True)
 
-    # Run the underlying script
-    print("Executing:", " ".join(cmd))
-    result = subprocess.run(cmd, check=False)
-    sys.exit(result.returncode)
+        # Load data
+        with h5py.File(data_path, 'r') as f:
+            X_train = f['Train']['X'][:]
+            y_train = f['Train']['y'][:]
+            X_test = f['Test']['X'][:]
+            y_test = f['Test']['y'][:]
+        if args.distill and args.downsample:
+            rng = np.random.default_rng(1234)
+            X_train, y_train = utils.downsample(X_train, y_train, rng, args.downsample)
+            print(f'number of training samples after downsampling: {X_train.shape[0]}')
+        # Transpose for PyTorch
+        X_train = np.transpose(X_train, (0, 2, 1))
+        X_test = np.transpose(X_test, (0, 2, 1))
+
+        # Find checkpoints
+        ensemble_path = Path(model_dir)
+        model_files = []
+        for i in range(n_mods):
+            p = ensemble_path / f"{i}_model.pth"
+            if p.exists():
+                model_files.append(str(p))
+        if len(model_files) < n_mods:
+            extras = sorted([str(p) for p in ensemble_path.glob("*.pth") if str(p) not in model_files])
+            model_files += extras[:max(0, n_mods - len(model_files))]
+        if not model_files:
+            raise FileNotFoundError(f"No model files found in {model_dir}")
+        print(f"predicting with {len(model_files)}/{n_mods} models")
+
+        # Choose builder
+        if args.dataset == "DeepSTARR":
+            def build_model(device):
+                return create_deepstarr_model_fallback().to(device).eval()
+        else:
+            # decide outputs by y_test shape
+            n_outputs = y_test.shape[1] if y_test.ndim == 2 else 1
+            def build_model(device):
+                # Reuse DeepSTARR fallback but change final head size dynamically
+                m = create_deepstarr_model_fallback().to(device)
+                m.final_block['final_dense'] = torch.nn.Linear(256, n_outputs).to(device)
+                m.eval()
+                return m
+
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # Predict
+        avg_train_pred, avg_test_pred = None, None
+        if args.distill:
+            train_preds = []
+            for idx, mf in enumerate(model_files):
+                print(f'predicting with model {idx+1}/{len(model_files)}')
+                keras.backend.clear_session(); gc.collect()
+                model = build_model(device)
+                state = torch.load(mf, map_location=device)
+                model.load_state_dict(state)
+                out_batches = []
+                with torch.no_grad():
+                    for j in range(0, X_train.shape[0], 1024):
+                        xb = torch.from_numpy(X_train[j:j+1024]).to(device)
+                        out_batches.append(model(xb).cpu().numpy())
+                train_preds.append(np.concatenate(out_batches, axis=0))
+            avg_train_pred = np.stack(train_preds, axis=0).mean(axis=0)
+            np.save(os.path.join(outdir, "ensemble_avg_y_train.npy"), avg_train_pred)
+
+        if args.eval:
+            test_preds = []
+            for idx, mf in enumerate(model_files):
+                print(f'predicting with model {idx+1}/{len(model_files)}')
+                keras.backend.clear_session(); gc.collect()
+                model = build_model(device)
+                state = torch.load(mf, map_location=device)
+                model.load_state_dict(state)
+                out_batches = []
+                with torch.no_grad():
+                    for j in range(0, X_test.shape[0], 1024):
+                        xb = torch.from_numpy(X_test[j:j+1024]).to(device)
+                        out_batches.append(model(xb).cpu().numpy())
+                test_preds.append(np.concatenate(out_batches, axis=0))
+            avg_test_pred = np.stack(test_preds, axis=0).mean(axis=0)
+
+            # Write performance like existing scripts
+            if args.dataset == "DeepSTARR":
+                perf = utils.summarise_DeepSTARR_performance(avg_test_pred, y_test)
+            else:
+                if avg_test_pred.shape != y_test.shape:
+                    perf = utils.summarise_lentiMPRA_performance(avg_test_pred, np.expand_dims(y_test, axis=-1), args.celltype, aleatoric=args.aleatoric, epistemic=False)
+                else:
+                    perf = utils.summarise_lentiMPRA_performance(avg_test_pred, y_test, args.celltype, aleatoric=args.aleatoric, epistemic=False)
+            perf.to_csv(os.path.join(outdir, "ensemble_performance_avg.csv"), index=False)
+
+        return
+
+    # Legacy mode: keep original behavior
+    # Validate arguments
+    if args.dataset == "DeepSTARR" and args.celltype not in ["Dev", "Hk"]:
+        raise ValueError("For DeepSTARR, celltype must be 'Dev' or 'Hk'")
+    if args.dataset == "lentiMPRA" and args.celltype not in ["K562", "HepG2"]:
+        raise ValueError("For lentiMPRA, celltype must be 'K562' or 'HepG2'")
+    if args.downsample_ratio not in [0.1, 0.25, 0.5, 0.75, 1.0]:
+        raise ValueError("Downsample ratio must be one of: 0.1, 0.25, 0.5, 0.75, 1.0")
+
+    evaluator = EnsembleEvaluator(
+        ensemble_dir=args.ensemble_dir,
+        dataset=args.dataset,
+        celltype=args.celltype,
+        downsample_ratio=args.downsample_ratio,
+        data_path=args.data_path,
+        save_both_celltypes=args.save_both_celltypes
+    )
+    evaluator.evaluate_ensemble()
 
 if __name__ == "__main__":
     main()
