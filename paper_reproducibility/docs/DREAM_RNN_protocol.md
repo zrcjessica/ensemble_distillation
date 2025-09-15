@@ -20,7 +20,7 @@ python paper_reproducibility/code/train_DREAM_RNN_DeepSTARR.py \
   --downsample 1.0 --ix 0 --out <out_dir> --gpu 0
 ```
 
-lentiMPRA (K562/HepG2, activity-only teachers or activity+aleatoric teachers per dataset):
+lentiMPRA (K562/HepG2):
 - Script: `paper_reproducibility/code/train_DREAM_RNN_lentiMPRA.py`
 - Config: `paper_reproducibility/config/DREAM_RNN_lentiMPRA.yaml`
 - Heads (teacher):
@@ -34,37 +34,48 @@ python paper_reproducibility/code/train_DREAM_RNN_lentiMPRA.py \
   --downsample 1.0 --ix 0 --out <out_dir> --gpu 0
 ```
 
-## 2) Generate distillation targets
+## 2) Evaluate ensemble and generate distillation data
 
-DeepSTARR:
-- Ensemble mean: `paper_reproducibility/code/ensemble_predict_DeepSTARR.py --distill`
-- Ensemble std: `paper_reproducibility/code/stdev_ensemble_predictions.py`
-- Parse HDF5 with ensemble mean for train and ensemble std for train/val/test as per `DeepSTARR_ensemble_distillation_protocol.md`.
+Use the DREAM-RNN ensemble evaluator (PyTorch) with repo-style flags. It writes:
+- `ensemble_performance_avg.csv` if `--eval`
+- `ensemble_avg_y_train.npy` if `--distill`
+- Unified NPZ: `distillation_data_<DATASET>_<CELLTYPE>_<DOWN>.npz` with `train_mean/std` and `test_mean/std` for feeding distilled scripts.
 
-lentiMPRA:
-- Ensemble mean (activity, and aleatoric if applicable): `paper_reproducibility/code/ensemble_predict_lentiMPRA.py --distill [--aleatoric]`
-- Ensemble std (for activity): `paper_reproducibility/code/get_lentiMPRA_ensemble_std.py`
-- Parse HDF5 containing updated labels for distilled runs as per `lentiMPRA_ensemble_distillation_protocol.md`.
+Examples:
+- DeepSTARR:
+```
+python paper_reproducibility/code/evaluate_ensemble_and_generate_distillation_data.py \
+  --dataset DeepSTARR --model_dir <teacher_dir> --n_mods 10 \
+  --data <DeepSTARR_h5> --out <ensemble_out> --eval --distill --downsample 1.0
+```
+- lentiMPRA:
+```
+python paper_reproducibility/code/evaluate_ensemble_and_generate_distillation_data.py \
+  --dataset lentiMPRA --celltype K562 --aleatoric \
+  --model_dir <teacher_dir> --n_mods 10 --data <lentiMPRA_h5> \
+  --out <ensemble_out> --eval --distill --downsample 1.0
+```
 
 ## 3) Train distilled students (enable extra heads only for distillation)
 
 DeepSTARR distilled:
-- Student architecture outputs 4 heads (Dev, Hk, Dev_std, Hk_std) when `std: true` in YAML.
-- Use the parsed HDF5 with ensemble labels.
-- Script: `paper_reproducibility/code/train_degu_distilled_model_deepstarr.py` (existing)
-- Ensure config flags: `std: true` (and keep epochs/batch/lr as above).
+- Script: `paper_reproducibility/code/train_degu_distilled_model_deepstarr.py`
+- Config: `paper_reproducibility/config/DREAM_RNN_DeepSTARR.yaml` with `std: true`
+- Inputs: unified NPZ from step 2 and/or `ensemble_avg_y_train.npy`
 
 lentiMPRA distilled:
-- Student architecture can output:
-  - 2 heads (activity, epistemic): set `epistemic: true`, `aleatoric: false`
-  - 3 heads (activity, aleatoric, epistemic): set both `aleatoric: true` and `epistemic: true`
-- Use the parsed HDF5 with ensemble labels.
-- Script options: `train_degu_distilled_model_lentimpra.py` or a DREAM-RNN-specific distilled runner if desired.
+- Script: `paper_reproducibility/code/train_degu_distilled_model_lentimpra.py`
+- Config: `paper_reproducibility/config/DREAM_RNN_lentiMPRA.yaml` with `epistemic: true` (and `aleatoric: true` if 3-head student)
+- Inputs: unified NPZ from step 2 and/or `ensemble_avg_y_train.npy`
+
+## 4) Evaluation of distilled models
+
+- Use existing evaluation patterns (saved `*_performance.csv`) and plotting scripts (e.g., `plot_ensemble_performance_comparison.py`)—outputs from steps 2–3 follow the repo naming conventions.
 
 ## Notes
 - Standard models remain unaffected (no extra heads) unless `std/aleatoric/epistemic` flags are set in YAML.
 - Hyperparameters are aligned with the DREAM paper (epochs=80, batch_size=1024, AdamW, lr=0.005, one-cycle LR).
-- Outputs (weights, performance CSVs) follow the repository’s expected naming for interoperability with plotting.
+- Outputs (weights, performance CSVs) integrate with existing analysis and plotting utilities.
 
 ## Minimal examples
 
