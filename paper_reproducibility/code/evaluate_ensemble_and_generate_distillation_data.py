@@ -1,56 +1,24 @@
 #!/usr/bin/env python3
 """
-DREAM-RNN Ensemble Evaluation and Distillation Data Generation
+Dispatcher for ensemble evaluation and distillation data generation.
 
-This script follows the DEGU methodology to:
-1. Load all models from a trained ensemble
-2. Generate predictions on train/val/test data
-3. Calculate ensemble mean and standard deviation (epistemic uncertainty)
-4. Save distillation training data
-5. Evaluate ensemble performance
+This script aligns with the repository's existing pattern (see
+`ensemble_predict_DeepSTARR.py` and `ensemble_predict_MPRAnn.py`) and
+forwards arguments to the appropriate dataset-specific script:
 
-Usage:
-    python evaluate_ensemble_and_generate_distillation_data.py \
-        --ensemble_dir dream_rnn_official_0.1 \
-        --dataset DeepSTARR \
-        --celltype Dev \
-        --downsample_ratio 0.1 \
-        --data_path /path/to/data.h5 \
-        --output_dir distillation_data_0.1
+- DeepSTARR → ensemble_predict_DeepSTARR.py
+- lentiMPRA → ensemble_predict_lentiMPRA.py
+
+It supports both evaluation (`--eval`) and distillation data generation
+(`--distill`) and keeps the familiar CLI flags used elsewhere in this
+directory.
 """
 
 import argparse
 import os
 import sys
-import numpy as np
-import pandas as pd
-import torch
-import torch.nn as nn
+import subprocess
 
-# Temporarily disable cuDNN to avoid version incompatibility
-torch.backends.cudnn.enabled = False
-from pathlib import Path
-import h5py
-from typing import Dict, List, Tuple, Optional
-import warnings
-warnings.filterwarnings('ignore')
-
-# Add the current directory to the path to import local modules
-sys.path.append("./zenodo/dream-challenge-2022")
-
-# Import the correct Prix Fixe architecture that was used to train the models
-try:
-    from prixfixe.autosome import AutosomeFinalLayersBlock
-    from prixfixe.bhi import BHIFirstLayersBlock, BHICoreBlock
-    from prixfixe.prixfixe import PrixFixeNet
-    PRIX_FIXE_AVAILABLE = True
-    print("Prix Fixe framework imported successfully")
-except ImportError as e:
-    print(f"Warning: Prix Fixe framework not available ({e}), using fallback model definition")
-    PRIX_FIXE_AVAILABLE = False
-except Exception as e:
-    print(f"Warning: Prix Fixe framework has compatibility issues ({e}), using fallback model definition")
-    PRIX_FIXE_AVAILABLE = False
 
 def create_deepstarr_model_prixfixe(seqsize=249, in_channels=4):
     """
@@ -653,77 +621,74 @@ class EnsembleEvaluator:
             return False
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Evaluate DREAM-RNN ensemble and generate distillation data"
-    )
-    
-    parser.add_argument(
-        "--ensemble_dir", 
-        type=str, 
-        required=True,
-        help="Directory containing trained ensemble models"
-    )
-    
-    parser.add_argument(
-        "--dataset", 
-        type=str, 
-        required=True,
-        choices=["DeepSTARR", "lentiMPRA"],
-        help="Dataset type (DeepSTARR or lentiMPRA)"
-    )
-    
-    parser.add_argument(
-        "--celltype", 
-        type=str, 
-        required=True,
-        help="Cell type (Dev, Hk for DeepSTARR; K562, HepG2 for lentiMPRA)"
-    )
-    
-    parser.add_argument(
-        "--save_both_celltypes",
-        action="store_true",
-        help="For DeepSTARR, save plot performance files for both Dev and Hk celltypes"
-    )
-    
-    parser.add_argument(
-        "--downsample_ratio", 
-        type=float, 
-        required=True,
-        help="Downsample ratio used for training (0.1, 0.25, 0.5, 0.75, 1.0)"
-    )
-    
-    parser.add_argument(
-        "--data_path", 
-        type=str, 
-        required=True,
-        help="Path to HDF5 data file"
-    )
-    
+    parser = argparse.ArgumentParser(description="Ensemble eval and distillation data dispatcher")
+    # Common flags aligned with existing scripts
+    parser.add_argument("--dataset", required=True, choices=["DeepSTARR", "lentiMPRA"])
+    parser.add_argument("--model_dir", required=True, help="Directory with trained models")
+    parser.add_argument("--n_mods", type=int, required=True, help="Number of models in ensemble")
+    parser.add_argument("--data", required=True, help="Path to HDF5 data file")
+    parser.add_argument("--out", required=False, default=None, help="Output directory")
+    parser.add_argument("--eval", action='store_true', help="Evaluate ensemble avg on test set")
+    parser.add_argument("--distill", action='store_true', help="Write ensemble avg on train set")
+    parser.add_argument("--downsample", type=float, default=None, help="Training downsample ratio")
+    parser.add_argument("--evoaug", action='store_true', help="If teachers used EvoAug")
+    parser.add_argument("--config", default=None, help="Config file (needed if --evoaug)")
+    # lentiMPRA-specific
+    parser.add_argument("--celltype", type=str, help="K562/HepG2 for lentiMPRA; Dev/Hk ignored")
+    parser.add_argument("--aleatoric", action='store_true', help="Predict aleatoric for lentiMPRA")
+    parser.add_argument("--plot", action='store_true', help="Scatterplots (lentiMPRA eval only)")
 
-    
     args = parser.parse_args()
-    
-    # Validate arguments
-    if args.dataset == "DeepSTARR" and args.celltype not in ["Dev", "Hk"]:
-        raise ValueError("For DeepSTARR, celltype must be 'Dev' or 'Hk'")
-    
-    if args.dataset == "lentiMPRA" and args.celltype not in ["K562", "HepG2"]:
-        raise ValueError("For lentiMPRA, celltype must be 'K562' or 'HepG2'")
-    
-    if args.downsample_ratio not in [0.1, 0.25, 0.5, 0.75, 1.0]:
-        raise ValueError("Downsample ratio must be one of: 0.1, 0.25, 0.5, 0.75, 1.0")
-    
-    # Run evaluation
-    evaluator = EnsembleEvaluator(
-        ensemble_dir=args.ensemble_dir,
-        dataset=args.dataset,
-        celltype=args.celltype,
-        downsample_ratio=args.downsample_ratio,
-        data_path=args.data_path,
-        save_both_celltypes=args.save_both_celltypes
-    )
-    
-    evaluator.evaluate_ensemble()
+
+    # Build command for the appropriate script
+    py = sys.executable
+    if args.dataset == "DeepSTARR":
+        script = os.path.join(os.path.dirname(__file__), "ensemble_predict_DeepSTARR.py")
+        cmd = [py, script,
+               "--model_dir", args.model_dir,
+               "--n_mods", str(args.n_mods),
+               "--data", args.data]
+        if args.out:
+            cmd += ["--out", args.out]
+        if args.eval:
+            cmd += ["--eval"]
+        if args.distill:
+            cmd += ["--distill"]
+        if args.downsample is not None:
+            cmd += ["--downsample", str(args.downsample)]
+        if args.evoaug:
+            cmd += ["--evoaug"]
+            if args.config:
+                cmd += ["--config", args.config]
+    else:
+        script = os.path.join(os.path.dirname(__file__), "ensemble_predict_lentiMPRA.py")
+        cmd = [py, script,
+               "--model_dir", args.model_dir,
+               "--n_mods", str(args.n_mods),
+               "--data", args.data]
+        if args.out:
+            cmd += ["--out", args.out]
+        if args.eval:
+            cmd += ["--eval"]
+        if args.plot:
+            cmd += ["--plot"]
+        if args.distill:
+            cmd += ["--distill"]
+        if args.aleatoric:
+            cmd += ["--aleatoric"]
+        if args.downsample is not None:
+            cmd += ["--downsample", str(args.downsample)]
+        if args.evoaug:
+            cmd += ["--evoaug"]
+            if args.config:
+                cmd += ["--config", args.config]
+        if args.celltype:
+            cmd += ["--celltype", args.celltype]
+
+    # Run the underlying script
+    print("Executing:", " ".join(cmd))
+    result = subprocess.run(cmd, check=False)
+    sys.exit(result.returncode)
 
 if __name__ == "__main__":
     main()
