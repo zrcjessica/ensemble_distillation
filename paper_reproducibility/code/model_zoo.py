@@ -1,6 +1,152 @@
 import keras.layers as kl
 from keras.models import Model
 
+def DREAM_RNN_Official(input_shape, config, epistemic=False):
+    '''
+    Full DREAM-RNN architecture matching the paper specifications.
+    
+    Architecture:
+    - BHIFirstLayersBlock: Conv1D with kernel sizes [9, 15], 160 channels each → 320 total
+    - BHICoreBlock: Bi-LSTM(320→640) + Conv1D blocks [9, 15] → 320 total  
+    - AutosomeFinalLayersBlock: Pointwise conv(320→256) + Dense(256→2 or 4)
+
+    Parameters:
+        input_shape (tuple): (L, C) input shape, expected (249, 4)
+        config (dict): same config dict style used by DeepSTARR
+        epistemic (bool): if True, output heads include epistemic std
+
+    Returns:
+        Model: Keras model with 2 outputs (Dev,Hk) or 4 (Dev,Hk,Dev-std,Hk-std)
+    '''
+    inputs = kl.Input(shape=input_shape)
+    
+    # BHIFirstLayersBlock: Two parallel conv blocks with kernel sizes 9 and 15
+    conv1 = kl.Conv1D(160, kernel_size=9, padding='same')(inputs)
+    conv1 = kl.BatchNormalization()(conv1)
+    conv1 = kl.Activation(config.get('first_activation', 'relu'))(conv1)
+    conv1 = kl.Dropout(config.get('dropout', 0.2))(conv1)
+    
+    conv2 = kl.Conv1D(160, kernel_size=15, padding='same')(inputs)
+    conv2 = kl.BatchNormalization()(conv2)
+    conv2 = kl.Activation(config.get('first_activation', 'relu'))(conv2)
+    conv2 = kl.Dropout(config.get('dropout', 0.2))(conv2)
+    
+    # Concatenate the two conv outputs → 320 channels
+    x = kl.Concatenate(axis=-1)([conv1, conv2])
+    
+    # BHICoreBlock: Bi-LSTM + Conv blocks
+    # Transpose for LSTM: (batch, seq, channels)
+    x_lstm = kl.Permute((1, 2))(x)
+    
+    # Bi-LSTM with 320 hidden units each direction → 640 total
+    lstm_hidden = config.get('lstm_hidden_channels', 320)
+    x_lstm = kl.Bidirectional(kl.LSTM(lstm_hidden, return_sequences=True))(x_lstm)
+    
+    # Transpose back: (batch, channels, seq)
+    x_lstm = kl.Permute((1, 2))(x_lstm)
+    
+    # Apply conv blocks on LSTM output
+    conv3 = kl.Conv1D(160, kernel_size=9, padding='same')(x_lstm)
+    conv3 = kl.BatchNormalization()(conv3)
+    conv3 = kl.Activation(config.get('activation', 'relu'))(conv3)
+    conv3 = kl.Dropout(config.get('dropout', 0.2))(conv3)
+    
+    conv4 = kl.Conv1D(160, kernel_size=15, padding='same')(x_lstm)
+    conv4 = kl.BatchNormalization()(conv4)
+    conv4 = kl.Activation(config.get('activation', 'relu'))(conv4)
+    conv4 = kl.Dropout(config.get('dropout', 0.2))(conv4)
+    
+    # Concatenate conv outputs → 320 channels
+    x = kl.Concatenate(axis=-1)([conv3, conv4])
+    x = kl.Dropout(0.5)(x)  # Additional dropout as in BHICoreBlock
+    
+    # AutosomeFinalLayersBlock: Pointwise conv + Global pooling + Dense
+    x = kl.Conv1D(256, kernel_size=1, padding='same')(x)
+    x = kl.GlobalAveragePooling1D()(x)
+    
+    # Final dense layer
+    if epistemic:
+        outputs = kl.Dense(4, activation='linear')(x)  # Dev, Hk, Dev_std, Hk_std
+    else:
+        outputs = kl.Dense(2, activation='linear')(x)  # Dev, Hk
+
+    model = Model(inputs=inputs, outputs=outputs)
+    return model
+
+def DREAM_RNN_lentiMPRA(input_shape, config, epistemic=False):
+    '''
+    DREAM-RNN style backbone for lentiMPRA (single output).
+
+    Parameters:
+        input_shape (tuple): (L, C) input shape, expected (seq_len, 4)
+        config (dict): same config dict style used by lentiMPRA
+        epistemic (bool): if True, output heads include epistemic std
+
+    Returns:
+        Model: Keras model with 1 output (expression) or 2 (expression, std)
+    '''
+    inputs = kl.Input(shape=input_shape)
+    
+    # BHIFirstLayersBlock: Two parallel conv blocks with kernel sizes 9 and 15
+    conv1 = kl.Conv1D(160, kernel_size=9, padding='same')(inputs)
+    conv1 = kl.BatchNormalization()(conv1)
+    conv1 = kl.Activation(config.get('first_activation', 'relu'))(conv1)
+    conv1 = kl.Dropout(config.get('dropout', 0.2))(conv1)
+    
+    conv2 = kl.Conv1D(160, kernel_size=15, padding='same')(inputs)
+    conv2 = kl.BatchNormalization()(conv2)
+    conv2 = kl.Activation(config.get('first_activation', 'relu'))(conv2)
+    conv2 = kl.Dropout(config.get('dropout', 0.2))(conv2)
+    
+    # Concatenate the two conv outputs → 320 channels
+    x = kl.Concatenate(axis=-1)([conv1, conv2])
+    
+    # BHICoreBlock: Bi-LSTM + Conv blocks
+    # Transpose for LSTM: (batch, seq, channels)
+    x_lstm = kl.Permute((1, 2))(x)
+    
+    # Bi-LSTM with 320 hidden units each direction → 640 total
+    lstm_hidden = config.get('lstm_hidden_channels', 320)
+    x_lstm = kl.Bidirectional(kl.LSTM(lstm_hidden, return_sequences=True))(x_lstm)
+    
+    # Transpose back: (batch, channels, seq)
+    x_lstm = kl.Permute((1, 2))(x_lstm)
+    
+    # Apply conv blocks on LSTM output
+    conv3 = kl.Conv1D(160, kernel_size=9, padding='same')(x_lstm)
+    conv3 = kl.BatchNormalization()(conv3)
+    conv3 = kl.Activation(config.get('activation', 'relu'))(conv3)
+    conv3 = kl.Dropout(config.get('dropout', 0.2))(conv3)
+    
+    conv4 = kl.Conv1D(160, kernel_size=15, padding='same')(x_lstm)
+    conv4 = kl.BatchNormalization()(conv4)
+    conv4 = kl.Activation(config.get('activation', 'relu'))(conv4)
+    conv4 = kl.Dropout(config.get('dropout', 0.2))(conv4)
+    
+    # Concatenate conv outputs → 320 channels
+    x = kl.Concatenate(axis=-1)([conv3, conv4])
+    x = kl.Dropout(0.5)(x)  # Additional dropout as in BHICoreBlock
+    
+    # AutosomeFinalLayersBlock: Pointwise conv + Global pooling + Dense
+    x = kl.Conv1D(256, kernel_size=1, padding='same')(x)
+    x = kl.GlobalAveragePooling1D()(x)
+
+    # Determine heads based on config flags
+    want_aleatoric = bool(config.get('aleatoric', False))
+    want_epistemic = bool(config.get('epistemic', epistemic))
+
+    if want_aleatoric and want_epistemic:
+        outputs = kl.Dense(3, activation='linear')(x)  # mean, aleatoric, epistemic
+    elif want_aleatoric and not want_epistemic:
+        outputs = kl.Dense(2, activation='linear')(x)  # mean, aleatoric
+    elif want_epistemic and not want_aleatoric:
+        outputs = kl.Dense(2, activation='linear')(x)  # mean, epistemic
+    else:
+        outputs = kl.Dense(1, activation='linear')(x)  # mean only
+
+    model = Model(inputs=inputs, outputs=outputs)
+    return model
+
 def DeepSTARR(input_shape, config, epistemic=False):
     '''
     Build the DeepSTARR model architecture.

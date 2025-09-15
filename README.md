@@ -200,6 +200,17 @@ This implementation accompanies our **ICLR MLGenX 2025** paper:
 
 Full reproduction code for paper results is available in `paper_reproducibility/`. This includes dataset preprocessing, model training scripts, analysis notebooks, and documentation for all experiments in the paper.
 
+### DREAM-RNN Integration
+
+The `paper_reproducibility/` folder now includes full support for DREAM-RNN models as described in the DREAM paper:
+
+- **Standard Training**: Train DREAM-RNN models on DeepSTARR and lentiMPRA datasets
+- **Ensemble Evaluation**: Generate ensemble predictions and distillation data
+- **Knowledge Distillation**: Train distilled DREAM-RNN models with uncertainty quantification
+- **Complete Workflow**: End-to-end pipeline from standard training to distilled models
+
+See `paper_reproducibility/docs/DREAM_RNN_protocol.md` for detailed usage instructions.
+
 ## Data and Model Availability
 
 Pre-trained model weights and datasets used in our experiments are available on Zenodo:
