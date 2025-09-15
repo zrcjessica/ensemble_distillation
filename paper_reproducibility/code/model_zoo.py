@@ -451,3 +451,26 @@ def MPRAnn_heteroscedastic(input_shape):
     # outputs = kl.Concatenate()([mu, var]) # [mu, var]
     model = Model(inputs=inputs, outputs=outputs)
     return model
+
+from keras.models import Model
+
+def DREAM_RNN_Official(input_shape, config, epistemic=False):
+    inputs = kl.Input(shape=input_shape)
+    x = kl.Conv1D(128, 7, padding='same')(inputs)
+    x = kl.BatchNormalization()(x)
+    x = kl.Activation(config.get('first_activation','relu'))(x)
+    x = kl.MaxPool1D(2)(x)
+    x = kl.Conv1D(128, 5, padding='same')(x)
+    x = kl.BatchNormalization()(x)
+    x = kl.Activation(config.get('activation','relu'))(x)
+    x = kl.MaxPool1D(2)(x)
+    x = kl.Conv1D(256, 3, padding='same')(x)
+    x = kl.BatchNormalization()(x)
+    x = kl.Activation(config.get('activation','relu'))(x)
+    x = kl.MaxPool1D(2)(x)
+    x = kl.GlobalAveragePooling1D()(x)
+    x = kl.Dense(256)(x)
+    x = kl.BatchNormalization()(x)
+    x = kl.Activation(config.get('activation','relu'))(x)
+    outputs = kl.Dense(4 if epistemic else 2, activation='linear')(x)
+    return Model(inputs=inputs, outputs=outputs)

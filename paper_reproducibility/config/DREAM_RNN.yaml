@@ -1,0 +1,29 @@
+## Defaults for DREAM-RNN (DeepSTARR task)
+epochs:
+  value: 100
+batch_size:
+  value: 128
+loss_fxn:
+  value: 'mse'
+activation:
+  value: 'relu'
+first_activation:
+  value: 'relu'
+optimizer:
+  value: 'Adam'
+optim_lr:
+  value: 0.001
+early_stopping:
+  value: true
+es_patience:
+  value: 10
+lr_decay:
+  value: false
+distill:
+  value: false
+downsample:
+  value: 1.0
+std:
+  value: false
+evoaug:
+  value: false
