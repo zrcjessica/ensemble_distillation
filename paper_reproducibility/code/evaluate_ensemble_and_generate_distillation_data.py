@@ -756,6 +756,7 @@ def main():
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         # Predict
         avg_train_pred, avg_test_pred = None, None
+        std_train_pred, std_test_pred = None, None
         if args.distill:
             train_preds = []
             for idx, mf in enumerate(model_files):
@@ -770,7 +771,9 @@ def main():
                         xb = torch.from_numpy(X_train[j:j+1024]).to(device)
                         out_batches.append(model(xb).cpu().numpy())
                 train_preds.append(np.concatenate(out_batches, axis=0))
-            avg_train_pred = np.stack(train_preds, axis=0).mean(axis=0)
+            train_stack = np.stack(train_preds, axis=0)
+            avg_train_pred = train_stack.mean(axis=0)
+            std_train_pred = train_stack.std(axis=0)
             np.save(os.path.join(outdir, "ensemble_avg_y_train.npy"), avg_train_pred)
 
         if args.eval:
@@ -787,7 +790,9 @@ def main():
                         xb = torch.from_numpy(X_test[j:j+1024]).to(device)
                         out_batches.append(model(xb).cpu().numpy())
                 test_preds.append(np.concatenate(out_batches, axis=0))
-            avg_test_pred = np.stack(test_preds, axis=0).mean(axis=0)
+            test_stack = np.stack(test_preds, axis=0)
+            avg_test_pred = test_stack.mean(axis=0)
+            std_test_pred = test_stack.std(axis=0)
 
             # Write performance like existing scripts
             if args.dataset == "DeepSTARR":
@@ -798,6 +803,22 @@ def main():
                 else:
                     perf = utils.summarise_lentiMPRA_performance(avg_test_pred, y_test, args.celltype, aleatoric=args.aleatoric, epistemic=False)
             perf.to_csv(os.path.join(outdir, "ensemble_performance_avg.csv"), index=False)
+
+        # Save unified distillation NPZ if we have any predictions
+        if args.distill or args.eval:
+            npz_payload = {}
+            if avg_train_pred is not None:
+                npz_payload['train_mean'] = avg_train_pred
+            if std_train_pred is not None:
+                npz_payload['train_std'] = std_train_pred
+            # repo-mode doesn't compute val by default; leave out unless added later
+            if avg_test_pred is not None:
+                npz_payload['test_mean'] = avg_test_pred
+            if std_test_pred is not None:
+                npz_payload['test_std'] = std_test_pred
+            if npz_payload:
+                tag = f"{args.dataset}_{(args.celltype or 'NA')}_{args.downsample or 'full'}"
+                np.savez_compressed(os.path.join(outdir, f"distillation_data_{tag}.npz"), **npz_payload)
 
         return
 
