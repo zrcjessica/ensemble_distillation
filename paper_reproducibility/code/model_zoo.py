@@ -1,6 +1,98 @@
 import keras.layers as kl
 from keras.models import Model
 
+def DREAM_RNN_Official(input_shape, config, epistemic=False):
+    '''
+    DREAM-RNN style backbone with replaceable final head.
+
+    Parameters:
+        input_shape (tuple): (L, C) input shape, expected (249, 4)
+        config (dict): same config dict style used by DeepSTARR
+        epistemic (bool): if True, output heads include epistemic std
+
+    Returns:
+        Model: Keras model with 2 outputs (Dev,Hk) or 4 (Dev,Hk,Dev-std,Hk-std)
+    '''
+    inputs = kl.Input(shape=input_shape)
+
+    # Convolutional feature extractor
+    x = kl.Conv1D(128, kernel_size=7, padding='same')(inputs)
+    x = kl.BatchNormalization()(x)
+    x = kl.Activation(config.get('first_activation', 'relu'))(x)
+    x = kl.MaxPool1D(2)(x)
+
+    x = kl.Conv1D(128, kernel_size=5, padding='same')(x)
+    x = kl.BatchNormalization()(x)
+    x = kl.Activation(config.get('activation', 'relu'))(x)
+    x = kl.MaxPool1D(2)(x)
+
+    x = kl.Conv1D(256, kernel_size=3, padding='same')(x)
+    x = kl.BatchNormalization()(x)
+    x = kl.Activation(config.get('activation', 'relu'))(x)
+    x = kl.MaxPool1D(2)(x)
+
+    # Global average pooling
+    x = kl.GlobalAveragePooling1D()(x)
+
+    # Dense projection
+    x = kl.Dense(256)(x)
+    x = kl.BatchNormalization()(x)
+    x = kl.Activation(config.get('activation', 'relu'))(x)
+
+    if epistemic:
+        outputs = kl.Dense(4, activation='linear')(x)
+    else:
+        outputs = kl.Dense(2, activation='linear')(x)
+
+    model = Model(inputs=inputs, outputs=outputs)
+    return model
+
+def DREAM_RNN_lentiMPRA(input_shape, config, epistemic=False):
+    '''
+    DREAM-RNN style backbone for lentiMPRA (single output).
+
+    Parameters:
+        input_shape (tuple): (L, C) input shape, expected (seq_len, 4)
+        config (dict): same config dict style used by lentiMPRA
+        epistemic (bool): if True, output heads include epistemic std
+
+    Returns:
+        Model: Keras model with 1 output (expression) or 2 (expression, std)
+    '''
+    inputs = kl.Input(shape=input_shape)
+
+    # Convolutional feature extractor
+    x = kl.Conv1D(128, kernel_size=7, padding='same')(inputs)
+    x = kl.BatchNormalization()(x)
+    x = kl.Activation(config.get('first_activation', 'relu'))(x)
+    x = kl.MaxPool1D(2)(x)
+
+    x = kl.Conv1D(128, kernel_size=5, padding='same')(x)
+    x = kl.BatchNormalization()(x)
+    x = kl.Activation(config.get('activation', 'relu'))(x)
+    x = kl.MaxPool1D(2)(x)
+
+    x = kl.Conv1D(256, kernel_size=3, padding='same')(x)
+    x = kl.BatchNormalization()(x)
+    x = kl.Activation(config.get('activation', 'relu'))(x)
+    x = kl.MaxPool1D(2)(x)
+
+    # Global average pooling
+    x = kl.GlobalAveragePooling1D()(x)
+
+    # Dense projection
+    x = kl.Dense(256)(x)
+    x = kl.BatchNormalization()(x)
+    x = kl.Activation(config.get('activation', 'relu'))(x)
+
+    if epistemic:
+        outputs = kl.Dense(2, activation='linear')(x)  # expression, std
+    else:
+        outputs = kl.Dense(1, activation='linear')(x)  # expression only
+
+    model = Model(inputs=inputs, outputs=outputs)
+    return model
+
 def DeepSTARR(input_shape, config, epistemic=False):
     '''
     Build the DeepSTARR model architecture.
@@ -451,26 +543,3 @@ def MPRAnn_heteroscedastic(input_shape):
     # outputs = kl.Concatenate()([mu, var]) # [mu, var]
     model = Model(inputs=inputs, outputs=outputs)
     return model
-
-from keras.models import Model
-
-def DREAM_RNN_Official(input_shape, config, epistemic=False):
-    inputs = kl.Input(shape=input_shape)
-    x = kl.Conv1D(128, 7, padding='same')(inputs)
-    x = kl.BatchNormalization()(x)
-    x = kl.Activation(config.get('first_activation','relu'))(x)
-    x = kl.MaxPool1D(2)(x)
-    x = kl.Conv1D(128, 5, padding='same')(x)
-    x = kl.BatchNormalization()(x)
-    x = kl.Activation(config.get('activation','relu'))(x)
-    x = kl.MaxPool1D(2)(x)
-    x = kl.Conv1D(256, 3, padding='same')(x)
-    x = kl.BatchNormalization()(x)
-    x = kl.Activation(config.get('activation','relu'))(x)
-    x = kl.MaxPool1D(2)(x)
-    x = kl.GlobalAveragePooling1D()(x)
-    x = kl.Dense(256)(x)
-    x = kl.BatchNormalization()(x)
-    x = kl.Activation(config.get('activation','relu'))(x)
-    outputs = kl.Dense(4 if epistemic else 2, activation='linear')(x)
-    return Model(inputs=inputs, outputs=outputs)

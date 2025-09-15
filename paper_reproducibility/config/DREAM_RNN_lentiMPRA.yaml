@@ -1,5 +1,5 @@
-## Defaults for DREAM-RNN (DeepSTARR task)
-## Based on DREAM paper specifications
+## Defaults for DREAM-RNN (lentiMPRA task)
+## Based on DREAM paper specifications, adapted for lentiMPRA
 epochs:
   desc: Number of epochs to train over
   value: 80  # DREAM paper: 80 epochs
