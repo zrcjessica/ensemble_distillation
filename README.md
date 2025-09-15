@@ -1,49 +1,221 @@
 # DEGU: Distilling Ensembles for Genomic Uncertainty-aware Models
 
+A lightweight Python framework for ensemble learning and knowledge distillation in genomic deep learning, providing uncertainty quantification and improved model robustness.
+
 ## Overview
-DEGU (**Distilling Ensembles for Genomic Uncertainty-aware models**) is a deep learning framework that combines ensemble learning and knowledge distillation to improve the robustness, interpretability, and uncertainty quantification of genomic deep learning models. This repository contains the official implementation of DEGU, as described in our **ICLR MLGenX 2025** paper.
 
-## Paper
-**Title:** [Uncertainty-Aware Genomic Deep Learning with Knowledge Distillation](https://www.biorxiv.org/content/10.1101/2024.11.13.623485v1)
+DEGU implements a two-stage approach:
+1. **Ensemble Training**: Train multiple models with different weight initializations
+2. **Knowledge Distillation**: Transfer ensemble knowledge to a single efficient student model
 
-**Authors:** Jessica Zhou, Kaeli Rizzo, Ziqi (Amber) Tang, Peter K Koo
+The framework provides both epistemic uncertainty (model disagreement) and enables aleatoric uncertainty modeling (data variability) for robust genomic predictions.
 
-## Features
-- **Knowledge Distillation**: Transfers knowledge from an ensemble of models (teachers) to a single model (student) to reduce computational overhead.
-- **Uncertainty Quantification**:
-  - **Epistemic uncertainty** (model-based) estimated from ensemble prediction variability.
-  - **Aleatoric uncertainty** (data-based) modeled using experimental replicates.
-- **Improved Attribution Analysis**: More stable and biologically meaningful feature attributions.
-- **Generalization under Covariate Shift**: Enhanced robustness when applied to out-of-distribution genomic sequences.
-- **Computational Efficiency**: Retains ensemble performance in a single distilled model, reducing inference costs.
+## Key Features
 
-## Datasets
-We used publicly available genomic datasets, including:
-- **STARR-seq (fly enhancer activity)**
-- **lentiMPRA (human cis-regulatory sequence activity)**
-- **Base-resolution ATAC-seq profiles**
+- **Lightweight Implementation**: Simple, extensible code that works with any Keras model
+- **Uncertainty Quantification**: Epistemic uncertainty from ensemble disagreement
+- **Knowledge Distillation**: Compress ensemble knowledge into a single model
+- **Improved Attributions**: More stable feature importance analysis
+- **Enhanced Generalization**: Better performance on out-of-distribution data
 
-For details on dataset preprocessing, refer to `data/README.md`.
+## Installation
 
-## Documentation
-For details on how knowledge distillation was applied to each dataset, refer to the corresponding markdown file in `docs/`. 
-
-## Citation
-If you use this repository, please cite our paper:
+```bash
+pip install tensorflow numpy scipy scikit-learn h5py
 ```
-@article {Zhou2024.11.13.623485,
-	author = {Zhou, Jessica and Rizzo, Kaeli and Tang, Ziqi and Koo, Peter K},
-	title = {Uncertainty-aware genomic deep learning with knowledge distillation},
-	elocation-id = {2024.11.13.623485},
-	year = {2024},
-	doi = {10.1101/2024.11.13.623485},
-	publisher = {Cold Spring Harbor Laboratory},
-	abstract = {Deep neural networks (DNNs) have advanced predictive modeling for regulatory genomics, but challenges remain in ensuring the reliability of their predictions and understanding the key factors behind their decision making. Here we introduce DEGU (Distilling Ensembles for Genomic Uncertainty-aware models), a method that integrates ensemble learning and knowledge distillation to improve the robustness and explainability of DNN predictions. DEGU distills the predictions of an ensemble of DNNs into a single model, capturing both the average of the ensemble{\textquoteright}s predictions and the variability across them, with the latter representing epistemic (or model-based) uncertainty. DEGU also includes an optional auxiliary task to estimate aleatoric, or data-based, uncertainty by modeling variability across experimental replicates. By applying DEGU across various functional genomic prediction tasks, we demonstrate that DEGU-trained models inherit the performance benefits of ensembles in a single model, with improved generalization to out-of-distribution sequences and more consistent explanations of cis-regulatory mechanisms through attribution analysis. Moreover, DEGU-trained models provide calibrated uncertainty estimates, with conformal prediction offering coverage guarantees under minimal assumptions. Overall, DEGU paves the way for robust and trustworthy applications of deep learning in genomics research.Competing Interest StatementThe authors have declared no competing interest.},
-	URL = {https://www.biorxiv.org/content/early/2024/11/15/2024.11.13.623485},
-	eprint = {https://www.biorxiv.org/content/early/2024/11/15/2024.11.13.623485.full.pdf},
-	journal = {bioRxiv}
+
+
+## Examples
+
+- **Complete Example Script**: `degu_example_deepstarr.py` - Full working example with the DeepSTARR model
+- **Interactive Tutorial**: [Google Colab Notebook](https://colab.research.google.com/drive/1XE8ATbwUXu-g8dTuxNX5GM2K_Lhe7V7R?usp=sharing) - Try DEGU in your browser
+
+
+## Quick Start
+
+Here is an example for how to customize the code for DeepSTARR:
+```python
+import numpy as np
+import tensorflow as tf
+from tensorflow import keras
+from degu import DEGU, uncertainty_logvar, standard_train_fun, eval_regression
+
+# Define your model architecture
+def DeepSTARR(input_shape, output_shape):
+    """DeepSTARR model from deAlmeida et al. Nat Genetics (2022)"""
+    inputs = keras.layers.Input(shape=input_shape)
+    x = keras.layers.Conv1D(256, kernel_size=7, padding='same')(inputs)
+    x = keras.layers.BatchNormalization()(x)
+    x = keras.layers.Activation('relu')(x)
+    x = keras.layers.MaxPooling1D(2)(x)
+    x = keras.layers.Conv1D(60, kernel_size=3, padding='same')(x)
+    x = keras.layers.BatchNormalization()(x)
+    x = keras.layers.Activation('relu')(x)
+    x = keras.layers.MaxPooling1D(2)(x)
+    x = keras.layers.Conv1D(60, kernel_size=5, padding='same')(x)
+    x = keras.layers.BatchNormalization()(x)
+    x = keras.layers.Activation('relu')(x)
+    x = keras.layers.MaxPooling1D(2)(x)
+    x = keras.layers.Conv1D(120, kernel_size=3, padding='same')(x)
+    x = keras.layers.BatchNormalization()(x)
+    x = keras.layers.Activation('relu')(x)
+    x = keras.layers.MaxPooling1D(2)(x)
+    x = keras.layers.Flatten()(x)
+    x = keras.layers.Dense(256)(x)
+    x = keras.layers.BatchNormalization()(x)
+    x = keras.layers.Activation('relu')(x)
+    x = keras.layers.Dropout(0.4)(x)
+    x = keras.layers.Dense(256)(x)
+    x = keras.layers.BatchNormalization()(x)
+    x = keras.layers.Activation('relu')(x)
+    x = keras.layers.Dropout(0.4)(x)
+    outputs = keras.layers.Dense(output_shape, activation='linear')(x)
+    return keras.Model(inputs=inputs, outputs=outputs)
+
+# Load your data
+# x_train, y_train, x_valid, y_valid, x_test, y_test = load_your_data()
+
+# Get data dimensions
+N, L, A = x_train.shape
+num_targets = y_train.shape[1]
+
+# Step 1: Train ensemble
+base_model = DeepSTARR(input_shape=(L,A), output_shape=num_targets)
+degu = DEGU(base_model, num_ensemble=10, uncertainty_fun=uncertainty_logvar)
+
+optimizer = keras.optimizers.Adam(learning_rate=0.002)
+history = degu.train_ensemble(
+    x_train, y_train,
+    train_fun=standard_train_fun,
+    save_prefix='model_ensemble',
+    optimizer=optimizer,
+    loss='mse',
+    validation_data=(x_valid, y_valid)
+)
+
+# Step 2: Evaluate ensemble
+results = degu.eval_ensemble(x_test, y_test, eval_fun=eval_regression)
+ensemble_results, standard_results, predictions, uncertainties = results
+
+# Step 3: Distill to student model (2x outputs for predictions + uncertainties)
+student_model = DeepSTARR(input_shape=(L,A), output_shape=num_targets*2)
+student_model.compile(keras.optimizers.Adam(learning_rate=0.001), loss='mse')
+
+history = degu.distill_student(
+    student_model, x_train, y_train,
+    train_fun=standard_train_fun,
+    save_prefix='model_distilled',
+    validation_data=(x_valid, y_valid),
+    batch_size=128
+)
+
+# Step 4: Evaluate student model
+student_results, student_pred, y_ensemble = degu.eval_student(
+    student_model, x_test, y_test, eval_fun=eval_regression
+)
+```
+
+## Key Components
+
+### DEGU Class
+- `train_ensemble()`: Train ensemble with different weight initializations
+- `pred_ensemble()`: Generate predictions with uncertainty estimates
+- `distill_student()`: Train student model using ensemble knowledge
+- `eval_ensemble()`: Comprehensive ensemble evaluation
+- `eval_student()`: Student model evaluation against ensemble
+
+### Uncertainty Functions
+- `uncertainty_logvar()`: Log variance uncertainty (default)
+- `uncertainty_std()`: Standard deviation uncertainty
+
+### Training Functions
+- `standard_train_fun()`: Standard training with early stopping and LR scheduling
+
+### Evaluation Functions
+- `eval_regression()`: MSE, Pearson, Spearman correlations
+- `eval_classification()`: AUROC, AUPR, F1-score
+
+## Model Architecture Requirements
+
+For knowledge distillation, your student model should have **2x the output dimensions** of the base model to predict both values and uncertainties:
+
+```python
+# Base model: predicts values only
+base_model = YourModel(output_shape=num_targets)
+
+# Student model: predicts values + uncertainties  
+student_model = YourModel(output_shape=num_targets * 2)
+```
+
+## Extending to Other Models
+
+DEGU works with any Keras model. Simply:
+
+1. Define your model architecture function
+2. Ensure proper input/output shapes
+3. Use DEGU's training and distillation pipeline
+
+```python
+def YourCustomModel(input_shape, output_shape):
+    # Your model architecture here
+    return keras.Model(inputs=inputs, outputs=outputs)
+
+# Use with DEGU
+base_model = YourCustomModel(input_shape=your_input_shape, output_shape=your_output_shape)
+degu = DEGU(base_model, num_ensemble=5)
+# ... rest of pipeline
+```
+
+## Paper and Citation
+
+This implementation accompanies our **ICLR MLGenX 2025** paper:
+
+**"Uncertainty-Aware Genomic Deep Learning with Knowledge Distillation"**  
+*Jessica Zhou, Kaeli Rizzo, Trevor Christensen, Ziqi (Amber) Tang, Peter K Koo*
+
+```bibtex
+@article{Zhou2024.11.13.623485,
+    author = {Zhou, Jessica and Rizzo, Kaeli and Christensen, Trevor and Tang, Ziqi and Koo, Peter K},
+    title = {Uncertainty-aware genomic deep learning with knowledge distillation},
+    year = {2024},
+    doi = {10.1101/2024.11.13.623485},
+    publisher = {Cold Spring Harbor Laboratory},
+    journal = {bioRxiv}
 }
 ```
 
-## Acknowledgments
-This project builds upon recent advances in ensemble learning, knowledge distillation, and uncertainty quantification for genomic deep learning.
+## Repository Structure
+
+```
+├── degu.py                   # Core DEGU implementation
+├── paper_reproducibility/    # Reproduction code and configs
+│   ├── code/                 # Analysis scripts  
+│   └── config/               # Configuration files
+│   ├── data_preprocessing/   # Data processing code and notebooks
+│   └── docs/                 # Overview of each experiment and guidance for code
+└── README.md                 # This file
+```
+
+## Reproducibility
+
+Full reproduction code for paper results is available in `paper_reproducibility/`. This includes dataset preprocessing, model training scripts, analysis notebooks, and documentation for all experiments in the paper.
+
+## Data and Model Availability
+
+Pre-trained model weights and datasets used in our experiments are available on Zenodo:
+
+**DOI:** 10.5281/zenodo.14145284  
+**Link:** https://zenodo.org/records/14145285
+
+This includes:
+- Trained ensemble model weights for all experiments
+- Distilled student model weights
+- Processed datasets for DeepSTARR, lentiMPRA, and ATAC-seq experiments
+
+## License
+
+MIT License
+
+## Contact
+
+For questions or issues, please open a GitHub issue or contact koo@cshl.edu.
